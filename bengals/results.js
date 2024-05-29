@@ -5380,8 +5380,8 @@ let results = [
         "date" : "12/23/2023",
         "gametime" : "4:30PM",
         "day" : "Saturday",
-        "pf" : 34,
-        "pa" : 11,
+        "pf" : 11,
+        "pa" : 34,
         "time" : "FT",
         "hc": "Zac Taylor",
         "location" : "A"
@@ -5395,8 +5395,8 @@ let results = [
         "date" : "12/31/2023",
         "gametime" : "4:25PM",
         "day" : "Sunday",
-        "pf" : 25,
-        "pa" : 17,
+        "pf" : 17,
+        "pa" : 25,
         "time" : "FT",
         "hc": "Zac Taylor",
         "location" : "A"
