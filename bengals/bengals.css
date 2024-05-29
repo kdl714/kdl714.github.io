@@ -1,0 +1,51 @@
+html{
+            background-color: #f0f0f0;
+        }
+        .Win{
+            background-color: #b7e1cd;
+        }
+        .Loss{
+            background-color: #f4c7c3;
+        }
+        .Tie{
+            background-color: #fce8b2;
+        }
+        .Bye{
+            background-color: #f5f5f5;
+        }
+        table{
+            width: 100%;
+        }
+        table, tr, td{
+            border: none;
+            border-collapse: collapse;
+            font-family: sans-serif;
+        }
+        td{
+            padding: 5px 10px;
+        }
+        select{
+            margin: 0px 0px 10px;
+        }
+        button{
+            height: 40px;
+            width: 100px;
+            margin: 5px -1px 0px;
+            border: 1px solid #2da9d6;
+        }
+        .stats{
+            height: 50px;
+            font-family: sans-serif;
+            text-align: center;
+            padding: 10px 0px 25px;
+            line-height: 1.2em;
+        }
+        .filterBtns{
+            padding: 0px 0px 25px;
+        }
+        .selected{
+            height: 40px;
+            width: 100px;
+            margin: 5px -1px 0px;
+            background-color: #a1e6ff;
+        }
