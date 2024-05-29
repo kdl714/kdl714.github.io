@@ -5280,6 +5280,6 @@ let results = [
         "time" : "FT",
         "hc": "Zac Taylor",
         "location" : "H"
-    },
+    }
 
 ]
