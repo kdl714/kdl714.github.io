@@ -5250,6 +5250,36 @@ let results = [
         "season": 2023,
         "week": 7,
         "opponent": "Bye"
-    }
+    },
+    {
+        "season": 2023,
+        "week" : 8,
+        "opponent" : "49ers",
+        "division" : "West",
+        "conference" : "NFC",
+        "date" : "10/29/2023",
+        "gametime" : "4:25PM",
+        "day" : "Sunday",
+        "pf" : 31,
+        "pa" : 17,
+        "time" : "FT",
+        "hc": "Zac Taylor",
+        "location" : "A"
+    },
+    {
+        "season": 2023,
+        "week" : 9,
+        "opponent" : "Bills",
+        "division" : "East",
+        "conference" : "AFC",
+        "date" : "11/05/2023",
+        "gametime" : "8:20PM",
+        "day" : "Sunday",
+        "pf" : 24,
+        "pa" : 18,
+        "time" : "FT",
+        "hc": "Zac Taylor",
+        "location" : "H"
+    },
 
 ]
