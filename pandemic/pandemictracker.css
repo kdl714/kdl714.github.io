@@ -1,0 +1,147 @@
+body{
+            font-family: sans-serif;
+        }
+        .row{
+            width: 100%;
+            float: left;
+            padding-bottom: 50px;
+        }
+        .container{
+            width: 250px;
+            max-width: 30%;
+            float: left;
+        }
+        .egg{
+            display: none;
+        }
+        .deck{
+            border: 1px solid #b8b5ae;
+            border-radius: 5px;
+            width: 205px;
+            float: left;
+            margin-right: 10px;
+            padding: 10px;
+            vertical-align: middle;
+            background-color: #8f8f8f;
+            overflow: scroll;
+            height: 400px;
+        }
+        .decklabel{
+            width: 205px;
+            text-align: center;
+            font-family: sans-serif;
+            font-size: 20px;
+            padding: 5px;
+            font-weight: bold;
+           
+        }
+        .funcbuttons{
+            width: 100px;
+            float: left;
+        }
+        .discard{
+            border: 1px solid #b8b5ae;
+            border-radius: 5px;
+            width: 205px;
+            float: left;
+        }
+        .cardholder{
+            width: 200px;
+            height: 36px;
+            border: 1px solid #6c7273;
+            vertical-align: middle;
+            margin-bottom: 2px;
+            border-radius: 5px;
+            background-color: #e3e3e3;
+        }
+        .card{
+            width:18px;
+            height:26px;
+            border: 1px solid #3e3e3e;
+            margin-left: 10px;
+            margin-top: 4px;
+            border-radius: 2px;
+            float: left;
+        }
+        .cardtext{
+            width: 180px;
+            height: 35px;
+            text-align: center;
+            line-height: 40px;
+            font-family: sans-serif;
+        }
+        .blue{
+            background-color: #0065e0;
+        }
+        .red{
+            background-color: #f22451;
+        }
+        .yellow{
+            background-color: #f4ff24;
+        }
+        .black{
+            background-color: #424242;
+        }
+        .inf{
+            background-image: repeating-linear-gradient(-45deg,
+                transparent,
+                transparent 3px,
+                #4efc03 3px,
+                #4efc03 5px);
+            
+        }
+        .hollow{
+            background-color: rgb(55, 75, 55);
+            background-image: repeating-linear-gradient(-45deg,
+                transparent,
+                transparent 3px,
+                #adb8a8 3px,
+                #adb8a8 5px);
+        }
+        .forsaken{
+            border: 2px solid red;
+        }
+        .selected{
+            background-color: #d0eff5;
+            box-shadow: 0 4px 8px 0 rgba(208, 239, 245, 0.5), 0 6px 20px 0 rgba(208, 239, 245, 0.5);
+        }
+        .knownholder{
+            margin-bottom: 10px;
+            font-family: sans-serif;
+            text-align: center;
+            border: 2px solid #ffa1b5;
+            border-radius: 10px;
+            background-color: #ffa1b5;
+            padding: 10px 0 5px 0;
+        }
+        .knownheader{
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .cardcount{
+            font-size: 12px;
+            line-height: 30px;
+            text-align: center;
+            font-family: sans-serif;
+        }
+        .funcbuttons{
+            width: 200px;
+            height: 400px; 
+            padding-top: 100px;
+        }
+        button{
+            width: 100px;
+            height: 30px;
+            margin-left: 50px;
+            margin-top: 30px;
+        }
+        .search{
+            margin-bottom: 5px; 
+            width: 222px; 
+            height: 20px; 
+            border: 1px solid #6c7273; 
+            border-radius: 5px;
+        }
+        .linebr{
+            border-bottom: 1px solid #6c7273;
+        }
