@@ -1,0 +1,210 @@
+<!doctype HTML>
+<html>
+<header>
+    <meta charset="utf-8"/>
+
+    <title>Pandemic Tracking</title>
+    
+    <link href="pandemictracker.css" rel="stylesheet"/>
+    <link href="Plogo.png" rel="icon"/>
+    
+
+</header>
+
+<body>
+
+    <!-- First Row -->
+    <div class="row">
+
+        <div class="container">
+
+            <!-- Starting Deck -->
+            <div class="decklabel">Starting Deck</div>
+            
+            <div ><input class="search" type="text" id="startingDeckSearch" placeholder="search cards" oninput="searchCards()"></div>
+            <div id="startingdeckholder" class="deck">
+                
+                <div  id="startingdeck"></div>
+
+            </div>
+            <div class="cardcount" id="startingdeckcount"></div>
+
+        </div>
+
+        <div class="container">
+            <!-- Buttons -->
+            <div class="funcbuttons">
+
+                <div><button onclick="moveCardTo('discarddeck')">Move &rArr;</button></div>
+                <div><button onclick="moveCardTo('startingdeck')">&lArr; Move</button></div>
+                <div><button onclick="moveCardTo('removeddeck')">&dArr; Move</button></div>
+                <div><button onclick="epidemic()">Epidemic</button></div>
+
+            </div>
+
+        </div>
+
+        <div class="container">
+
+            <!-- Discard Deck -->
+            <div class="decklabel">Discard Deck</div>
+            <div class="deck" id="discarddeck"></div>
+            <div class="cardcount" id="discarddeckcount"></div>
+
+        </div>
+
+        <div class="egg" id="trashcan"></div>
+    
+    </div>
+
+    <!-- Second Row -->
+    <div class="row">
+
+        <div class="container">
+
+            <div class="decklabel">Removed Cards</div>
+            <div class="deck" id="removeddeck"></div>
+            <div class="cardcount" id="removeddeckcount"></div>
+
+        </div>
+
+        <div class="container">
+            
+            <div class="decklabel">Card Key</div>
+            <div class="stats" id="cardkey">
+
+                <div style="float: left; width: 100%;">
+                    <div class="card blue">
+                        <div class="card red">
+                            <div class="card black">
+                                <div style="width: 200px;">
+                                    <div class="card yellow"></div>
+                                    <div style="margin-left: 40px; font-size: 14px;">City Cards</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="float: left; width: 100%; padding-top: 20px;">
+                    <div class="card blue inf">
+                        <div class="card red inf">
+                            <div class="card black inf">
+                                <div style="width: 200px;">
+                                    <div class="card yellow inf"></div>
+                                    <div style="margin-left: 40px; font-size: 14px;">Infected Cards</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="float: left; width: 100%; padding-top: 20px;">
+                    <div class="card blue inf forsaken">
+                        <div class="card red inf forsaken">
+                            <div class="card black inf forsaken">
+                                <div style="width: 200px;">
+                                    <div class="card yellow inf forsaken"></div>
+                                    <div style="margin-left: 40px; font-size: 14px;">Forsaken Cards</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="float: left; width: 100%; padding-top: 20px;">
+                    <div style="width: 200px;">
+                        <div class="card hollow"></div>
+                        <div style="margin-left: 40px; font-size: 14px; line-height: 40px;">Hollow Men Cards</div>
+                    </div>
+                </div>
+                
+
+            </div>
+
+
+            <div>&nbsp;</div>
+            <div class="decklabel">City Stats</div>
+            <div class="stats" style="padding-top: 10px;" id="stats">
+
+            </div>
+            <div style="height: 10px; font-size: 10px; font-weight: bold; line-height: 12px; margin-left: 40px;" id="totalstats"></div>
+
+        </div>
+
+        <div class="container">
+            
+            <div class="decklabel">Save and Load</div>
+            <div class="saveload" id="saveload"><textarea class="deck" id="saveandloaddeck" onclick="saveDecks()"></textarea></div>
+            <div><button onclick="loadDeck()">Load</button></div>
+
+        </div>
+
+    </div>
+
+
+</body>
+
+<script>
+    
+
+
+    //json cities list
+    let cities = [
+        {city: "New York", count: 3, playercards: 4, inoculated: 0, infected: true, forsaken: false, color: "blue"},
+        {city: "Washington", count: 3, playercards: 4, inoculated: 0, infected: false, forsaken: false, color: "blue"},
+        {city: "London", count: 3, playercards: 4, inoculated: 0, infected: false, forsaken: false, color: "blue"},
+        {city: "Chicago", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: true, color: "blue"},
+        {city: "Atlanta", count: 0, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "blue"},//Atlanta was permanently removed in early March (infection card upgrade)
+        {city: "Denver", count: 2, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "blue"},//1 player card inoculated
+        {city: "Paris", count: 2, playercards: 2, inoculated: 0, infected: false, forsaken: false, color: "blue"},
+        {city: "San Francisco", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: true, color: "blue"},
+        {city: "Frankfurt", count: 2, playercards: 2, inoculated: 0, infected: false, forsaken: false, color: "blue"},
+        {city: "St. Petersburg", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "blue"},
+        {city: "Johannesburg", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: false, color: "blue"},
+        {city: "Wellington", count: 0, playercards: 0, inoculated:0, infected: false, forsaken: false, color: "blue"},
+        
+        {city: "Jacksonville", count: 3, playercards: 4, inoculated: 0, infected: false, forsaken: false, color: "yellow"},
+        {city: "Sao Paulo", count: 3, playercards: 4, inoculated: 0, infected: true, forsaken: true, color: "yellow"},//1 inoculated
+        {city: "Lagos", count: 0, playercards: 4, inoculated: 0, infected: false, forsaken: false, color: "yellow"},//Lagos removed permanently in late March (1x use event card)
+        {city: "Mexico City", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "yellow"},
+        {city: "Los Angeles", count: 1, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "yellow"},//1 inoculated
+        {city: "Buenos Aires", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: true, color: "yellow"},
+        {city: "Santiago", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "yellow"},//infected
+        {city: "Lima", count: 0, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "yellow"},//Lima removed permanently in late May
+        {city: "Bogot&aacute;", count: 2, playercards: 2, inoculated: 0, infected: false, forsaken: false, color: "yellow"},
+        {city: "Kinshasa", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "yellow"},
+        {city: "Khartoum", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "yellow"},
+        {city: "Dar es Salaam", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: false, color: "yellow"},
+        
+        {city: "Istanbul", count: 3, playercards: 4, inoculated: 0, infected: true, forsaken: true, color: "black"},
+        {city: "Cairo", count: 3, playercards: 4, inoculated: 0, infected: false, forsaken: false, color: "black"},
+        {city: "Tripoli", count: 3, playercards: 4, inoculated: 0, infected: false, forsaken: false, color: "black"},//1 inoculated
+        {city: "Moscow", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "black"},
+        {city: "Baghdad", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: false, color: "black"},
+        {city: "Kolkata", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "black"},
+        //{city: "Riyadh", count: 2, playercards: 2, inoculated: 0, infected: false, forsaken: false, color: "black"},
+        {city: "Tehran", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "black"},
+        //{city: "Delhi", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "black"},
+        {city: "New Mumbai", count: 2, playercards: 2, inoculated: 0, infected: true, forsaken: true, color: "black"},
+        {city: "Antananarivo", count: 2, playercards: 2, inoculated: 0, infected: false, forsaken: false, color: "black"},
+
+        {city: "Jakarta", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "red"},
+        {city: "Bangkok", count: 1, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "red"},
+        {city: "Ho Chi Minh City", count: 1, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "red"},
+        {city: "Hong Kong", count: 1, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "red"},
+        {city: "Manila", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "red"},
+        {city: "Shanghai", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "red"},
+        {city: "Seoul", count: 1, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "red"},
+        {city: "Osaka", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: true, color: "red"},
+        {city: "Tokyo", count: 1, playercards: 1, inoculated: 0, infected: true, forsaken: false, color: "red"},
+        {city: "Utopia", count: 8, playercards: 1, inoculated: 0, infected: false, forsaken: false, color: "red"},
+
+        {city: "Hollow Men Gather", count: 12, playercards: 0, color: "hollow", hollowmen: true}
+    ]
+
+ </script>
+
+ <script src="pandemictracker.js"></script>
+
+</html>
