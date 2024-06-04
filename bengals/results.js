@@ -5429,6 +5429,18 @@ let results = [
         "time" : "",
         "hc": "Zac Taylor",
         "location" : "H"
+    },
+    {
+        "season": 2024,
+        "week" : 2,
+        "opponent" : "Chiefs",
+        "date" : "09/15/2024",
+        "gametime" : "1:00PM",
+        "pf" : "",
+        "pa" : "",
+        "time" : "",
+        "hc": "Zac Taylor",
+        "location" : "A"
     }
 
 ]
