@@ -168,7 +168,7 @@ function createSortedResults(sourceData){
             const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
             time = sourceData[i].time;
             gameDate = sourceData[i].date;
-            gameDay = days[ sourceData[i].date.getDay() ] //sourceData[i].day;
+            gameDay = convertDate(sourceData[i].date); //sourceData[i].day;
             gameTime = sourceData[i].gametime;
         }
 
@@ -189,6 +189,17 @@ function createSortedResults(sourceData){
 
     getStats(sourceData);
 
+}
+
+//convert the date to a day
+function convertDate(d){
+    const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    
+    let split = d.split('/');
+    let newdt = new Date(split[2], split[0] - 1, split[1]);
+    let day = weekday[newdt.getDay()];
+    
+    return day;
 }
 
 //creates the header Search filters
