@@ -585,7 +585,7 @@ function getStats(sourceData){
 
 
 //divisions and conference data
-let divisions = [
+/*let divisions = [
     {
         "conference":"AFC",
         "division":"North",
@@ -627,6 +627,6 @@ let divisions = [
         "teams":["49ers","Cardinals","Rams","Seahawks"]
     }
 ]
-
+*/
 
 createSortedResults(results);
