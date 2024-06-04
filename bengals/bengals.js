@@ -25,7 +25,7 @@ function searchOTFT(input, searchval){
 }
 
 function searchDay(input, searchval){
-    let result = input.filter(a => a.day == searchval);
+    let result = input.filter(a => convertDate(a.date) == searchval);
     return result;
 }
 
@@ -320,11 +320,12 @@ function createDaysFilter(){
     let options = ``;
 
     for ( i=0; i<results.length; i++ ){
-        if ( days.includes(results[i].day) || results[i].opponent == "Bye"  ){
+        let day = convertDate(results[i].date);
+        if ( days.includes(day) || results[i].opponent == "Bye"  ){
             
         } else { 
-            days.push(results[i].day)
-            options += `<option value="` + results[i].day + `">` + results[i].day + `</option>`;
+            days.push(day)
+            options += `<option value="` + day + `">` + day + `</option>`;
         }
     }
 
