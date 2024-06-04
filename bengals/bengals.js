@@ -25,7 +25,7 @@ function searchOTFT(input, searchval){
 }
 
 function searchDay(input, searchval){
-    let result = input.filter(a => convertDate(a.date) == searchval);
+    let result = input.filter(a => a.day == searchval);
     return result;
 }
 
