@@ -1,0 +1,43 @@
+//divisions and conference data
+let divisions = [
+    {
+        "conference":"AFC",
+        "division":"North",
+        "teams":["Bengals","Browns","Steelers","Ravens"]
+    },
+    {
+        "conference":"AFC",
+        "division":"East",
+        "teams":["Bills","Dolphins","Jets","Patriots"]
+    },
+    {
+        "conference":"AFC",
+        "division":"South",
+        "teams":["Colts","Jaguars","Texans","Titans"]
+    },
+    {
+        "conference":"AFC",
+        "division":"West",
+        "teams":["Broncos","Chargers","Chiefs","Raiders"]
+    },
+    {
+        "conference":"NFC",
+        "division":"North",
+        "teams":["Bears","Lions","Packers","Vikings"]
+    },
+    {
+        "conference":"NFC",
+        "division":"East",
+        "teams":["Cowboys","Eagles","Giants","Washington"]
+    },
+    {
+        "conference":"NFC",
+        "division":"South",
+        "teams":["Buccaneers","Falcons","Panthers","Saints"]
+    },
+    {
+        "conference":"NFC",
+        "division":"West",
+        "teams":["49ers","Cardinals","Rams","Seahawks"]
+    }
+]
