@@ -1,0 +1,39 @@
+.available{
+    background-color: #22995f;
+    width: 25px;
+    color: #22995f;
+}
+.tentative{
+    background-color: #3e5c5b;
+    width: 25px;
+    color: #3e5c5b;
+}
+.unavailable{
+    background-color: #fa7dad;
+    width: 25px;
+    color: #fa7dad;
+}
+.hide{
+    font-size: 8px;
+}
+.hide:hover{
+    color: #e9edf5;
+}
+html{
+    font-family: sans-serif;
+    font-size: 14px;
+    color: #1b1b1c;
+    text-align: center;
+}
+th{
+    border-bottom: 1px solid #6e6e78
+}
+table,tr,td{
+    padding: 0px;
+    margin: 0px;
+    border: 0px;
+    border-collapse: collapse;
+}
+td{
+    height: 30px;
+}
