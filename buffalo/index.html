@@ -1,0 +1,362 @@
+<!doctype HTML>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Buffalo</title>
+    <style>
+        body{
+            background-color: #e6e6e6;
+        }
+        .container1{
+            width: 100vw;
+            height: 60vh;
+            display: flex;
+            justify-content: center;
+            font-family: sans-serif;
+            font-weight: bold;
+        }
+        .container2{
+            width: 100vw;
+            height: 20vh;
+            display: flex;
+            justify-content: center;
+            font-family: sans-serif;
+        }
+        .container3{
+            width: 100vw;
+            height: 20vh;
+            display: flex;
+            justify-content: center;
+            font-family: sans-serif;
+        }
+        .card{
+            width: 15vw;
+            height: 40vh;
+            margin: 50px 20px;
+            border: 1px dashed #4b4b4b;
+            border-radius: 5px;
+            background-color: #ffffff;
+        }
+        .btn{
+            margin: auto;
+        }
+        .selected{
+            border: 1px solid #4b4b4b;
+        }
+        .initial:hover{
+            background-color: #8bfad9;
+        }
+        .orange{
+            background-color: #f0912b;
+            
+        }
+        .blue{
+            background-color: #a6d5f7;
+        }
+        .nextbtn{
+            height: 45%;
+            width: 100%;
+            display: inline-flex;
+            align-items: flex-start;
+            justify-content: center;
+            background-color: transparent;
+            border: none;
+        }
+        .clearbtn{
+            height: 45%;
+            width: 100%;
+            display: inline-flex;
+            align-items: flex-end;
+            justify-content: center;
+            background-color: transparent;
+            border: none;
+        }
+        .text{
+            height: 10%;
+            width: 100%;
+            text-align: center;
+            line-height: 200%;
+        }
+        .nextbtn:hover{
+            border: none;
+            border-radius: 5px;
+            font-size: larger;
+            font-weight: bold;
+            color: #ffffff;
+            background: #8f8f8f;
+            background: linear-gradient(180deg, #8f8f8f 0%, rgba(255,255,255,0) 100%); 
+            text-shadow:
+                -1px -1px 0 #4b4b4b,  
+                1px -1px 0 #4b4b4b,
+                -1px 1px 0 #4b4b4b,
+                1px 1px 0 #4b4b4b;
+        }
+        .clearbtn:hover{
+            border: none;
+            border-radius: 5px;
+            font-size: larger;
+            font-weight: bold;
+            color: #ffffff;
+            background: #8f8f8f;
+            background: linear-gradient(0deg, #8f8f8f 0%, rgba(255,255,255,0) 100%); 
+            text-shadow:
+                -1px -1px 0 #4b4b4b,  
+                1px -1px 0 #4b4b4b,
+                -1px 1px 0 #4b4b4b,
+                1px 1px 0 #4b4b4b;
+        }
+        .otherbtn{
+            border: none;
+            background-color: transparent;
+            font-size: large;
+        }
+        .otherbtn:hover{
+            font-size: larger;
+            font-weight: bold;
+        }
+        .intcard{
+            height: 94%;
+            width: 90%;
+            background-color: #ffffff;
+            border-radius: 5px;
+            margin: 5%;
+        }
+        .buffalo{
+            background-color: #ffdd00;
+        }
+        .egg{
+            display: none;
+            position: absolute;
+            z-index: 1;
+            background-color: #4b4b4b;
+            color: #ffffff;
+            left: 0;
+            top: 0;
+            width: 90%;
+            height: 85%;
+            margin: 4% 5%;
+            overflow-y: scroll;
+        }
+        .rules{
+            text-align: center;
+            margin-top: 50px;
+            line-height: 150%;
+        }
+        .close{
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 25px;
+        }
+        .close:hover{
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .example{
+            width: 150px;
+            height: 50px;
+            display: inline-flex;
+            margin: 0 5px 0 5px;
+            justify-content: center;
+            line-height: 50px;
+        }
+
+
+    </style>
+</head>
+
+<body>
+
+    <div class="container1" id="container1">
+
+            
+    </div>
+        
+    <div class="container2">
+            <button class="otherbtn" id="clearallbtn" onclick="clearCards(7)">Clear All Cards</button>
+    </div>
+
+    <div class="container3">
+        <button class="otherbtn" id="rulesbtn" onclick="showRules()">Rules</button>
+        <div class="egg"><span class="close" id="closerulesbtn" onclick="closeRules()">&times;</span>
+            <div class="rules"><strong>Starting the Game</strong><br>
+                Select a number of cards to play with for your desired game length:<br>
+                <strong>20 minutes:</strong> 50 Blue and 50 Orange cards<br>
+                <strong>90 minutes:</strong> 200 Blue and 200 Orange cards<br>
+                Or anywhere in between!<br><br>
+                Shuffle the decks separately and flip one card from each face-up onto the table.<br> 
+                Try to be the first player to make a match.<br>
+
+                <br><br>
+                <strong>Making Matches</strong><br>
+                Race to make matches using two or more Word Cards. To make a match, simply shout<br>
+                out the name of a person or character who matches the descriptors on two or more <br>
+                cards. The first player to make a match takes the matched cards and play continues.<br>
+                Unmatched cards remain in play.<br><br>
+
+                <div class="example orange">Dead</div><div class="example orange">Male</div><div class="example blue">Musician</div><div class="example blue">Cartoon Character</div>
+
+                <br><br>
+                In this example, you could shout <em>Elvis</em> and take <strong>Male</strong>, <strong>Dead</strong>, and <strong>Musician</strong>.<br>
+                Or, vou might match <strong>Dead</strong> and <strong>Male</strong> using <em>Julius Caesar</em>. You could even match<br>
+                <strong>Cartoon Character</strong> and <strong>Male</strong> with <em>Superman</em>. Each person or character can only be<br>
+                used to make a match once per game!<br>
+
+                <br><br>
+
+                <strong>Adding More Cards</strong><br>
+                Flip an extra card from each deck whenever the group is Buffaloed (stumped).<br>
+                This can happen for three reasons:<br>
+                1. No one can think of a match.<br>
+                2. There are no Word Cards on the table.<br>
+                3. There is only one Word Card on the table.<br>
+
+                <br><br>
+                <strong>Buffalo Cards</strong><br>
+                Whenever a Buffalo Card is in play, the first player to make a match with two or more<br>
+                cards takes all the face-up cards (including the Buffalo Card and any unmatched cards).<br>
+                It's a "winner take all" card!<br>
+
+                <br><br>
+
+                <strong>Ending the Game</strong><br>
+                When either game decks runs out, or the players run out of time, the player with the most<br>
+                cards earned from matches is the winner!<br>
+
+                <br><br>
+
+                <strong>Ties</strong><br>
+                If two players shout out a name at the same time, the player who names a real-life person wins.<br>
+                If both players name a fictional character, or if both name a real-life person, they split the cards.<br>
+
+                <br><br>
+
+                <strong>Optional Challenge</strong><br>
+                When a Buffalo Card is on the table and there are four or more total cards, a player may match<br>
+                parts of the set and take those cards. However, to get the Buffalo Card, a player must match all<br> of
+                the Word Cards on the table.
+
+                <br><br>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+
+<script>
+
+    let orangeCards= ["British","African American","Animated","Female","Buffalo (WILDCARD)","Deceased","Blond","Pretentious","Cute","Strong","Unattractive","Angelic","Jittery","Hipster","Scientific","Skinny","Wheelchair-using","Glasses-wearing","Fashionable","Imposing","Indian","Humble","Technical","Rugged","White-collar","South African","Pacifist","German","Sad","Alcoholic","Hearing Impaired","Dangerous","Transgender","Gutsy","Serious","Revolutionary","Old","Buffalo (WILDCARD)","Creepy","Cutthroat","Gun-toting","Muslim","Visually Impaired","Neurotic","Red-haired","North American","Eco-friendly","Cynical","Blue-collar","Feminine","Hispanic","Chivalrous","Buffalo (WILDCARD)","Scandinavian","Merciless","Wishy-washy","Demonic","Spanish","Boring","Wicked","Buffalo (WILDCARD)","Aloof","Female","Pierced","Buffalo (WILDCARD)","Influential","Quiet","Dashing","Short","Funny","Contemporary","Lesbian","Sleazy","Unhappy","Hairy","Captured","Punk","Scarred","Japanese","Quirky","Handsome","Immature","Tattooed","Dreamy","High-tech","Obnoxious","Male","Asian American","Bizarre","Filipino","Multiracial","Heroic","Nurturing","Medieval","Bearded","Inspirational","Muscular","American","Goody-goody","Optimistic","Atheist","Italian","Mythological","Saintly","Villainous","Controversial","Notorious","Buddhist","Iranian","Brown-haired","Australian","Patriotic","Vain","Innocent","Psychic","Heterosexual","Grumpy","Graceful","Pre-1900s","Canadian","Crunchy","French","African Descent","Mischievous","Attractive","Divorced","Loved","Egyptian","Freckled","Nerdy","Teenage","Addicted","Flying","Jewish","Iconic","Single","Introverted","Chinese","Narcissistic","Hat-wearing","Hated","Dead","Tragic","Odd","Buffalo (WILDCARD)","Cool","Whiny","Independent","Musical","Annoying","Buffalo (WILDCARD)","Female","Bald","Eccentric","Trustworthy","Deep-voiced","Tall","Socially Awkward","Critical","Asian Descent","Gay","Cuddly","Male","Buffalo (WILDCARD)","Country","Gross","Brave","Masked","Native American","Unconventional","Inventive","Buffalo (WILDCARD)","Obsessive","South American","Enigmatic","Young","Clumsy","Living","Legendary","Victorian","High-strung","Buffalo (WILDCARD)","Buffalo (WILDCARD)","Misunderstood","Brazilian","Glamorous","Mexican","Masculine","Shy","Portly","Temperamental","Tortured","Competitive","Crafty","Scientific","Christian","Vivacious","Long-haired","Greedy","Androgynous"];
+    let blueCards = ["Doctor","Pop Star","Buffalo (WILDCARD)","Surgeon","Public Speaker","Senior Citizen","Has-been","Founder","Techie","Single Parent","Hacker","Bigot","Engineer","Geek","Athlete","Grandparent","Heir","Entrepreneur","Commentator","Inventor","Superstar","Comedian","Economist","Professor","Princess","Oceanographer","Farmer","Thief","Survivor","Biker","Photographer","Psychic","Football Player","Guru","Heartthrob","Politician","Buffalo (WILDCARD)","Local Person","Prince","Astronaut","Buffalo (WILDCARD)","Rebel","Reality TV Star","Journalist","Golfer","Lunatic","Underdog","Expatriate","Buffalo (WILDCARD)","Giant","Buffalo (WILDCARD)","Musician","Religious Figure","Chef","Philosopher","Theorist","Twin","Buffalo (WILDCARD)","Judge","Time Traveler","Pianist","Cartoon Character","Figure Skater","Animal Expert","Painter","Explorer","Boxer","Historian","Butler","Physicist","Daredevil","Broadway Star","Buffalo (WILDCARD)","Pioneer","Publicity Seeker","Communist","Book Character","Criminal","Psychiatrist","Healer","Basketball Player","Jock","Fashion Designer","Chess Player","Olympian","Evangelist","Southerner","Sorceress","Pirate","Lover","Coach","Mechanic","Aristocrat","Hostage","Songwriter","Singer","Financial Expert","Adventurer","Sailor","Critic","Butcher","Gymnast","Student","Robot","Rock Star","Soccer Player","Trendsetter","Socialite","Computer Expert","TV Show Character","Deity","Activist","Bully","Poet","Escape Artist","Tennis Player","Physician","Private Investigator","Assassin","Supermodel","Computer Programmer","High School Teacher","Composer","Playwright","Game Character","Drummer","Do-gooder","Secret Society Member","Baby Boomer","Tycoon","Vampire","DJ","Nobel Prize Winner","Academy Award Winner","Baker","Conqueror","Cult Leader","Newscaster","President","Spy","Soldier","Impersonator","Recluse","Merchant","Celebrity","Mutant","Psychologist","Sculptor","Antagonist","Record Breaker","Vegetarian","Feminist","Movie Star","Hunter","Wizard","Head of State","Superhero","Scientist","Nerd","Millionaire","Teacher","Movie Director","Villain","Wordsmith","Environmental Activist","CEO","Buffalo (WILDCARD)","Child","Millennial","Boss","Secretary","Talk Show Host","Biologist","Author","Monarch","Buffalo (WILDCARD)","Visionary","Monster","Dancer","Homemaker","Failure","Underachiever","First Lady","Cook","Movie Character","Artist","Warrior","Lawyer","Fighter","Guitarist","Buffalo (WILDCARD)","Ghost","Designer","Alien","Cop","Librarian","Traitor","Mathematician","Buffalo (WILDCARD)","Martial Artist"];
+
+
+    buildCards();
+    function buildCards(){
+
+        let container = document.getElementById("container1");
+        let color = "";
+
+        for ( i=0; i<6; i++ ){
+            if ( i<3 ){
+                color = "orange";
+            } else {
+                color = "blue";
+            }
+            container.innerHTML+= 
+                `<div class="initial card" color="` + color + `" position="` 
+                + ( i + 1 ) + `" id="card` + ( i + 1 ) 
+                + `" onclick="drawCard(this.attributes.color.value,this.attributes.position.value)"></div>`;
+        }
+
+    }
+
+
+    function drawCard(color, position){
+        let length = 0;
+        let selectedCardIndex = 0;
+        let selectedCard = 0;
+        let attributes = "";
+        let wildcard = "";
+
+        if ( color == "orange" ){
+            length = orangeCards.length;
+            if (length == 0){
+                alert("no mo cards");
+                selectedCard = "";
+                attributes = "card";
+            } else {
+                selectedCardIndex = Math.floor(Math.random() * length);
+                selectedCard = orangeCards[selectedCardIndex];
+                orangeCards.splice(selectedCardIndex, 1);
+                attributes = "card selected orange";
+            }
+        } else {
+            length = blueCards.length;
+            if (length == 0){
+                alert("no mo cards");
+                selectedCard = "";
+                attributes = "card";
+            } else {
+                selectedCardIndex = Math.floor(Math.random() * length);
+                selectedCard = blueCards[selectedCardIndex];
+                blueCards.splice(selectedCardIndex, 1);
+                attributes = "card selected blue";
+            }
+        }
+
+        if (selectedCard == "Buffalo (WILDCARD)"){
+            wildcard = " buffalo";
+        }
+
+        let card = document.getElementById("card"+position)
+        card.innerHTML = 
+            `<div class="intcard` + wildcard + `"><button class="nextbtn" position="` + position + `" color="` + color 
+            + `" id="nextbtn` + position + `" onclick="drawCard(this.attributes.color.value, this.attributes.position.value)">Next Card</button>`
+            + `<div class="text">` + selectedCard + `</div><button class="clearbtn" position="` 
+            + position + `" id="clearbtn` + position + `" onclick="clearCards(this.attributes.position.value)">Clear Card</button></div>`;
+        card.setAttribute("class",attributes);
+        card.setAttribute("onclick","");
+        
+    }
+
+
+
+    function clearCards(targetcard){
+        if (targetcard == 7){
+            for (i=1;i<7;i++){
+            let card = document.getElementById("card"+i);
+            card.innerHTML = "";
+            card.setAttribute("class","initial card")
+            card.setAttribute("onclick",`drawCard(this.attributes.color.value,this.attributes.position.value)`);
+            }
+        } else {
+            let card = document.getElementById("card"+targetcard);
+            card.innerHTML = "";
+            card.setAttribute("class","initial card");
+            setTimeout(() => {
+                card.setAttribute("onclick",`drawCard(this.attributes.color.value,this.attributes.position.value)`);
+            }, 500);
+            
+        }
+        
+    }
+
+    function showRules(){
+
+        let rules = document.getElementsByClassName("egg");
+
+        rules[0].style.display = "block";
+
+    }
+
+    function closeRules(){
+        
+        let rules = document.getElementsByClassName("egg");
+
+        rules[0].style.display = "none";
+    }
+
+</script>
+
+</html>
