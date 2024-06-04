@@ -5424,8 +5424,8 @@ let results = [
         "date" : "09/08/2024",
         "gametime" : "1:00PM",
         "day" : "Sunday",
-        "pf" : null,
-        "pa" : null,
+        "pf" : "",
+        "pa" : "",
         "time" : "",
         "hc": "Zac Taylor",
         "location" : "H"
