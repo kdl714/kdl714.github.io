@@ -164,10 +164,11 @@ function createSortedResults(sourceData){
                 gameResult = "Loss";
                 resultCSS = "Loss";
             }
-            //set the time
+            //set the date & time
+            const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
             time = sourceData[i].time;
             gameDate = sourceData[i].date;
-            gameDay = sourceData[i].day;
+            gameDay = days[ sourceData[i].date.getDay() ] //sourceData[i].day;
             gameTime = sourceData[i].gametime;
         }
 
