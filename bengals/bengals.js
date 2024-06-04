@@ -194,10 +194,13 @@ function createSortedResults(sourceData){
 //convert the date to a day
 function convertDate(d){
     const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    let day = "";
     
-    let split = d.split('/');
-    let newdt = new Date(split[2], split[0] - 1, split[1]);
-    let day = weekday[newdt.getDay()];
+    if (d){
+        let split = d.split('/');
+        let newdt = new Date(split[2], split[0] - 1, split[1]);
+        day = weekday[newdt.getDay()];
+    }
     
     return day;
 }
