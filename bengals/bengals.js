@@ -165,10 +165,9 @@ function createSortedResults(sourceData){
                 resultCSS = "Loss";
             }
             //set the date & time
-            const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
             time = sourceData[i].time;
             gameDate = sourceData[i].date;
-            gameDay = convertDate(sourceData[i].date); //sourceData[i].day;
+            gameDay = convertDate(sourceData[i].date);
             gameTime = sourceData[i].gametime;
         }
 
@@ -179,7 +178,7 @@ function createSortedResults(sourceData){
         }
         
         htmlPlaceholder += 
-            `<tr class="` + resultCSS + `"><td>` + sourceData[i].season + `</td><td>` + sourceData[i].week + `</td><td>` 
+            `<tr class="` + resultCSS + ` data-season="` + sourceData[i].season + `"><td>` + sourceData[i].season + `</td><td>` + sourceData[i].week + `</td><td>` 
             + sourceData[i].opponent + `</td><td>` + gameLocation + `</td><td>`
             + score + `</td><td>` + gameResult + `</td><td>` + time + `</td><td>` 
             + gameDate + `</td><td>` + gameDay + `</td><td>` + gameTime + `</td></tr>`;
