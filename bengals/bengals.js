@@ -178,10 +178,27 @@ function createSortedResults(sourceData){
         }
         
         htmlPlaceholder += 
-            `<tr class="` + resultCSS + `" data-season="` + sourceData[i].season + `"><td>` + sourceData[i].season + `</td><td>` + sourceData[i].week + `</td><td>` 
-            + sourceData[i].opponent + `</td><td>` + gameLocation + `</td><td>`
-            + score + `</td><td>` + gameResult + `</td><td>` + time + `</td><td>` 
-            + gameDate + `</td><td>` + gameDay + `</td><td>` + gameTime + `</td></tr>`;
+            `<tr class="` + resultCSS 
+            + `" data-season="` + sourceData[i].season 
+            + `" data-week="` + sourceData[i].week 
+            + `" data-opponent="` + sourceData[i].opponent
+            + `" data-location="` + gameLocation
+            + `" data-result="` + gameResult
+            + `" data-time="` + time
+            + `" data-game-date="` + gameDate
+            + `" data-game-day="` + gameDay
+            + `" data-game-time="` + gameTime
+            + `"><td>` + sourceData[i].season 
+            + `</td><td>` + sourceData[i].week 
+            + `</td><td>` + sourceData[i].opponent 
+            + `</td><td>` + gameLocation 
+            + `</td><td>` + score 
+            + `</td><td>` + gameResult 
+            + `</td><td>` + time 
+            + `</td><td>` + gameDate 
+            + `</td><td>` + gameDay 
+            + `</td><td>` + gameTime 
+            + `</td></tr>`;
     }
 
     htmlDestination.innerHTML = htmlTableHeader + createHeaderRow() + htmlPlaceholder + `</table>`;
