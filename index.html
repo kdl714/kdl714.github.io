@@ -1,6 +1,25 @@
 <!doctype HTML>
 <html>
 <body>
+  <script async type="text/javascript">
+    function zync_call() {
+        var z = document.createElement("script");
+        var zmpID="inbound-data-controls";
+        var cache_buster=Date.now();
+
+        var z_src = "https://live.rezync.com/sync?c=16b6410431b6374e780104abb0443ca8&p=f63ee33259f56960089322f48f6bea5b&k=inbound-data-controls-pixel-8968&zmpID="+zmpID+"&cache_buster="+cache_buster;
+        z.setAttribute("src", z_src);
+        document.body.appendChild(z);
+    }
+
+    if (['complete', 'interactive'].indexOf(document.readyState) >= 0) {
+        zync_call();
+    } else {
+        window.addEventListener("DOMContentLoaded", function(){
+            zync_call();
+        });
+    }
+</script>
   <div>
     Test
   </div>
