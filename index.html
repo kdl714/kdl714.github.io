@@ -6,8 +6,9 @@
         var z = document.createElement("script");
         var zmpID="inbound-data-controls";
         var cache_buster=Date.now();
+        var PageUrl=encodeURIComponent(window.top.location.href).replace(/[!'()~]/g, escape).replace(/\*/g, "%2A");
 
-        var z_src = "https://live.rezync.com/sync?c=16b6410431b6374e780104abb0443ca8&p=f63ee33259f56960089322f48f6bea5b&k=inbound-data-controls-pixel-8968&zmpID="+zmpID+"&cache_buster="+cache_buster;
+        var z_src = "https://live.rezync.com/sync?c=16b6410431b6374e780104abb0443ca8&p=f63ee33259f56960089322f48f6bea5b&k=inbound-data-controls-pixel-0458&zmpID="+zmpID+"&cache_buster="+cache_buster+"&PageUrl="+PageUrl;
         z.setAttribute("src", z_src);
         document.body.appendChild(z);
     }
@@ -19,26 +20,6 @@
             zync_call();
         });
     }
-  </script>
-<script async type="text/javascript">
-  var SITEID='inbound-data-controls';
-  (function(b, t, r, a, i, n) {
-    b['bt']=b['bt'] || function() {
-        (b['_bt']=b['_bt']||[]).push(arguments);
-    },
-    i = t.createElement(r),
-    n = t.getElementsByTagName(r)[0];
-    i.async = 1;
-    i.src = a;
-    n.parentNode.insertBefore(i, n);
-})(
-    window,
-    document,
-    'script',
-               'https://cdn.boomtrain.com/p13n/'+SITEID+'/p13n.min.js'
-);
-
-bt('initialize', SITEID, {externalIds: {zync: 'e79b9f73-893c-4dfe-a808-e64d52a9de21:1723554815.9677715'}});
 </script>
   <div>
     Test
