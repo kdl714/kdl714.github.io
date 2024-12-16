@@ -21,7 +21,10 @@ let users = [
         "start_time": 9,
         "end_time": 17,
         "tentative_times": [
-            
+            {
+                "start_time":17,
+                "end_time":18
+            }
         ]
     },
     {
@@ -30,7 +33,10 @@ let users = [
         "start_time": 9,
         "end_time": 17,
         "tentative_times": [
-            
+            {
+                "start_time":17,
+                "end_time":18
+            }
         ]
     },
     {
@@ -39,7 +45,10 @@ let users = [
         "start_time": 9,
         "end_time": 17,
         "tentative_times": [
-            
+            {
+                "start_time":17,
+                "end_time":18
+            }
         ]
     }
 ]
