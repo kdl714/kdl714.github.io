@@ -12,6 +12,10 @@ let users = [
             {
                 "start_time":20,
                 "end_time":23.5
+            },
+            {
+                "start_time":17,
+                "end_time":18
             }
         ]
     },
