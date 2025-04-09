@@ -14,26 +14,25 @@ document.getElementById('authorize_button').onclick = handleAuthClick;
 document.getElementById('signout_button').onclick = handleSignoutClick;
 
 function gapiLoaded() {
-  gapi.load('client', initializeGapiClient);
-}
+  // Load the required gapi.auth2 and initialize the tokenClient
+  gapi.load('client:auth2', async () => {
+    // Initialize gapi client
+    await gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: [DISCOVERY_DOC],
+    });
+    gapiInited = true;
+    maybeEnableButtons();
 
-async function initializeGapiClient() {
-  await gapi.client.init({
-    apiKey: API_KEY,
-    discoveryDocs: [DISCOVERY_DOC],
+    // Initialize Google Identity Services (OAuth2)
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: '', // Will assign later
+    });
+    gisInited = true;
+    maybeEnableButtons();
   });
-  gapiInited = true;
-  maybeEnableButtons();
-}
-
-function gisLoaded() {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: '', // Will assign later
-  });
-  gisInited = true;
-  maybeEnableButtons();
 }
 
 function maybeEnableButtons() {
@@ -102,6 +101,5 @@ async function fetchSheetJSON() {
 
 // Ensure APIs load only after DOM is ready
 window.addEventListener('DOMContentLoaded', (event) => {
-  gapiLoaded();
-  gisLoaded();
+  gapi.load('client', gapiLoaded);  // Load Google API client
 });
