@@ -1,72 +1,71 @@
-// Sample mock data for Jira and Notes
-const workItems = [
-    {
-        type: "Jira",
-        title: "Jira Task: Build new feature",
-        dueDate: "2025-04-10",
-        details: "Implement a new feature as per the specifications.",
-        link: "https://jira.company.com/browse/ABC-123"
-    },
-    {
-        type: "Note",
-        title: "Meeting with John",
-        dueDate: "2025-04-08",
-        details: "Discuss project roadmap and deliverables.",
-        link: ""
-    },
-    {
-        type: "Figma",
-        title: "Design Review",
-        dueDate: "2025-04-09",
-        details: "Review the latest design prototype for the app.",
-        link: "https://www.figma.com/file/xyz123/design-prototype"
-    }
-];
 
-// Function to create a card
-function createCard(item) {
-    const card = document.createElement('div');
-    card.classList.add('card');
+//fetch data from google sheet
+const CLIENT_ID = '449242643565-1entvf6vs3fvma026l0nch4epc86q6o8.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyDGn2XD2zckhsCA2qZylWO1PBS8b1ypPwk';
+const SHEET_ID = '1o3rWA3I-tkSWE64yijZKZBPgjy23PcTKbfrN3ff0Nl4';
+const RANGE = 'Dashboard!A1';
+const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 
-    const title = document.createElement('h3');
-    title.textContent = item.title;
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
 
-    const details = document.createElement('p');
-    details.textContent = item.details;
+document.getElementById('authorize_button').onclick = handleAuthClick;
+document.getElementById('signout_button').onclick = handleSignoutClick;
 
-    const dueDate = document.createElement('div');
-    dueDate.classList.add('due-date');
-    dueDate.textContent = `Due: ${item.dueDate}`;
-
-    const link = document.createElement('a');
-    if (item.link) {
-        link.textContent = "View More";
-        link.href = item.link;
-        link.target = "_blank";
-    }
-
-    card.appendChild(title);
-    card.appendChild(details);
-    card.appendChild(dueDate);
-    if (item.link) card.appendChild(link);
-
-    return card;
+function gapiLoaded() {
+  gapi.load('client', initializeGapiClient);
 }
 
-// Function to render all cards
-function renderCards() {
-    const cardContainer = document.querySelector('.card-container');
-    cardContainer.innerHTML = ""; // Clear existing cards
+async function initializeGapiClient() {
+  await gapi.client.init({
+    apiKey: API_KEY,
+    discoveryDocs: [DISCOVERY_DOC],
+  });
+  gapiInited = true;
+  maybeEnableButtons();
+}
 
-    workItems.forEach(item => {
-        const card = createCard(item);
-        cardContainer.appendChild(card);
+function gisLoaded() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: '', // Will assign later
+  });
+  gisInited = true;
+  maybeEnableButtons();
+}
+
+function maybeEnableButtons() {
+  if (gapiInited && gisInited) {
+    document.getElementById('authorize_button').style.display = 'inline';
+    document.getElementById('output').textContent = 'Ready.';
+  }
+}
+
+function handleAuthClick() {
+  tokenClient.callback = async (resp) => {
+    if (resp.error) throw resp;
+    document.getElementById('signout_button').style.display = 'inline';
+    document.getElementById('authorize_button').style.display = 'none';
+    await fetchSheetJSON();
+  };
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function handleSignoutClick() {
+  google.accounts.oauth2.revoke(tokenClient.access_token, () => {
+    document.getElementById('authorize_button').style.display = 'inline';
+    document.getElementById('signout_button').style.display = 'none';
+    document.getElementById('output').textContent = 'Signed out.';
+  });
+}
+
+async function fetchSheetJSON() {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: RANGE,
     });
-
-    // Set the last updated time
-    const lastUpdated = document.getElementById('last-updated');
-    lastUpdated.textContent = new Date().toLocaleString();
-}
-
-// Initial render of cards when page loads
-document.addEventListener("DOMContentLoaded", renderCards);
+    const raw = response.result.values?.[0]?.[0
