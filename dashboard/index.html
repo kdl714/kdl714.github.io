@@ -1,22 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Work Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Private Google Sheet via OAuth</title>
 </head>
 <body>
-    <header>
-        <h1>My Work Dashboard</h1>
-    </header>
-    <div class="card-container">
-        <!-- Cards will go here -->
-    </div>
-    <footer>
-        <p>Last updated: <span id="last-updated"></span></p>
-    </footer>
+  <h1>Private Sheet OAuth Demo</h1>
+  <button id="authorize_button">Sign In with Google</button>
+  <button id="signout_button" style="display: none;">Sign Out</button>
+  <pre id="output">Loading...</pre>
 
-    <script src="script.js"></script>
+  <!-- Google APIs -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Your custom logic -->
+  <script src="script.js"></script>
 </body>
 </html>
