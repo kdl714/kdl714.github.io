@@ -68,4 +68,17 @@ async function fetchSheetJSON() {
       spreadsheetId: SHEET_ID,
       range: RANGE,
     });
-    const raw = response.result.values?.[0]?.[0
+    const raw = response.result.values?.[0]?.[0];
+    const parsed = JSON.parse(raw);
+    document.getElementById('output').textContent = JSON.stringify(parsed, null, 2);
+  } catch (error) {
+    document.getElementById('output').textContent = 'Error: ' + error.message;
+    console.error(error);
+  }
+}
+
+// Load both APIs when window finishes loading
+window.onload = () => {
+  gapiLoaded();
+  gisLoaded();
+};
