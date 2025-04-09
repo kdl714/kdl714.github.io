@@ -71,7 +71,31 @@ async function fetchSheetJSON() {
     });
     const raw = response.result.values?.[0]?.[0];
     const parsed = JSON.parse(raw);
-    document.getElementById('output').textContent = JSON.stringify(parsed, null, 2);
+
+    // Select the "open" tasks group
+    const openTasks = parsed.open || [];
+
+    // Get the container where cards will be added
+    const cardsContainer = document.getElementById('cards-container');
+    cardsContainer.innerHTML = ''; // Clear any existing content
+
+    // Loop through open tasks and create Bootstrap cards
+    openTasks.forEach(task => {
+      const cardHTML = `
+        <div class="col-md-4 mb-3">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">${task.task_name}</h5>
+              <p class="card-text">Status: <strong>${task.status}</strong></p>
+              <p class="card-text">${task.notes || 'No notes available'}</p>
+              <p class="card-text"><small class="text-muted">Start: ${task.start_dt}</small></p>
+              <p class="card-text"><small class="text-muted">Due: ${task.due_dt}</small></p>
+            </div>
+          </div>
+        </div>
+      `;
+      cardsContainer.innerHTML += cardHTML; // Add card to container
+    });
   } catch (error) {
     document.getElementById('output').textContent = 'Error: ' + error.message;
     console.error(error);
