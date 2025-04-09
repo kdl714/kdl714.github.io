@@ -100,8 +100,8 @@ async function fetchSheetJSON() {
   }
 }
 
-// Load both APIs when window finishes loading
-window.onload = () => {
+// Ensure APIs load only after DOM is ready
+window.addEventListener('DOMContentLoaded', (event) => {
   gapiLoaded();
   gisLoaded();
-};
+});
