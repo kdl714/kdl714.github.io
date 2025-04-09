@@ -10,10 +10,8 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-//auth button
 document.getElementById('authorize_button').onclick = handleAuthClick;
 document.getElementById('signout_button').onclick = handleSignoutClick;
-
 
 function gapiLoaded() {
   gapi.load('client', initializeGapiClient);
