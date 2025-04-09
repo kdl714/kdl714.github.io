@@ -1,5 +1,4 @@
-
-//fetch data from google sheet
+//google sheets info
 const CLIENT_ID = '449242643565-1entvf6vs3fvma026l0nch4epc86q6o8.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyDGn2XD2zckhsCA2qZylWO1PBS8b1ypPwk';
 const SHEET_ID = '1o3rWA3I-tkSWE64yijZKZBPgjy23PcTKbfrN3ff0Nl4';
@@ -11,8 +10,10 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
+//auth button
 document.getElementById('authorize_button').onclick = handleAuthClick;
 document.getElementById('signout_button').onclick = handleSignoutClick;
+
 
 function gapiLoaded() {
   gapi.load('client', initializeGapiClient);
