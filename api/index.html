@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>API Tester with Basic Auth</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2rem; background: #f9f9f9; }
+    input, textarea, button { display: block; width: 100%; margin: 1rem 0; padding: 0.5rem; }
+    textarea { height: 150px; }
+    pre { background: #222; color: #eee; padding: 1rem; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>API Tester (Basic Auth)</h1>
+
+  <label for="endpoint">API Endpoint</label>
+  <input type="text" id="endpoint" placeholder="https://api.example.com/v1/resource">
+
+  <label for="username">Username</label>
+  <input type="text" id="username" placeholder="Enter your username">
+
+  <label for="password">Password</label>
+  <input type="password" id="password" placeholder="Enter your password">
+
+  <label for="json">JSON Input Array</label>
+  <textarea id="json">[
+  { "id": 1, "name": "Test A" },
+  { "id": 2, "name": "Test B" }
+]</textarea>
+
+  <button id="sendBtn">Send API Calls</button>
+
+  <h2>Output</h2>
+  <pre id="output">Waiting...</pre>
+
+  <script>
+    document.getElementById("sendBtn").addEventListener("click", async () => {
+      const endpoint = document.getElementById("endpoint").value.trim();
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const rawInput = document.getElementById("json").value;
+      const output = document.getElementById("output");
+
+      if (!username || !password) {
+        output.textContent = "❌ Please provide both username and password.";
+        return;
+      }
+
+      let jsonArray;
+      try {
+        jsonArray = JSON.parse(rawInput);
+      } catch (e) {
+        output.textContent = "❌ Invalid JSON input.";
+        return;
+      }
+
+      const basicAuth = btoa(`${username}:${password}`);
+      output.textContent = "Sending requests...\n\n";
+
+      for (const [index, item] of jsonArray.entries()) {
+        try {
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Basic ${basicAuth}`
+            },
+            body: JSON.stringify(item)
+          });
+
+          const text = await res.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = text;
+          }
+
+          output.textContent += `✅ [${index}] Response:\n${JSON.stringify(data, null, 2)}\n\n`;
+        } catch (err) {
+          output.textContent += `❌ [${index}] Error: ${err.message}\n\n`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
