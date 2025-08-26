@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Filter JSON</title>
+<title>JSON Filter</title>
 <style>
   :root{
     --bg:#0b0b10; --panel:#131320; --muted:#9aa0ac; --text:#e9e9f1; --accent:#5b8cff;
@@ -13,94 +13,126 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
   .card{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:hidden}
-  header{padding:18px 18px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  header{padding:18px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   header h1{margin:0;font-size:18px}
   header .sub{color:var(--muted);font-size:13px}
   .content{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px}
   .content.single{grid-template-columns:1fr}
-  @media (max-width: 960px){ .content{grid-template-columns:1fr} }
-  .section{display:flex;flex-direction:column;gap:10px;background:transparent}
-  .section .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  @media (max-width: 980px){ .content{grid-template-columns:1fr} }
+  .section{display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   label{font-size:13px;color:var(--muted)}
-  textarea, input[type="text"]{
+  textarea,input[type="text"],select{
     width:100%;padding:12px;border-radius:12px;border:1px solid var(--stroke);background:var(--field);color:var(--text)
   }
   textarea{min-height:220px;resize:vertical}
   input[type="file"]{font-size:13px;max-width:100%}
-  .btn{
-    appearance:none;border:none;padding:10px 14px;border-radius:12px;background:var(--accent);
-    color:white;font-weight:600;cursor:pointer
-  }
+  .btn{appearance:none;border:none;padding:10px 14px;border-radius:12px;background:var(--accent);color:white;font-weight:600;cursor:pointer}
   .btn.secondary{background:#2a2a44;color:#d9d9e6}
   .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text)}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   .hint{font-size:12px;color:var(--muted)}
   .status{font-size:13px;margin-top:6px}
   .status.ok{color:var(--ok)} .status.err{color:var(--err);white-space:pre-wrap}
-  .kvs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  @media (max-width: 640px){ .kvs{grid-template-columns:1fr} }
-  .tags{display:flex;flex-wrap:wrap;gap:6px}
-  code.bubble{background:#101022;padding:2px 6px;border-radius:8px;border:1px solid var(--stroke);font-family:ui-monospace,Consolas,Menlo,monospace}
+
+  /* Field picker (fixed visuals) */
+  .group{border:1px solid var(--stroke);border-radius:12px;padding:12px;background:#0f0f19}
+  .group h3{margin:0 0 8px 0;font-size:13px;color:#bdbdd3}
+  .picker-body{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width: 980px){ .picker-body{grid-template-columns:1fr} }
+  .fieldlist{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:8px;
+    max-height:220px; overflow:auto; padding:8px;
+    background:#0c0c16; border:1px solid #1e1e33; border-radius:10px;
+  }
+  .fieldchip{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 10px; border-radius:10px;
+    background:#101022; border:1px solid #232345;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    font-size:13px; color:#d6d6e6;
+  }
+  .picker-tools{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
   table{width:100%;border-collapse:separate;border-spacing:0;background:var(--field);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
   th,td{padding:10px 12px;border-bottom:1px solid #1e1e30;text-align:left;vertical-align:top}
   th{background:#101022;font-size:12px;color:#bdbdd3;position:sticky;top:0}
   tr:last-child td{border-bottom:none}
   .footer{padding:12px 18px;border-top:1px solid var(--stroke);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-  .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--stroke);background:#101022}
-  .chkgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-  @media (max-width: 960px){ .chkgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-  @media (max-width: 640px){ .chkgrid{grid-template-columns:1fr} }
-  .group{border:1px solid var(--stroke);border-radius:12px;padding:12px;background:#0f0f19}
-  .group h3{margin:0 0 8px 0;font-size:13px;color:#bdbdd3}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap}
-  .toolbar .btn{min-width:130px}
+  code.bubble{background:#101022;padding:2px 6px;border-radius:8px;border:1px solid #232345;font-family:ui-monospace,Consolas,Menlo,monospace}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
     <header>
-      <h1>Filter Users by <code class="bubble">role_members[].account_name</code></h1>
+      <h1>Filter Users</h1>
       <div class="sub">No installs • Everything runs locally in your browser</div>
     </header>
 
-    <!-- Input panels -->
+    <!-- Inputs -->
     <div class="content">
       <div class="section">
         <label>1) Load JSON (choose one):</label>
         <div class="row">
           <input id="fileInput" type="file" accept=".json,application/json" />
-          <button class="btn ghost" id="clearBtn" title="Clear inputs">Clear</button>
+          <button class="btn ghost" id="clearBtn">Clear</button>
         </div>
         <textarea id="jsonText" placeholder='Paste JSON here. Expected shape: { "users": [ ... ] }'></textarea>
         <div class="hint">Tip: For very large files, the file picker is faster than pasting.</div>
       </div>
 
       <div class="section">
-        <label>2) Matching account names (comma-separated)</label>
-        <input id="allowedInput" type="text" placeholder='e.g. 0♔ Admin ♔0, Some Other Account'>
-        <div class="row">
-          <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
-          <label><input id="exactMatch" type="checkbox" checked> Exact match</label>
-          <label><input id="explodeRows" type="checkbox"> One row per match (flatten)</label>
+        <label>2) Filter</label>
+        <div class="group">
+          <div class="row">
+            <label><input type="radio" name="scope" id="scopeUsers" checked> Filter by <code class="bubble">user</code> field</label>
+            <label><input type="radio" name="scope" id="scopeNested"> Filter by <code class="bubble">nested collection</code> field</label>
+          </div>
+          <div class="row" id="nestedRow" style="display:none;">
+            <select id="collectionSelect" title="Nested collection (e.g. role_members)"></select>
+            <select id="nestedFieldSelect" title="Field within selected collection"></select>
+          </div>
+          <div class="row" id="userRow">
+            <select id="userFieldSelect" title="User field to match"></select>
+          </div>
+          <div class="row">
+            <input id="allowedInput" type="text" placeholder='Values to match (comma-separated) e.g. 0♔ Admin ♔0, Some Other Account'>
+          </div>
+          <div class="row">
+            <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
+            <label><input id="exactMatch" type="checkbox" checked> Exact match</label>
+            <label><input id="explodeRows" type="checkbox"> One row per match (flatten)</label>
+          </div>
         </div>
 
         <div class="group">
-          <h3>3) Output fields (auto-detected after loading JSON)</h3>
-          <div class="kvs">
+          <h3>3) Output fields (auto-detected)</h3>
+          <div class="picker-body">
             <div>
-              <div class="hint" style="margin-bottom:6px;">User fields</div>
-              <div id="userFieldGrid" class="chkgrid"></div>
+              <div class="hint">User fields</div>
+              <div id="userFieldGrid" class="fieldlist"></div>
+              <div class="picker-tools">
+                <button class="btn ghost" id="userAll">All</button>
+                <button class="btn ghost" id="userNone">None</button>
+                <button class="btn ghost" id="userDefaults">Defaults</button>
+              </div>
             </div>
             <div>
-              <div class="hint" style="margin-bottom:6px;">role_members fields</div>
-              <div id="rmFieldGrid" class="chkgrid"></div>
+              <div class="hint">Nested fields (<span id="nestedLabel">role_members</span>)</div>
+              <div id="rmFieldGrid" class="fieldlist"></div>
+              <div class="picker-tools">
+                <button class="btn ghost" id="rmAll">All</button>
+                <button class="btn ghost" id="rmNone">None</button>
+                <button class="btn ghost" id="rmDefaults">Defaults</button>
+              </div>
             </div>
           </div>
-          <div class="hint" style="margin-top:6px">Default selection: <code class="bubble">id</code>, <code class="bubble">email</code>, <code class="bubble">display_name</code>, <code class="bubble">account_name</code>, <code class="bubble">role</code>.</div>
+          <div class="hint" style="margin-top:6px">Default selection: <code class="bubble">id</code>, <code class="bubble">email</code>, <code class="bubble">display_name</code>, plus nested <code class="bubble">account_name</code> and <code class="bubble">role</code> if present.</div>
         </div>
 
-        <div class="toolbar" style="margin-top:8px;">
+        <div class="row" style="gap:10px;flex-wrap:wrap;">
           <button class="btn" id="runBtn">Run Filter</button>
           <button class="btn secondary" id="downloadJsonBtn" disabled>Download JSON</button>
           <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
@@ -114,9 +146,6 @@
     <div class="content single">
       <div class="section">
         <label>Results</label>
-        <div class="tags hint">
-          <span>Showing selectable fields. Toggle “One row per match” to flatten nested <code class="bubble">role_members</code>.</span>
-        </div>
         <div style="overflow:auto;max-height:55vh;border-radius:12px">
           <table id="resultsTable" style="display:none;">
             <thead><tr id="theadRow"></tr></thead>
@@ -128,22 +157,17 @@
 
     <div class="footer">
       <span class="hint">All processing happens locally. No data leaves your machine.</span>
-      <span class="hint">Found an edge case you want included? Tell me which fields and I’ll wire them up.</span>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  // ---- DOM refs
+  // DOM
   const fileInput = document.getElementById('fileInput');
   const jsonText = document.getElementById('jsonText');
-  const allowedInput = document.getElementById('allowedInput');
-  const caseInsensitive = document.getElementById('caseInsensitive');
-  const exactMatch = document.getElementById('exactMatch');
-  const explodeRows = document.getElementById('explodeRows');
-  const runBtn = document.getElementById('runBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const runBtn = document.getElementById('runBtn');
   const statusEl = document.getElementById('status');
   const resultsTable = document.getElementById('resultsTable');
   const theadRow = document.getElementById('theadRow');
@@ -151,88 +175,260 @@
   const downloadJsonBtn = document.getElementById('downloadJsonBtn');
   const downloadCsvBtn = document.getElementById('downloadCsvBtn');
   const copyBtn = document.getElementById('copyBtn');
+
   const userFieldGrid = document.getElementById('userFieldGrid');
   const rmFieldGrid = document.getElementById('rmFieldGrid');
+  const nestedLabel = document.getElementById('nestedLabel');
+
+  const userAll = document.getElementById('userAll');
+  const userNone = document.getElementById('userNone');
+  const userDefaults = document.getElementById('userDefaults');
+  const rmAll = document.getElementById('rmAll');
+  const rmNone = document.getElementById('rmNone');
+  const rmDefaults = document.getElementById('rmDefaults');
+
+  // Filter controls
+  const scopeUsers = document.getElementById('scopeUsers');
+  const scopeNested = document.getElementById('scopeNested');
+  const userRow = document.getElementById('userRow');
+  const nestedRow = document.getElementById('nestedRow');
+  const userFieldSelect = document.getElementById('userFieldSelect');
+  const collectionSelect = document.getElementById('collectionSelect');
+  const nestedFieldSelect = document.getElementById('nestedFieldSelect');
+  const allowedInput = document.getElementById('allowedInput');
+  const exactMatch = document.getElementById('exactMatch');
+  const caseInsensitive = document.getElementById('caseInsensitive');
+  const explodeRows = document.getElementById('explodeRows');
 
   let lastOutput = [];
-  let selectedFields = { user: new Set(['id','email','display_name']), rm: new Set(['account_name','role']) };
-  let detectedFields = { user: [], rm: [] };
+  let detected = {
+    userFields: [],
+    nestedCollections: [], // {name, fields}
+  };
+  let selectedFields = {
+    user: new Set(['id','email','display_name']),
+    nested: new Set(['account_name','role'])
+  };
 
-  // ---- Helpers
-  const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  // Utils
+  const escapeHtml = v => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   const setStatus = (msg, kind) => { statusEl.textContent = msg || ''; statusEl.className = 'status ' + (kind||''); };
-  const setDownloadsEnabled = (on) => { downloadJsonBtn.disabled = downloadCsvBtn.disabled = copyBtn.disabled = !on; };
+  const setDownloadsEnabled = on => { downloadJsonBtn.disabled = downloadCsvBtn.disabled = copyBtn.disabled = !on; };
   const parseAllowed = (input, ci) => new Set((input||'').split(',').map(s=>s.trim()).filter(Boolean).map(s => ci ? s.toLowerCase() : s));
   function isAllowed(allowedSet, name, {ci, exact}) {
-    const candidate = ci ? name.toLowerCase() : name;
+    const candidate = ci ? String(name).toLowerCase() : String(name);
     if (exact) return allowedSet.has(candidate);
     for (const term of allowedSet) if (candidate.includes(term)) return true;
     return false;
   }
 
+  // Detection
   function detectFields(data){
-    detectedFields = { user:[], rm:[] };
+    detected.userFields = [];
+    detected.nestedCollections = [];
     const users = Array.isArray(data?.users) ? data.users : [];
     const sampleUser = users.find(u => u && typeof u === 'object') || {};
-    detectedFields.user = Object.keys(sampleUser).filter(k => k !== 'role_members');
 
-    const rms = Array.isArray(sampleUser.role_members) ? sampleUser.role_members : [];
-    const sampleRM = rms.find(r => r && typeof r === 'object') || {};
-    detectedFields.rm = Object.keys(sampleRM);
+    detected.userFields = Object.keys(sampleUser).filter(k => !Array.isArray(sampleUser[k]) && k !== 'role_members');
+
+    // arrays of objects become selectable collections
+    for (const [k,v] of Object.entries(sampleUser)){
+      if (Array.isArray(v) && v.length && typeof v[0] === 'object' && v[0] !== null){
+        const fields = [...new Set(v.flatMap(o => Object.keys(o||{})))];
+        detected.nestedCollections.push({name:k, fields});
+      }
+    }
 
     renderFieldSelectors();
+    renderFilterSelectors();
   }
 
+  function renderFilterSelectors(){
+    // user fields dropdown
+    userFieldSelect.innerHTML = '';
+    detected.userFields.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = k;
+      userFieldSelect.appendChild(opt);
+    });
+    // default heuristic
+    if (detected.userFields.includes('email')) userFieldSelect.value = 'email';
+    else if (detected.userFields.includes('display_name')) userFieldSelect.value = 'display_name';
+
+    // nested collections dropdowns
+    collectionSelect.innerHTML = '';
+    detected.nestedCollections.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      collectionSelect.appendChild(opt);
+    });
+
+    if (detected.nestedCollections.length){
+      collectionSelect.value = detected.nestedCollections[0].name;
+      updateNestedFieldOptions();
+    }
+    nestedLabel.textContent = collectionSelect.value || '—';
+    toggleScopeUI();
+  }
+
+  function updateNestedFieldOptions(){
+    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value);
+    nestedFieldSelect.innerHTML = '';
+    if (!coll){ nestedLabel.textContent = '—'; return; }
+    nestedLabel.textContent = coll.name;
+    coll.fields.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = k;
+      nestedFieldSelect.appendChild(opt);
+    });
+    // defaults
+    if (coll.fields.includes('account_name')) nestedFieldSelect.value = 'account_name';
+    else if (coll.fields.includes('name')) nestedFieldSelect.value = 'name';
+  }
+
+  function toggleScopeUI(){
+    const nestedActive = scopeNested.checked && detected.nestedCollections.length > 0;
+    nestedRow.style.display = nestedActive ? '' : 'none';
+    userRow.style.display = scopeUsers.checked ? '' : 'none';
+    // Enable per-match flatten only if nested scope is active
+    explodeRows.disabled = !nestedActive;
+    if (!nestedActive) explodeRows.checked = false;
+  }
+
+  // Field checkbox grids
   function renderFieldSelectors(){
     userFieldGrid.innerHTML = '';
     rmFieldGrid.innerHTML = '';
-    const makeBox = (name, group) => {
-      const id = `${group}-${name}`;
-      const wrap = document.createElement('label');
-      wrap.style.display = 'flex';
-      wrap.style.gap = '8px';
-      wrap.style.alignItems = 'center';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.id = id;
-      cb.checked = selectedFields[group].has(name);
-      cb.addEventListener('change', () => {
-        if (cb.checked) selectedFields[group].add(name);
-        else selectedFields[group].delete(name);
-      });
-      const span = document.createElement('span');
-      span.textContent = name;
-      wrap.appendChild(cb); wrap.appendChild(span);
-      return wrap;
-    };
-
-    detectedFields.user.forEach(k => userFieldGrid.appendChild(makeBox(k,'user')));
-    detectedFields.rm.forEach(k => rmFieldGrid.appendChild(makeBox(k,'rm')));
+    // user fields
+    detected.userFields.forEach(name => {
+      userFieldGrid.appendChild(makeChip(name, 'user'));
+    });
+    // nested fields (from currently selected collection or first)
+    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value) || detected.nestedCollections[0];
+    const nestedFields = coll ? coll.fields : [];
+    rmFieldGrid.innerHTML = '';
+    nestedFields.forEach(name => {
+      rmFieldGrid.appendChild(makeChip(name, 'nested'));
+    });
   }
 
-  function buildColumns(){
-    // For per-match rows, we flatten rm fields; else we aggregate into matching_accounts
+  function makeChip(name, group){
+    const wrap = document.createElement('label'); wrap.className = 'fieldchip';
+    const cb = document.createElement('input'); cb.type='checkbox';
+    cb.checked = selectedFields[group].has(name);
+    cb.addEventListener('change', () => {
+      if (cb.checked) selectedFields[group].add(name);
+      else selectedFields[group].delete(name);
+    });
+    const span = document.createElement('span'); span.textContent = name;
+    wrap.appendChild(cb); wrap.appendChild(span);
+    return wrap;
+  }
+
+  // Picker toolbar handlers
+  function setAll(group, names){ selectedFields[group] = new Set(names); syncChecks(group); }
+  function setNone(group){ selectedFields[group] = new Set(); syncChecks(group); }
+  function setDefaults(){
+    selectedFields.user = new Set(['id','email','display_name'].filter(f => detected.userFields.includes(f)));
+    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value);
+    const defaults = ['account_name','role'].filter(f => coll?.fields.includes(f));
+    selectedFields.nested = new Set(defaults);
+    syncChecks('user'); syncChecks('nested');
+  }
+  function syncChecks(group){
+    const container = (group === 'user') ? userFieldGrid : rmFieldGrid;
+    container.querySelectorAll('label.fieldchip').forEach(lbl => {
+      const name = lbl.querySelector('span').textContent;
+      lbl.querySelector('input[type=checkbox]').checked = selectedFields[group].has(name);
+    });
+  }
+
+  // Build output
+  function buildOutput(users, allowed, filterSpec){
+    const out = [];
+    const ci = caseInsensitive.checked;
+    const exact = exactMatch.checked;
+
+    const userKeys = Array.from(selectedFields.user);
+    const nestedKeys = Array.from(selectedFields.nested);
+
+    if (filterSpec.scope === 'users'){
+      for (const u of users){
+        const val = u?.[filterSpec.userField];
+        if (!isAllowed(allowed, val ?? '', {ci, exact})) continue;
+        // per-user rows only
+        const obj = {};
+        for (const k of userKeys) obj[k] = u?.[k] ?? null;
+        out.push(obj);
+      }
+      return { rows: out, uniques: { users: new Set(out.map(r => r.id ?? r.email ?? JSON.stringify(r))).size, values: new Set(out.map(r => r[filterSpec.userField])).size } };
+    }
+
+    // nested scope
+    const collName = filterSpec.collection;
+    for (const u of users){
+      const nested = Array.isArray(u?.[collName]) ? u[collName] : [];
+      const matches = nested.filter(item => isAllowed(allowed, item?.[filterSpec.nestedField] ?? '', {ci, exact}));
+      if (!matches.length) continue;
+
+      if (explodeRows.checked){
+        for (const m of matches){
+          const obj = {};
+          for (const k of userKeys) obj[k] = u?.[k] ?? null;
+          for (const rk of nestedKeys) obj[`${collName}_${rk}`] = m?.[rk] ?? null;
+          // ensure filter field appears even if not selected
+          if (!nestedKeys.includes(filterSpec.nestedField)){
+            obj[`${collName}_${filterSpec.nestedField}`] = m?.[filterSpec.nestedField] ?? null;
+          }
+          out.push(obj);
+        }
+      }else{
+        const obj = {};
+        for (const k of userKeys) obj[k] = u?.[k] ?? null;
+        const summary = matches.map(m => {
+          if (!nestedKeys.length) return String(m?.[filterSpec.nestedField] ?? '');
+          const parts = [];
+          if (m?.[filterSpec.nestedField] != null) parts.push(String(m[filterSpec.nestedField]));
+          const extras = nestedKeys
+            .filter(k => k !== filterSpec.nestedField)
+            .map(k => m?.[k] != null ? `${k}:${m[k]}` : '')
+            .filter(Boolean);
+          if (extras.length) parts.push(`(${extras.join(', ')})`);
+          return parts.join(' ');
+        }).join('; ');
+        obj[`matching_${collName}`] = summary;
+        out.push(obj);
+      }
+    }
+
+    // Stats for nested
+    const uniqUsers = new Set(out.map(r => r.id ?? r.email ?? JSON.stringify(r))).size;
+    let uniqVals = 0;
+    if (explodeRows.checked){
+      const fieldKey = `${collName}_${filterSpec.nestedField}`;
+      const s = new Set(out.map(r => r[fieldKey]));
+      uniqVals = s.size;
+    } else {
+      uniqVals = new Set(); // not meaningful in aggregated mode
+    }
+    return { rows: out, uniques: { users: uniqUsers, values: uniqVals } };
+  }
+
+  function buildColumns(filterSpec){
     const userCols = Array.from(selectedFields.user);
-    const rmCols = Array.from(selectedFields.rm);
-    if (explodeRows.checked && rmCols.length){
-      return [...userCols, ...rmCols.map(n => `rm_${n}`)];
+    if (filterSpec.scope === 'users'){
+      return userCols;
     }
-    // per-user row
-    return [...userCols, 'matching_accounts'];
-  }
-
-  function toCsv(rows, cols){
-    const header = cols.join(',');
-    const lines = [header];
-    for (const r of rows){
-      const fields = cols.map(c => {
-        const v = r[c];
-        const s = (v === null || v === undefined) ? '' : String(v);
-        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
-      });
-      lines.push(fields.join(','));
+    const coll = filterSpec.collection;
+    if (explodeRows.checked){
+      const nestedCols = Array.from(selectedFields.nested).map(n => `${coll}_${n}`);
+      // guarantee filter field col exists
+      if (!nestedCols.includes(`${coll}_${filterSpec.nestedField}`)){
+        nestedCols.unshift(`${coll}_${filterSpec.nestedField}`);
+      }
+      return [...userCols, ...nestedCols];
     }
-    return lines.join('\r\n');
+    return [...userCols, `matching_${coll}`];
   }
 
   function renderTable(rows, columns){
@@ -241,11 +437,7 @@
     if (!rows.length){ resultsTable.style.display='none'; return; }
     // header
     const fragHead = document.createDocumentFragment();
-    columns.forEach(c => {
-      const th = document.createElement('th');
-      th.textContent = c;
-      fragHead.appendChild(th);
-    });
+    columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; fragHead.appendChild(th); });
     theadRow.appendChild(fragHead);
 
     // body
@@ -259,151 +451,114 @@
     resultsTable.style.display = '';
   }
 
-  function makeRows(outputObjects, columns){
-    // Convert array of objects into uniform table rows using selected columns
-    return outputObjects.map(o => {
-      const row = {};
-      for (const c of columns) row[c] = (o[c] !== undefined ? o[c] : '');
-      return row;
-    });
-  }
-
-  function buildOutput(users, allowed){
-    const out = [];
-    const ci = caseInsensitive.checked;
-    const exact = exactMatch.checked;
-    const wantPerMatch = explodeRows.checked;
-    const userKeys = Array.from(selectedFields.user);
-    const rmKeys = Array.from(selectedFields.rm);
-
-    for (const u of users){
-      const roleMembers = Array.isArray(u?.role_members) ? u.role_members : [];
-      const matches = roleMembers.filter(rm => {
-        const name = String(rm?.account_name ?? '');
-        if (!name) return false;
-        return isAllowed(allowed, name, {ci, exact});
+  function toCsv(rows, columns){
+    const header = columns.join(',');
+    const lines = [header];
+    for (const r of rows){
+      const fields = columns.map(c => {
+        const v = r[c]; const s = (v === null || v === undefined) ? '' : String(v);
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
       });
-      if (!matches.length) continue;
-
-      if (wantPerMatch && rmKeys.length){
-        // One output row per matching role_member (flattened)
-        for (const m of matches){
-          const obj = {};
-          for (const k of userKeys) obj[k] = u?.[k] ?? null;
-          for (const rk of rmKeys) obj[`rm_${rk}`] = m?.[rk] ?? null;
-          out.push(obj);
-        }
-      } else {
-        // One output row per user with aggregated matching_accounts
-        const obj = {};
-        for (const k of userKeys) obj[k] = u?.[k] ?? null;
-        obj['matching_accounts'] = matches.map(m => {
-          if (!rmKeys.length) return m?.account_name ?? null;
-          // compact object with just selected rm fields
-          const o = {};
-          for (const rk of rmKeys) o[rk] = m?.[rk] ?? null;
-          return o;
-        });
-        // Present aggregated list as a readable string for table view
-        obj['matching_accounts'] = Array.isArray(obj['matching_accounts'])
-          ? obj['matching_accounts'].map(v => {
-              if (v && typeof v === 'object'){
-                // e.g. "account_name (role)"
-                const name = v.account_name ?? '';
-                const role = v.role ? ` (${v.role})` : '';
-                const rest = Object.entries(v)
-                  .filter(([k]) => k !== 'account_name' && k !== 'role' && v[k] != null)
-                  .map(([k,val]) => `${k}:${val}`).join(', ');
-                return [name + role, rest].filter(Boolean).join(rest ? ' — ' : '');
-              }
-              return String(v ?? '');
-            }).join('; ')
-          : '';
-        out.push(obj);
-      }
+      lines.push(fields.join(','));
     }
-    return out;
+    return lines.join('\r\n');
   }
 
   // ---- Events
   clearBtn.addEventListener('click', () => {
-    fileInput.value = '';
-    jsonText.value = '';
-    allowedInput.value = '';
-    caseInsensitive.checked = false;
-    exactMatch.checked = true;
-    explodeRows.checked = false;
-    resultsBody.innerHTML = '';
-    document.getElementById('theadRow').innerHTML = '';
-    resultsTable.style.display = 'none';
-    lastOutput = [];
-    setDownloadsEnabled(false);
-    setStatus('');
+    fileInput.value = ''; jsonText.value = ''; allowedInput.value = '';
+    caseInsensitive.checked = false; exactMatch.checked = true; explodeRows.checked = false;
+    selectedFields.user = new Set(['id','email','display_name']);
+    selectedFields.nested = new Set(['account_name','role']);
+    resultsBody.innerHTML = ''; theadRow.innerHTML = ''; resultsTable.style.display = 'none';
+    lastOutput = []; setDownloadsEnabled(false); setStatus('');
   });
 
   fileInput.addEventListener('change', async (e) => {
     if (!e.target.files || !e.target.files[0]) return;
     const file = e.target.files[0];
-    try {
+    try{
       const text = await file.text();
       jsonText.value = text;
-      setStatus(`Loaded file: ${file.name} (${file.size.toLocaleString()} bytes)`, 'ok');
       const data = JSON.parse(text);
       detectFields(data);
-    } catch (err) {
-      setStatus(`Failed to read file: ${String(err)}`, 'err');
-    }
+      setStatus(`Loaded file: ${file.name} (${file.size.toLocaleString()} bytes)`, 'ok');
+    }catch(err){ setStatus('Failed to read file: ' + String(err), 'err'); }
   });
 
   jsonText.addEventListener('blur', () => {
-    // Try to detect fields after manual paste
-    try {
-      const raw = (jsonText.value || '').trim();
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      detectFields(data);
-    } catch (_) {}
+    try{
+      const raw = (jsonText.value || '').trim(); if (!raw) return;
+      const data = JSON.parse(raw); detectFields(data);
+    }catch(_){}
   });
 
+  scopeUsers.addEventListener('change', toggleScopeUI);
+  scopeNested.addEventListener('change', toggleScopeUI);
+  collectionSelect.addEventListener('change', () => {
+    updateNestedFieldOptions();
+    renderFieldSelectors(); // refresh nested field chips to this collection
+    setDefaults(); // keep defaults sensible per collection
+  });
+
+  userAll.addEventListener('click', () => setAll('user', detected.userFields));
+  userNone.addEventListener('click', () => setNone('user'));
+  userDefaults.addEventListener('click', setDefaults);
+  rmAll.addEventListener('click', () => {
+    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value);
+    setAll('nested', coll ? coll.fields : []);
+  });
+  rmNone.addEventListener('click', () => setNone('nested'));
+  rmDefaults.addEventListener('click', setDefaults);
+
   runBtn.addEventListener('click', () => {
-    setDownloadsEnabled(false);
-    resultsBody.innerHTML = '';
-    resultsTable.style.display = 'none';
+    setDownloadsEnabled(false); resultsBody.innerHTML=''; resultsTable.style.display='none';
 
     const allowed = parseAllowed(allowedInput.value, caseInsensitive.checked);
-    if (allowed.size === 0){
-      setStatus('Please enter at least one account_name to match.', 'err');
-      return;
-    }
+    if (allowed.size === 0) return setStatus('Please enter at least one value to match.', 'err');
 
-    let data;
-    try{
+    let data; try{
       const raw = (jsonText.value || '').trim();
-      if (!raw) return setStatus('Please load a JSON file or paste JSON into the textbox.', 'err');
+      if (!raw) return setStatus('Please load a JSON file or paste JSON.', 'err');
       data = JSON.parse(raw);
     }catch(e){ return setStatus('Invalid JSON. Details:\n' + e.message, 'err'); }
 
     const users = Array.isArray(data?.users) ? data.users : null;
     if (!users) return setStatus('Expected an object with a "users" array at the top level.', 'err');
 
+    const filterSpec = scopeUsers.checked
+      ? { scope:'users', userField:userFieldSelect.value }
+      : { scope:'nested', collection:collectionSelect.value, nestedField:nestedFieldSelect.value };
+
     const t0 = performance.now();
-    const outputObjects = buildOutput(users, allowed);
-    const columns = buildColumns();
-    const tableRows = makeRows(outputObjects, columns);
+    const { rows, uniques } = buildOutput(users, allowed, filterSpec);
+    const columns = buildColumns(filterSpec);
     const t1 = performance.now();
 
-    lastOutput = tableRows;
-    renderTable(tableRows, columns);
-    setDownloadsEnabled(tableRows.length > 0);
-    setStatus(`Matched ${tableRows.length.toLocaleString()} row(s) — ${(t1 - t0).toFixed(1)}ms.`, 'ok');
+    lastOutput = rows;
+    renderTable(rows, columns);
+    setDownloadsEnabled(rows.length > 0);
+
+    // Status: include totals + uniques when per-match flatten is used
+    if (filterSpec.scope === 'nested' && explodeRows.checked){
+      setStatus(`Rows: ${rows.length.toLocaleString()} • Unique users: ${uniques.users.toLocaleString()} • Unique ${filterSpec.nestedField}: ${uniques.values.toLocaleString()} — ${(t1 - t0).toFixed(1)}ms.`, 'ok');
+    } else {
+      setStatus(`Matched ${rows.length.toLocaleString()} row(s) — ${(t1 - t0).toFixed(1)}ms.`, 'ok');
+    }
   });
 
   downloadJsonBtn.addEventListener('click', () => {
     if (!lastOutput.length) return;
     const blob = new Blob([JSON.stringify(lastOutput, null, 2)], {type:'application/json'});
-    triggerDownload(blob, 'filtered-users.json');
+    triggerDownload(blob, 'filtered-output.json');
   });
-
+  downloadCsvBtn.addEventListener('click', () => {
+    if (!lastOutput.length) return;
+    const cols = Array.from(theadRow.querySelectorAll('th')).map(th => th.textContent);
+    const csv = toCsv(lastOutput, cols);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    triggerDownload(blob, 'filtered-output.csv');
+  });
   copyBtn.addEventListener('click', async () => {
     if (!lastOutput.length) return;
     try{
@@ -412,23 +567,15 @@
     }catch(e){ setStatus('Copy failed: ' + e.message, 'err'); }
   });
 
-  downloadCsvBtn.addEventListener('click', () => {
-    if (!lastOutput.length) return;
-    const cols = buildColumns();
-    const csv = toCsv(lastOutput, cols);
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    triggerDownload(blob, 'filtered-users.csv');
-  });
-
   function triggerDownload(blob, filename){
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
   }
 
-  // Initialize empty selectors so layout doesn't jump
-  renderFieldSelectors();
+  // initial empty pickers so layout is stable
+  renderFilterSelectors(); renderFieldSelectors(); toggleScopeUI();
 })();
 </script>
 </body>
