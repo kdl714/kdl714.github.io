@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>JSON Filter</title>
+<title>Flexible JSON Filter (no defaults)</title>
 <style>
   :root{--bg:#0b0b10;--panel:#131320;--muted:#9aa0ac;--text:#e9e9f1;--accent:#5b8cff;--stroke:#202036;--field:#0f0f19;--ok:#2ecc71;--err:#ff5c5c}
   *{box-sizing:border-box}
@@ -29,111 +29,94 @@
   .hint{font-size:12px;color:var(--muted)}
   .status{font-size:13px;margin-top:6px}
   .status.ok{color:var(--ok)} .status.err{color:var(--err);white-space:pre-wrap}
+
   .group{border:1px solid var(--stroke);border-radius:12px;padding:12px;background:#0f0f19}
   .group h3{margin:0 0 8px 0;font-size:13px;color:#bdbdd3}
-  .picker-body{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(max-width:980px){.picker-body{grid-template-columns:1fr}}
-  .fieldlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:240px;overflow:auto;padding:8px;background:#0c0c16;border:1px solid #1e1e33;border-radius:10px}
-  .fieldchip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d6d6e6}
+  .chiplist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:240px;overflow:auto;padding:8px;background:#0c0c16;border:1px solid #1e1e33;border-radius:10px}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d6d6e6}
+  .searchbox{display:flex;gap:8px}
+  .searchbox input{flex:1}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:980px){.two{grid-template-columns:1fr}}
   table{width:100%;border-collapse:separate;border-spacing:0;background:var(--field);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
   th,td{padding:10px 12px;border-bottom:1px solid #1e1e30;text-align:left;vertical-align:top}
   th{background:#101022;font-size:12px;color:#bdbdd3;position:sticky;top:0}
   tr:last-child td{border-bottom:none}
   .footer{padding:12px 18px;border-top:1px solid var(--stroke);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
   code.bubble{background:#101022;padding:2px 6px;border-radius:8px;border:1px solid #232345;font-family:ui-monospace,Consolas,Menlo,monospace}
+  .danger{color:var(--err)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
     <header>
-      <h1>JSON Filter</h1>
-      <div class="sub">No installs • Everything runs locally</div>
+      <h1>Flexible JSON Filter</h1>
+      <div class="sub">No installs • Everything runs locally • No defaults</div>
     </header>
 
     <div class="content">
-      <!-- left: load -->
+      <!-- LEFT: Load -->
       <div class="section">
         <label>1) Load JSON (choose one):</label>
         <div class="row">
           <input id="fileInput" type="file" accept=".json,application/json"/>
           <button class="btn ghost" id="clearBtn">Clear</button>
         </div>
-        <textarea id="jsonText" placeholder='Paste any JSON here (object or array).'></textarea>
+        <textarea id="jsonText" placeholder="Paste any JSON (object or array)"></textarea>
         <div class="hint">Tip: file picker is faster for very large files.</div>
-
-        <div class="group">
-          <h3>2) Pick your <em>record set</em> (where rows come from)</h3>
-          <div class="row">
-            <select id="recordSetSelect" title="Array/object-of-objects path"></select>
-            <button class="btn ghost" id="rescanBtn" title="Rescan JSON for candidates">Rescan</button>
-          </div>
-          <div class="hint">We auto-detect arrays of objects anywhere in the JSON (and object-of-objects). Choose the one that represents your rows.</div>
-        </div>
       </div>
 
-      <!-- right: filter + output -->
+      <!-- RIGHT: Unified Builder -->
       <div class="section">
-        <label>3) Filter & Output</label>
+        <label>2) Build your query (filter + row scope + outputs)</label>
 
         <div class="group">
-          <h3>Filter</h3>
-          <div class="row">
-            <label><input type="radio" name="scope" id="scopeRecord" checked> Filter by <code class="bubble">record</code> field</label>
-            <label><input type="radio" name="scope" id="scopeNested"> Filter by <code class="bubble">nested collection</code> field</label>
+          <h3>Filter field (search across entire JSON)</h3>
+          <div class="searchbox">
+            <input id="pathSearch" type="text" placeholder="Search paths… (e.g. account_name, email, id)">
+            <select id="filterPath" size="8" title="Select a field path found in the JSON" style="min-height:160px;width:100%"></select>
           </div>
-
-          <div class="row" id="recordScopeRow">
-            <select id="recordFieldSelect" title="Record field to match"></select>
-          </div>
-
-          <div id="nestedScopeBlock">
-            <div class="row">
-              <select id="collectionSelect" title="Nested collection under each record"></select>
-              <select id="nestedFieldSelect" title="Field within that collection"></select>
-            </div>
-            <div class="row">
-              <label><input id="explodeRows" type="checkbox"> One row per match (flatten)</label>
-              <select id="uniqueBySelect" title="Unique record id for counts"></select>
-            </div>
-          </div>
-
-          <div class="row">
+          <div class="two">
             <input id="valuesInput" type="text" placeholder="Values to match (comma-separated)">
+            <div class="row">
+              <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
+              <label><input id="exactMatch" type="checkbox"> Exact match</label>
+            </div>
           </div>
-          <div class="row">
-            <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
-            <label><input id="exactMatch" type="checkbox" checked> Exact match</label>
-          </div>
+          <div class="hint">Paths use a simple JSONPath-like form with <code class="bubble">[]</code> to indicate collections, e.g. <code class="bubble">$.users[].role_members[].account_name</code>.</div>
         </div>
 
         <div class="group">
-          <h3>Output fields</h3>
-          <div class="picker-body">
-            <div>
-              <div class="hint">Record fields</div>
-              <div id="recordFieldGrid" class="fieldlist"></div>
-              <div class="row" style="margin-top:8px;">
-                <button class="btn ghost" id="recAll">All</button>
-                <button class="btn ghost" id="recNone">None</button>
-                <button class="btn ghost" id="recDefaults">Defaults</button>
-              </div>
-            </div>
-            <div>
-              <div class="hint">Nested fields (<span id="nestedLabel">—</span>)</div>
-              <div id="nestedFieldGrid" class="fieldlist"></div>
-              <div class="row" style="margin-top:8px;">
-                <button class="btn ghost" id="nestAll">All</button>
-                <button class="btn ghost" id="nestNone">None</button>
-                <button class="btn ghost" id="nestDefaults">Defaults</button>
-              </div>
-            </div>
+          <h3>Row scope (what becomes a “row”)</h3>
+          <div class="row">
+            <label><input type="radio" name="rowmode" id="rowMatch"> One row per <em>matching element’s object</em></label>
+            <label><input type="radio" name="rowmode" id="rowAggregate"> Aggregate matches to ancestor:</label>
+            <select id="ancestorSelect" disabled title="Pick an ancestor object to aggregate to"></select>
           </div>
-          <div class="hint" style="margin-top:6px">Defaults: <code class="bubble">id</code>, <code class="bubble">email</code>, <code class="bubble">display_name</code> if present; nested defaults: <code class="bubble">name</code>, <code class="bubble">account_name</code>, <code class="bubble">role</code> if present.</div>
+          <div class="row">
+            <label>Unique by (optional for stats):</label>
+            <select id="uniqueBy" disabled title="Pick a field on your row object to compute unique counts"></select>
+          </div>
+          <div class="hint">No defaults here — pick what you need. “Aggregate” lets you roll up matches to an ancestor object (e.g., from <code class="bubble">role_members</code> to its parent <code class="bubble">user</code>).</div>
+        </div>
+
+        <div class="group">
+          <h3>Output fields (relative to your chosen row)</h3>
+          <div class="row">
+            <button class="btn ghost" id="selectAll">All</button>
+            <button class="btn ghost" id="selectNone">None</button>
+            <span class="hint">No defaults are preselected.</span>
+          </div>
+          <div id="outputGrid" class="chiplist"></div>
+          <div class="row">
+            <input id="customField" type="text" placeholder="Add custom relative path (e.g. profile.name or meta.code)">
+            <button class="btn secondary" id="addCustom">Add</button>
+          </div>
         </div>
 
         <div class="row" style="gap:10px;">
-          <button class="btn" id="runBtn">Run Filter</button>
+          <button class="btn" id="runBtn" disabled>Run</button>
           <button class="btn secondary" id="downloadJsonBtn" disabled>Download JSON</button>
           <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
           <button class="btn ghost" id="copyBtn" disabled>Copy JSON</button>
@@ -142,7 +125,7 @@
       </div>
     </div>
 
-    <!-- results -->
+    <!-- RESULTS -->
     <div class="content single">
       <div class="section">
         <label>Results</label>
@@ -156,41 +139,35 @@
     </div>
 
     <div class="footer">
-      <span class="hint">All processing is local; nothing is uploaded.</span>
+      <span class="hint">Everything is processed locally in your browser.</span>
+      <span class="hint">If you want JSONPath wildcards like <code class="bubble">*</code> next, I can add them.</span>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  // --- DOM refs
+  // ---- DOM
   const fileInput = document.getElementById('fileInput');
   const jsonText = document.getElementById('jsonText');
   const clearBtn = document.getElementById('clearBtn');
-  const rescanBtn = document.getElementById('rescanBtn');
-  const recordSetSelect = document.getElementById('recordSetSelect');
 
-  const scopeRecord = document.getElementById('scopeRecord');
-  const scopeNested = document.getElementById('scopeNested');
-  const recordScopeRow = document.getElementById('recordScopeRow');
-  const nestedScopeBlock = document.getElementById('nestedScopeBlock');
-
-  const recordFieldSelect = document.getElementById('recordFieldSelect');
-  const collectionSelect = document.getElementById('collectionSelect');
-  const nestedFieldSelect = document.getElementById('nestedFieldSelect');
-  const uniqueBySelect = document.getElementById('uniqueBySelect');
-
+  const pathSearch = document.getElementById('pathSearch');
+  const filterPathSel = document.getElementById('filterPath');
   const valuesInput = document.getElementById('valuesInput');
   const caseInsensitive = document.getElementById('caseInsensitive');
   const exactMatch = document.getElementById('exactMatch');
-  const explodeRows = document.getElementById('explodeRows');
 
-  const recordFieldGrid = document.getElementById('recordFieldGrid');
-  const nestedFieldGrid = document.getElementById('nestedFieldGrid');
-  const nestedLabel = document.getElementById('nestedLabel');
+  const rowMatch = document.getElementById('rowMatch');
+  const rowAggregate = document.getElementById('rowAggregate');
+  const ancestorSelect = document.getElementById('ancestorSelect');
+  const uniqueBy = document.getElementById('uniqueBy');
 
-  const recAll = document.getElementById('recAll'), recNone = document.getElementById('recNone'), recDefaults = document.getElementById('recDefaults');
-  const nestAll = document.getElementById('nestAll'), nestNone = document.getElementById('nestNone'), nestDefaults = document.getElementById('nestDefaults');
+  const outputGrid = document.getElementById('outputGrid');
+  const selectAllBtn = document.getElementById('selectAll');
+  const selectNoneBtn = document.getElementById('selectNone');
+  const customField = document.getElementById('customField');
+  const addCustom = document.getElementById('addCustom');
 
   const runBtn = document.getElementById('runBtn');
   const statusEl = document.getElementById('status');
@@ -201,180 +178,192 @@
   const downloadCsvBtn = document.getElementById('downloadCsvBtn');
   const copyBtn = document.getElementById('copyBtn');
 
-  let lastOutput = [];
-  let rootData = null;
+  // ---- State
+  let root = null;
+  let scalarPaths = []; // [{path, sample, ancestors: ['$.users[]','$.users[].role_members[]'], holder:'$.users[].role_members[]'}]
+  let filteredScalarPaths = [];
+  let selectedOutput = new Set();       // relative to row object
+  let customOutputs = new Set();        // user-added relative paths
+  let currentRowCandidates = [];        // list of {label, path} for ancestorSelect
+  let currentRowFieldList = [];         // union of fields for row object
+  let lastRows = [];
+  let lastColumns = [];
 
-  // state
-  const state = {
-    candidateSets: [], // {label, resolve: (root)=>records, sample, count}
-    selectedSetIndex: 0,
-    recordFields: [],
-    nestedCollections: [], // [{name, fields}]
-    selectedRecordFields: new Set(),
-    selectedNestedFields: new Set()
+  // ---- Utils
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  const setStatus = (m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')}
+  const setDownloads = on => {downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on}
+  const enableRunIfReady = ()=> {
+    const hasPath = !!filterPathSel.value;
+    const hasValues = !!valuesInput.value.trim();
+    const rowModeChosen = rowMatch.checked || rowAggregate.checked;
+    const aggOk = (!rowAggregate.checked) || (!!ancestorSelect.value);
+    runBtn.disabled = !(root && hasPath && hasValues && rowModeChosen && aggOk);
   };
 
-  // helpers
-  const escapeHtml = v => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  const setStatus = (m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')};
-  const setDownloads = on => {downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on};
-  const parseValues = (s,ci)=> new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x));
-  function matchAllowed(allowed,val,{ci,exact}){
+  function parseValues(s,ci){ return new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x)); }
+  function matchesAllowed(allowed,val,{ci,exact}){
     const t = ci ? String(val??'').toLowerCase() : String(val??'');
     if (exact) return allowed.has(t);
     for (const a of allowed) if (t.includes(a)) return true;
     return false;
   }
 
-  // find candidate record sets anywhere in JSON
-  function scanCandidates(root){
-    const cands = [];
-    const add = (label, resolver, count, mode) => cands.push({label, resolve:resolver, count, mode});
-    const seen = new Set();
+  // ----- Path utilities (supports tokens like foo, foo[], nested.foo[], $.root[], etc.)
+  function tokenize(path){
+    const p = path.replace(/^\$\./,'$.' ).replace(/^\$/,'$');
+    const parts = p.split('.'); // keeps '[]' suffix on tokens
+    return parts;
+  }
+  function isCollectionToken(tok){ return tok.endsWith('[]') || tok.endsWith('[*]'); }
+  function baseName(tok){ return tok.replace(/\[\]|\[\*\]/,''); }
 
-    function walk(node, pathLabel, resolver){
-      if (!node) return;
+  // Enumerate *all* scalar field paths across the JSON
+  function scanScalarPaths(root){
+    const out = [];
+    function walk(node, tokens, ancestors, holderPath){
+      if (node===null || node===undefined) return;
+
       if (Array.isArray(node)){
-        const objs = node.filter(x => x && typeof x==='object' && !Array.isArray(x));
-        if (objs.length){
-          const lbl = (pathLabel||'$') + '[]';
-          if (!seen.has(lbl)){ add(lbl, root=>resolver(root), objs.length, 'array'); seen.add(lbl); }
+        const t = tokens.length?tokens[tokens.length-1]: '$';
+        // iterate
+        for (let i=0;i<node.length;i++){
+          const el = node[i];
+          walk(el, tokens, ancestors, holderPath); // element inherits same holder
         }
-        node.forEach((child,i)=> walk(child, (pathLabel||'$')+'['+i+']', r=> r(root)[i]));
-      } else if (typeof node==='object'){
-        // object-of-objects candidate
-        const vals = Object.values(node);
-        const objVals = vals.filter(v => v && typeof v==='object' && !Array.isArray(v));
-        if (objVals.length && objVals.length===vals.length){
-          const lbl = (pathLabel||'$') + '{values}';
-          if (!seen.has(lbl)){ add(lbl, root=>Object.values(resolver(root)), objVals.length, 'objectValues'); seen.add(lbl); }
-        }
+      } else if (typeof node === 'object'){
+        // record this object as a potential holder if last token denotes a collection
+        const parentTok = tokens[tokens.length-1] || '$';
+        let newHolder = holderPath;
+        if (isCollectionToken(parentTok)) newHolder = tokens.join('.');
+        // add ancestor collection path when parentTok is collection
+        const newAncestors = [...ancestors];
+        if (isCollectionToken(parentTok)) newAncestors.push(tokens.join('.'));
+
         for (const [k,v] of Object.entries(node)){
-          walk(v, (pathLabel?pathLabel+'.':'$.' )+k, r=> r(root)[k]);
+          const tok = k;
+          const nextTokens = tokens.length? [...tokens, tok] : ['$.', tok];
+          if (v && typeof v === 'object'){
+            // arrays and objects
+            if (Array.isArray(v)){
+              walk(v, [...nextTokens.slice(0,-1), nextTokens[nextTokens.length-1]+'[]'], newAncestors, newHolder);
+            }else{
+              walk(v, nextTokens, newAncestors, newHolder);
+            }
+          } else {
+            // scalar -> record path
+            const path = (tokens.length?tokens.join('.')+'.':'$.' ) + k;
+            out.push({ path, sample: v, ancestors: newAncestors, holder: newHolder || tokens.join('.') });
+          }
         }
       }
     }
-    walk(root, '$', _=>root);
+    walk(root, ['$'], [], '$');
+    // Deduplicate by path (keep first sample)
+    const seen=new Set();
+    return out.filter(p=>{ if(seen.has(p.path)) return false; seen.add(p.path); return true; });
+  }
+
+  // Given a field path, offer ancestor row candidates (matching element’s object + any ancestor collection objects)
+  function rowCandidatesForField(fieldPath){
+    const entry = scalarPaths.find(p => p.path===fieldPath);
+    if (!entry) return [];
+    const cands = [];
+    // holder object of the field
+    cands.push({label:'(matching element object) '+entry.holder, path:entry.holder});
+    // ancestor collections (closest first)
+    for (let i=entry.ancestors.length-1;i>=0;i--){
+      cands.push({label: 'ancestor '+entry.ancestors[i], path: entry.ancestors[i]});
+    }
     return cands;
   }
 
-  function resolveRecords(){
-    const cand = state.candidateSets[state.selectedSetIndex];
-    if (!cand) return [];
-    const recs = cand.resolve(()=>rootData);
-    // only keep objects
-    return (recs||[]).filter(x=>x && typeof x==='object' && !Array.isArray(x));
-  }
-
-  function detectSchema(records){
-    const sampleCount = Math.min(records.length, 50);
-    const unionKeys = new Set();
-    const nestedMap = new Map(); // name -> Set(fields)
-
-    for (let i=0;i<sampleCount;i++){
-      const r = records[i] || {};
-      Object.keys(r).forEach(k=>{
-        if (Array.isArray(r[k])){
-          const arr = r[k];
-          const objEls = arr.filter(x=>x && typeof x==='object' && !Array.isArray(x));
-          if (objEls.length){
-            if (!nestedMap.has(k)) nestedMap.set(k,new Set());
-            objEls.slice(0,10).forEach(o=> Object.keys(o||{}).forEach(f=> nestedMap.get(k).add(f)));
-          }
-        } else if (r[k] && typeof r[k]==='object'){
-          // allow object-valued field to be treated as nested collection of its values if values are objects
-          const vals = Object.values(r[k]);
-          if (vals.length && vals.every(v=>v && typeof v==='object' && !Array.isArray(v))){
-            if (!nestedMap.has(k)) nestedMap.set(k,new Set());
-            vals.slice(0,10).forEach(o=> Object.keys(o||{}).forEach(f=> nestedMap.get(k).add(f)));
-          } else {
-            unionKeys.add(k); // keep object ref as a field, but won't be flattenable
-          }
-        } else {
-          unionKeys.add(k);
+  // Resolve all matches for a scalar path, including their object contexts + ancestor objects
+  function resolveMatchesForPath(path){
+    const tokens = tokenize(path);
+    const res = [];
+    function recur(node, idx, stack){
+      if (idx >= tokens.length) return;
+      const tok = tokens[idx];
+      if (tok==='$' || tok==='$.') { recur(node, idx+1, stack); return; }
+      const coll = isCollectionToken(tok), key = baseName(tok);
+      if (coll){
+        const next = node?.[key];
+        if (!next) return;
+        const items = Array.isArray(next) ? next : (typeof next==='object' ? Object.values(next) : []);
+        for (const el of items) {
+          if (el && typeof el==='object') recur(el, idx+1, stack.concat({type:'collection', key, obj:el, path: tokens.slice(0,idx+1).join('.')}));
         }
-      });
+      }else{
+        if (idx === tokens.length-1){
+          // last token -> scalar value at node[key]
+          const holderObj = node;
+          const val = holderObj?.[key];
+          if (val!==undefined && (typeof val!=='object' || val===null)){
+            res.push({ value: val, holder: holderObj, stack });
+          }
+          return;
+        } else {
+          const next = node?.[key];
+          if (next && typeof next==='object'){
+            recur(next, idx+1, stack.concat({type:'object', key, obj:next, path: tokens.slice(0,idx+1).join('.')}));
+          }
+        }
+      }
     }
-
-    state.recordFields = [...unionKeys];
-    state.nestedCollections = [...nestedMap.entries()].map(([name,set])=>({name,fields:[...set]}));
-
-    // defaults
-    const defaults = ['id','email','display_name','name','title'];
-    state.selectedRecordFields = new Set(state.recordFields.filter(k=>defaults.includes(k)).slice(0,3));
-    const nDefaults = ['account_name','name','role'];
-    state.selectedNestedFields = new Set(nDefaults);
+    recur(root, 0, []);
+    return res;
   }
 
-  function renderRecordSetPicker(){
-    recordSetSelect.innerHTML='';
-    state.candidateSets.forEach((c,idx)=>{
-      const opt=document.createElement('option');
-      opt.value=idx; opt.textContent=`${c.label}  — ${c.count} item(s)`;
-      recordSetSelect.appendChild(opt);
+  // From a match context, extract the "row object" according to row mode + ancestor choice
+  function rowObjectFromMatch(match, mode, ancestorPath){
+    if (mode==='match') return match.holder;
+    if (mode==='agg' && ancestorPath){
+      // find closest stack entry whose path equals ancestorPath
+      for (let i=match.stack.length-1;i>=0;i--){
+        if (match.stack[i].path === ancestorPath) return match.stack[i].obj;
+      }
+    }
+    return null;
+  }
+
+  // For a given row object array, build available field list (union of scalar keys up to some depth)
+  function detectRowFields(rows){
+    const keys = new Set();
+    const max = Math.min(50, rows.length);
+    for (let i=0;i<max;i++){
+      const r = rows[i];
+      if (!r || typeof r!=='object') continue;
+      for (const [k,v] of Object.entries(r)){
+        if (v===null || typeof v!=='object') keys.add(k);
+      }
+    }
+    return [...keys];
+  }
+
+  function getRelPath(obj, rel){
+    if (!rel) return undefined;
+    const parts = rel.split('.').filter(Boolean);
+    let cur = obj;
+    for (const p of parts){
+      if (cur==null) return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  }
+
+  function buildTable(rows, cols){
+    resultsBody.innerHTML=''; theadRow.innerHTML='';
+    if (!rows.length){ resultsTable.style.display='none'; return; }
+    cols.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; theadRow.appendChild(th); });
+    const frag=document.createDocumentFragment();
+    rows.forEach(r=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = cols.map(c => `<td>${esc(r[c])}</td>`).join('');
+      frag.appendChild(tr);
     });
-    recordSetSelect.value=String(state.selectedSetIndex||0);
-  }
-
-  function renderFilterSelectors(){
-    // record field list
-    recordFieldSelect.innerHTML='';
-    state.recordFields.forEach(k=>{
-      const o=document.createElement('option'); o.value=k; o.textContent=k; recordFieldSelect.appendChild(o);
-    });
-    // good default
-    ['email','id','name','display_name','title'].some(k=>{
-      if (state.recordFields.includes(k)){ recordFieldSelect.value=k; return true; }
-      return false;
-    });
-
-    // unique-by list (record)
-    uniqueBySelect.innerHTML='';
-    const uniqCandidates = state.recordFields.filter(k=>['id','email','uid','key','slug'].includes(k)).concat(state.recordFields).filter((v,i,a)=>a.indexOf(v)===i);
-    uniqCandidates.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent='Unique by: '+k; uniqueBySelect.appendChild(o); });
-    if (uniqCandidates.length) uniqueBySelect.value=uniqCandidates[0];
-
-    // nested collection + field
-    collectionSelect.innerHTML='';
-    state.nestedCollections.forEach(c=>{ const o=document.createElement('option'); o.value=c.name; o.textContent=c.name; collectionSelect.appendChild(o); });
-    updateNestedFieldOptions();
-
-    nestedScopeBlock.style.display = state.nestedCollections.length ? '' : 'none';
-    toggleScopeUI();
-  }
-
-  function updateNestedFieldOptions(){
-    nestedFieldSelect.innerHTML='';
-    const coll = state.nestedCollections.find(c=>c.name===collectionSelect.value) || state.nestedCollections[0];
-    if (!coll){ nestedLabel.textContent='—'; return; }
-    nestedLabel.textContent = coll.name;
-    coll.fields.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; nestedFieldSelect.appendChild(o); });
-    if (coll.fields.includes('account_name')) nestedFieldSelect.value='account_name';
-    else if (coll.fields.includes('name')) nestedFieldSelect.value='name';
-    // refresh nested field chips
-    renderFieldGrids();
-  }
-
-  function renderFieldGrids(){
-    recordFieldGrid.innerHTML=''; nestedFieldGrid.innerHTML='';
-    const makeChip=(name,set)=>{
-      const lbl=document.createElement('label'); lbl.className='fieldchip';
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=set.has(name);
-      cb.addEventListener('change',()=>{ cb.checked?set.add(name):set.delete(name) });
-      const span=document.createElement('span'); span.textContent=name;
-      lbl.appendChild(cb); lbl.appendChild(span); return lbl;
-    };
-    state.recordFields.forEach(k=> recordFieldGrid.appendChild(makeChip(k,state.selectedRecordFields)));
-    const coll = state.nestedCollections.find(c=>c.name===collectionSelect.value);
-    (coll?coll.fields:[]).forEach(k=> nestedFieldGrid.appendChild(makeChip(k,state.selectedNestedFields)));
-  }
-
-  function toggleScopeUI(){
-    const nestedActive = scopeNested.checked && state.nestedCollections.length>0;
-    recordScopeRow.style.display = scopeRecord.checked ? '' : 'none';
-    nestedScopeBlock.style.display = nestedActive ? '' : 'none';
-    explodeRows.disabled = !nestedActive;
-    if (!nestedActive) explodeRows.checked = false;
+    resultsBody.appendChild(frag);
+    resultsTable.style.display='';
   }
 
   function toCsv(rows, cols){
@@ -382,208 +371,231 @@
     const lines=[header];
     for(const r of rows){
       const fields=cols.map(c=>{
-        const s = (r[c]==null)?'':String(r[c]);
-        return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+        const s = r[c]==null ? '' : String(r[c]);
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
       });
       lines.push(fields.join(','));
     }
     return lines.join('\r\n');
   }
 
-  function renderTable(rows, columns){
-    resultsBody.innerHTML=''; theadRow.innerHTML='';
-    if (!rows.length){ resultsTable.style.display='none'; return; }
-    columns.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; theadRow.appendChild(th); });
-    const frag=document.createDocumentFragment();
-    rows.forEach(o=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML = columns.map(c=>`<td>${escapeHtml(o[c])}</td>`).join('');
-      frag.appendChild(tr);
+  // ---- Rendering helpers
+  function renderFilterPathOptions(){
+    filterPathSel.innerHTML='';
+    filteredScalarPaths.forEach(p=>{
+      const opt=document.createElement('option');
+      opt.value=p.path;
+      opt.textContent=`${p.path} — sample: ${String(p.sample).slice(0,60)}`;
+      filterPathSel.appendChild(opt);
     });
-    resultsBody.appendChild(frag);
-    resultsTable.style.display='';
+  }
+  function renderOutputGrid(fieldNames){
+    outputGrid.innerHTML='';
+    const makeChip=(name)=>{
+      const lbl=document.createElement('label'); lbl.className='chip';
+      const cb=document.createElement('input'); cb.type='checkbox';
+      cb.checked = selectedOutput.has(name);
+      cb.addEventListener('change',()=>{ cb.checked ? selectedOutput.add(name) : selectedOutput.delete(name); });
+      const span=document.createElement('span'); span.textContent=name;
+      lbl.appendChild(cb); lbl.appendChild(span); return lbl;
+    };
+    fieldNames.forEach(n=> outputGrid.appendChild(makeChip(n)));
+    // Include custom fields again if not in autodetected
+    [...customOutputs].forEach(n=> { if (!fieldNames.includes(n)) outputGrid.appendChild(makeChip(n)); });
+  }
+  function renderAncestors(){
+    const field = filterPathSel.value;
+    currentRowCandidates = rowCandidatesForField(field);
+    ancestorSelect.innerHTML='';
+    currentRowCandidates.slice(1).forEach(c=>{
+      const o=document.createElement('option'); o.value=c.path; o.textContent=c.label; ancestorSelect.appendChild(o);
+    });
+    ancestorSelect.disabled = !rowAggregate.checked || ancestorSelect.options.length===0;
+  }
+  function refreshRowFieldsPreview(){
+    // when a row mode is picked, compute a few row objects to list fields
+    const field = filterPathSel.value; if (!field) return;
+    const matches = resolveMatchesForPath(field);
+    const mode = rowMatch.checked ? 'match' : (rowAggregate.checked ? 'agg' : null);
+    const anc = rowAggregate.checked ? ancestorSelect.value : null;
+    if (!mode || (mode==='agg' && !anc)) { currentRowFieldList=[]; renderOutputGrid([]); uniqueBy.innerHTML=''; uniqueBy.disabled=true; return; }
+
+    const rows = [];
+    for (const m of matches){
+      const rowObj = rowObjectFromMatch(m, mode, anc);
+      if (rowObj) rows.push(rowObj);
+    }
+    currentRowFieldList = detectRowFields(rows);
+    renderOutputGrid(currentRowFieldList);
+
+    // Unique-by options (no defaults)
+    uniqueBy.innerHTML='';
+    currentRowFieldList.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; uniqueBy.appendChild(o); });
+    uniqueBy.disabled = !rowMatch.checked && !rowAggregate.checked;
   }
 
-  // build rows
-  function runFilter(){
-    const records = resolveRecords();
-    if (!records.length) return {rows:[], columns:[], stats:null};
-
+  // ---- Actions
+  function run(){
+    const filterPath = filterPathSel.value;
     const allowed = parseValues(valuesInput.value, caseInsensitive.checked);
-    if (!allowed.size) return {rows:[], columns:[], stats:null};
+    const ci = caseInsensitive.checked, exact = exactMatch.checked;
+    const mode = rowMatch.checked ? 'match' : (rowAggregate.checked ? 'agg' : null);
+    const anc = rowAggregate.checked ? ancestorSelect.value : null;
 
-    const ci=caseInsensitive.checked, exact=exactMatch.checked;
+    const t0 = performance.now();
+    const matches = resolveMatchesForPath(filterPath).filter(m => matchesAllowed(allowed, m.value, {ci,exact}));
+    const rows = [];
+    const rowObjs = [];
 
-    const recCols = [...state.selectedRecordFields];
-    const nestCols = [...state.selectedNestedFields];
+    for (const m of matches){
+      const rowObj = rowObjectFromMatch(m, mode, anc);
+      if (!rowObj) continue;
+      rowObjs.push(rowObj);
 
-    let rows=[];
-    let columns=[];
-
-    if (scopeRecord.checked){
-      const field = recordFieldSelect.value;
-      rows = records.filter(r=> matchAllowed(allowed, r?.[field], {ci,exact}))
-                    .map(r=>{
-                      const obj={}; recCols.forEach(k=> obj[k]= r?.[k] ?? null );
-                      return obj;
-                    });
-      columns = recCols;
-      return {rows, columns, stats: {rows:rows.length}};
+      const out = {};
+      const cols = [...selectedOutput, ...customOutputs];
+      if (cols.length===0){
+        // No selected outputs: provide a readable JSON column (generic, not a domain default)
+        out['row_json'] = JSON.stringify(rowObj);
+      } else {
+        cols.forEach(rel => {
+          let v = getRelPath(rowObj, rel);
+          if (typeof v === 'object') v = JSON.stringify(v);
+          out[rel] = v ?? '';
+        });
+      }
+      // Always helpful to include the filter value column for traceability when per-match rows
+      if (mode==='match'){ out['__filter_value'] = String(m.value); }
+      rows.push(out);
     }
 
-    // nested
-    const collName = collectionSelect.value;
-    const nestedField = nestedFieldSelect.value;
+    // Columns
+    let columns = rows.length ? Object.keys(rows[0]) : [];
+    // Guarantee consistent column order (selected outputs first)
+    if (rows.length && selectedOutput.size){
+      const preferred = [...selectedOutput, ...customOutputs];
+      columns = [...preferred, ...columns.filter(c => !preferred.includes(c))];
+    }
 
-    if (explodeRows.checked){
-      for (const r of records){
-        const items = toNestedItems(r[collName]);
-        const matches = items.filter(it=> matchAllowed(allowed, it?.[nestedField], {ci,exact}));
-        for (const m of matches){
-          const obj={};
-          recCols.forEach(k=> obj[k]=r?.[k] ?? null);
-          // ensure filter field exists
-          obj[`${collName}_${nestedField}`] = m?.[nestedField] ?? null;
-          nestCols.forEach(k=> obj[`${collName}_${k}`] = m?.[k] ?? null);
-          rows.push(obj);
-        }
+    // Stats: show total + unique counts when per-match mode
+    const t1 = performance.now();
+    lastRows = rows; lastColumns = columns; buildTable(rows, columns);
+    setDownloads(rows.length>0);
+
+    if (mode==='match'){
+      const uniqValSet = new Set(rows.map(r => r['__filter_value']));
+      const uniqByField = uniqueBy.value || null;
+      if (uniqByField){
+        const uniqRec = new Set(rowObjs.map(r => String(getRelPath(r, uniqByField)))).size;
+        setStatus(`Rows: ${rows.length.toLocaleString()} • Unique "${uniqByField}": ${uniqRec.toLocaleString()} • Unique filter values: ${uniqValSet.size.toLocaleString()} — ${(t1-t0).toFixed(1)}ms.`, 'ok');
+      }else{
+        setStatus(`Rows: ${rows.length.toLocaleString()} • Unique filter values: ${uniqValSet.size.toLocaleString()} — ${(t1-t0).toFixed(1)}ms.`, 'ok');
       }
-      const columnsSet = new Set([...recCols, `${collName}_${nestedField}`, ...nestCols.map(k=>`${collName}_${k}`)]);
-      columns=[...columnsSet];
-
-      // stats: unique records + unique filter values
-      const uniqByField = uniqueBySelect.value;
-      const uniqRecords = new Set(rows.map(r=> r[uniqByField])).size;
-      const uniqVals = new Set(rows.map(r=> r[`${collName}_${nestedField}`])).size;
-      return {rows, columns, stats:{rows:rows.length, uniqRecords, uniqVals, uniqField:uniqByField, valueField:`${collName}_${nestedField}`}};
     } else {
-      for (const r of records){
-        const items = toNestedItems(r[collName]);
-        const matches = items.filter(it=> matchAllowed(allowed, it?.[nestedField], {ci,exact}));
-        if (!matches.length) continue;
-        const obj={}; recCols.forEach(k=> obj[k]=r?.[k] ?? null);
-        obj[`matching_${collName}`] = matches.map(m=>{
-          if (!nestCols.length) return String(m?.[nestedField] ?? '');
-          const parts=[];
-          if (m?.[nestedField]!=null) parts.push(String(m[nestedField]));
-          const extras = nestCols.filter(k=>k!==nestedField).map(k=> m?.[k]!=null ? `${k}:${m[k]}` : '').filter(Boolean);
-          if (extras.length) parts.push(`(${extras.join(', ')})`);
-          return parts.join(' ');
-        }).join('; ');
-        rows.push(obj);
-      }
-      columns=[...recCols, `matching_${collName}`];
-      return {rows, columns, stats:{rows:rows.length}};
+      setStatus(`Matched ${rows.length.toLocaleString()} row(s) — ${(t1-t0).toFixed(1)}ms.`, 'ok');
     }
   }
 
-  function toNestedItems(x){
-    if (Array.isArray(x)) return x.filter(o=>o && typeof o==='object' && !Array.isArray(o));
-    if (x && typeof x==='object'){
-      const vals = Object.values(x);
-      if (vals.length && vals.every(v=>v && typeof v==='object' && !Array.isArray(v))) return vals;
-    }
-    return [];
-  }
-
-  // events
-  function loadAndDetect(text){
-    rootData = JSON.parse(text);
-    state.candidateSets = scanCandidates(rootData);
-    if (!state.candidateSets.length){ setStatus('No array/object-of-objects of records found. Paste different JSON or expand nested areas.', 'err'); return; }
-    state.selectedSetIndex = 0;
-    renderRecordSetPicker();
-
-    const records = resolveRecords();
-    detectSchema(records);
-    renderFilterSelectors();
-    renderFieldGrids();
-    setStatus(`Detected ${records.length.toLocaleString()} record(s) from ${state.candidateSets[0].label}.`, 'ok');
+  // ---- Event wiring
+  function loadAndScan(text){
+    root = JSON.parse(text);
+    scalarPaths = scanScalarPaths(root);
+    filteredScalarPaths = scalarPaths;
+    renderFilterPathOptions();
+    setStatus(`Scanned ${scalarPaths.length} field path(s). Choose a filter field, row scope, and outputs.`, 'ok');
+    enableRunIfReady();
   }
 
   fileInput.addEventListener('change', async e=>{
     const f=e.target.files?.[0]; if(!f) return;
-    try{ const t=await f.text(); jsonText.value=t; loadAndDetect(t); }
-    catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
+    try{ const t=await f.text(); jsonText.value=t; loadAndScan(t); }catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
   });
-
-  rescanBtn.addEventListener('click', ()=>{
-    try{ const raw=(jsonText.value||'').trim(); if(!raw) return setStatus('Paste JSON or load a file first.','err'); loadAndDetect(raw); }
-    catch(e){ setStatus('Invalid JSON: '+e.message,'err'); }
-  });
-
   jsonText.addEventListener('blur', ()=>{
-    try{ const raw=(jsonText.value||'').trim(); if(!raw) return; loadAndDetect(raw); }catch(_){}
-  });
-
-  recordSetSelect.addEventListener('change', ()=>{
-    state.selectedSetIndex = Number(recordSetSelect.value)||0;
-    const records = resolveRecords();
-    detectSchema(records);
-    renderFilterSelectors();
-    renderFieldGrids();
-    setStatus(`Record set switched: ${records.length.toLocaleString()} record(s).`,'ok');
-  });
-
-  collectionSelect.addEventListener('change', ()=>{ updateNestedFieldOptions(); });
-  scopeRecord.addEventListener('change', toggleScopeUI);
-  scopeNested.addEventListener('change', toggleScopeUI);
-
-  recAll.addEventListener('click', ()=>{ state.selectedRecordFields=new Set(state.recordFields); renderFieldGrids(); });
-  recNone.addEventListener('click', ()=>{ state.selectedRecordFields=new Set(); renderFieldGrids(); });
-  recDefaults.addEventListener('click', ()=>{
-    const defs=['id','email','display_name','name','title'];
-    state.selectedRecordFields=new Set(state.recordFields.filter(k=>defs.includes(k)).slice(0,3));
-    renderFieldGrids();
-  });
-  nestAll.addEventListener('click', ()=>{
-    const coll=state.nestedCollections.find(c=>c.name===collectionSelect.value);
-    state.selectedNestedFields=new Set(coll?coll.fields:[]);
-    renderFieldGrids();
-  });
-  nestNone.addEventListener('click', ()=>{ state.selectedNestedFields=new Set(); renderFieldGrids(); });
-  nestDefaults.addEventListener('click', ()=>{
-    const defs=['name','account_name','role'];
-    const coll=state.nestedCollections.find(c=>c.name===collectionSelect.value);
-    state.selectedNestedFields=new Set((coll?coll.fields:[]).filter(k=>defs.includes(k)));
-    renderFieldGrids();
+    try{ const raw=(jsonText.value||'').trim(); if(!raw) return; loadAndScan(raw); }catch(_){}
   });
 
   clearBtn.addEventListener('click', ()=>{
-    fileInput.value=''; jsonText.value=''; rootData=null; state.candidateSets=[]; recordSetSelect.innerHTML='';
-    state.recordFields=[]; state.nestedCollections=[]; recordFieldGrid.innerHTML=''; nestedFieldGrid.innerHTML='';
-    resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none'; setDownloads(false); setStatus('');
+    root=null; jsonText.value=''; fileInput.value='';
+    scalarPaths=[]; filteredScalarPaths=[]; filterPathSel.innerHTML='';
+    valuesInput.value=''; caseInsensitive.checked=false; exactMatch.checked=false;
+    rowMatch.checked=false; rowAggregate.checked=false; ancestorSelect.innerHTML=''; ancestorSelect.disabled=true;
+    uniqueBy.innerHTML=''; uniqueBy.disabled=true;
+    selectedOutput=new Set(); customOutputs=new Set(); outputGrid.innerHTML='';
+    resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none'; setDownloads(false);
+    setStatus('');
+    enableRunIfReady();
   });
 
-  runBtn.addEventListener('click', ()=>{
-    if (!rootData) return setStatus('Load JSON first.', 'err');
-    const {rows, columns, stats} = runFilter();
-    if (!rows.length){ setStatus('No matches.', 'ok'); resultsTable.style.display='none'; setDownloads(false); return; }
-    lastOutput = rows; renderTable(rows, columns); setDownloads(true);
-    if (stats && stats.uniqRecords!=null){
-      setStatus(`Rows: ${stats.rows.toLocaleString()} • Unique records (${stats.uniqField}): ${stats.uniqRecords.toLocaleString()} • Unique values (${stats.valueField}): ${stats.uniqVals.toLocaleString()}`, 'ok');
-    } else {
-      setStatus(`Matched ${rows.length.toLocaleString()} row(s).`, 'ok');
-    }
+  pathSearch.addEventListener('input', ()=>{
+    const q = pathSearch.value.toLowerCase().trim();
+    filteredScalarPaths = !q ? scalarPaths : scalarPaths.filter(p => p.path.toLowerCase().includes(q));
+    renderFilterPathOptions();
+    enableRunIfReady();
   });
+
+  filterPathSel.addEventListener('change', ()=>{
+    renderAncestors();
+    // Force re-pick of row mode to avoid silent defaults
+    uniqueBy.innerHTML=''; uniqueBy.disabled=true;
+    selectedOutput=new Set(); customOutputs=new Set(); renderOutputGrid([]);
+    enableRunIfReady();
+  });
+
+  rowMatch.addEventListener('change', ()=>{
+    ancestorSelect.disabled = true;
+    refreshRowFieldsPreview();
+    enableRunIfReady();
+  });
+  rowAggregate.addEventListener('change', ()=>{
+    ancestorSelect.disabled = !rowAggregate.checked || ancestorSelect.options.length===0;
+    refreshRowFieldsPreview();
+    enableRunIfReady();
+  });
+  ancestorSelect.addEventListener('change', ()=>{
+    refreshRowFieldsPreview();
+    enableRunIfReady();
+  });
+
+  selectAllBtn.addEventListener('click', ()=>{
+    currentRowFieldList.forEach(f => selectedOutput.add(f));
+    renderOutputGrid(currentRowFieldList);
+  });
+  selectNoneBtn.addEventListener('click', ()=>{
+    selectedOutput.clear();
+    renderOutputGrid(currentRowFieldList);
+  });
+  addCustom.addEventListener('click', ()=>{
+    const rel = (customField.value||'').trim();
+    if (!rel) return;
+    customOutputs.add(rel);
+    selectedOutput.add(rel);
+    renderOutputGrid(currentRowFieldList);
+    customField.value='';
+  });
+
+  valuesInput.addEventListener('input', enableRunIfReady);
+  [caseInsensitive, exactMatch].forEach(el=> el.addEventListener('change', enableRunIfReady));
+  runBtn.addEventListener('click', run);
 
   downloadJsonBtn.addEventListener('click', ()=>{
-    if (!lastOutput.length) return;
-    const blob = new Blob([JSON.stringify(lastOutput,null,2)],{type:'application/json'});
-    trigger(blob,'filtered-output.json');
+    if (!lastRows.length) return;
+    const blob = new Blob([JSON.stringify(lastRows,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.json';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
   });
   downloadCsvBtn.addEventListener('click', ()=>{
-    if (!lastOutput.length) return;
-    const cols = Array.from(theadRow.querySelectorAll('th')).map(th=>th.textContent);
-    const csv = toCsv(lastOutput, cols);
-    trigger(new Blob([csv],{type:'text/csv;charset=utf-8'}),'filtered-output.csv');
+    if (!lastRows.length) return;
+    const csv = toCsv(lastRows, lastColumns);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.csv';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
   });
-  copyBtn.addEventListener('click', async()=>{
-    if (!lastOutput.length) return;
-    try{ await navigator.clipboard.writeText(JSON.stringify(lastOutput,null,2)); setStatus('Copied JSON to clipboard.','ok'); }
+  copyBtn.addEventListener('click', async ()=>{
+    if (!lastRows.length) return;
+    try{ await navigator.clipboard.writeText(JSON.stringify(lastRows,null,2)); setStatus('Copied JSON to clipboard.','ok'); }
     catch(e){ setStatus('Copy failed: '+e.message,'err'); }
   });
-  function trigger(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},0)}
+
 })();
 </script>
 </body>
