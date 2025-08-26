@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Filter Users by role_members.account_name</title>
+<style>
+  :root { --bg:#0b0b10; --card:#141420; --muted:#7a7a8c; --text:#e9e9f1; --accent:#5b8cff; --ok:#2ecc71; --err:#ff5c5c; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+  .wrap { max-width:1100px; margin:40px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid #202036; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); overflow:hidden; }
+  header { padding:20px 22px; border-bottom:1px solid #202036; display:flex; align-items:center; gap:12px; }
+  header h1 { margin:0; font-size:18px; letter-spacing:.2px; }
+  .content { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px; }
+  .section { display:flex; flex-direction:column; gap:10px; }
+  label { font-size:13px; color:var(--muted); }
+  textarea { width:100%; min-height:200px; resize:vertical; padding:12px; border-radius:12px; border:1px solid #262646; background:#0f0f19; color:var(--text); }
+  input[type="text"] { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #262646; background:#0f0f19; color:var(--text); }
+  input[type="file"] { font-size:13px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .btn { appearance:none; border:none; padding:10px 14px; border-radius:12px; background:var(--accent); color:white; font-weight:600; cursor:pointer; }
+  .btn.secondary { background:#2b2b43; color:#d9d9e6; }
+  .btn:disabled { opacity:.6; cursor:not-allowed; }
+  .hint { font-size:12px; color:var(--muted); }
+  .status { margin-top:6px; font-size:13px; }
+  .status.ok { color:var(--ok); }
+  .status.err { color:var(--err); white-space:pre-wrap; }
+  table { width:100%; border-collapse:separate; border-spacing:0; background:#0f0f19; border:1px solid #262646; border-radius:12px; overflow:hidden; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #1e1e30; vertical-align:top; }
+  th { background:#101022; font-size:12px; color:#bdbdd3; }
+  tr:last-child td { border-bottom:none; }
+  code.bubble { background:#101022; padding:2px 6px; border-radius:8px; border:1px solid #262646; font-family:ui-monospace,Consolas,Menlo,monospace; }
+  .footer { padding:12px 18px; display:flex; gap:10px; align-items:center; border-top:1px solid #202036; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <h1>Filter Users by <code class="bubble">role_members[].account_name</code></h1>
+      </header>
+
+      <div class="content">
+        <div class="section">
+          <label>1) Load JSON (choose one):</label>
+          <div class="row">
+            <input id="fileInput" type="file" accept=".json,application/json" />
+            <button class="btn secondary" id="clearBtn" title="Clear inputs">Clear</button>
+          </div>
+          <textarea id="jsonText" placeholder='Paste JSON here. Expected shape: { "users": [ ... ] }'></textarea>
+          <div class="hint">Tip: For very large files, the file picker is faster than pasting.</div>
+        </div>
+
+        <div class="section">
+          <label>2) Matching account names (comma-separated)</label>
+          <input id="allowedInput" type="text" placeholder='e.g. 0♔ Admin ♔0, Some Other Account' />
+          <div class="row">
+            <label><input id="caseInsensitive" type="checkbox" /> Case-insensitive</label>
+            <label><input id="exactMatch" type="checkbox" checked /> Exact match</label>
+          </div>
+          <div class="row" style="margin-top:6px;">
+            <button class="btn" id="runBtn">Run Filter</button>
+            <button class="btn secondary" id="downloadJsonBtn" disabled>Download JSON</button>
+            <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
+          </div>
+          <div id="status" class="status"></div>
+        </div>
+      </div>
+
+      <div class="content" style="grid-template-columns:1fr;">
+        <div class="section">
+          <label>Results</label>
+          <div class="hint">Showing selected fields: <code class="bubble">id</code>, <code class="bubble">email</code>, <code class="bubble">display_name</code>, <code class="bubble">matching_accounts (account_name &amp; role)</code></div>
+          <div id="resultsWrap">
+            <table id="resultsTable" style="display:none;">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>id</th>
+                  <th>email</th>
+                  <th>display_name</th>
+                  <th>matching_accounts</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span class="hint">All processing happens locally in your browser. No data leaves your machine.</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const fileInput = document.getElementById('fileInput');
+  const jsonText = document.getElementById('jsonText');
+  const allowedInput = document.getElementById('allowedInput');
+  const caseInsensitive = document.getElementById('caseInsensitive');
+  const exactMatch = document.getElementById('exactMatch');
+  const runBtn = document.getElementById('runBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const statusEl = document.getElementById('status');
+  const resultsTable = document.getElementById('resultsTable');
+  const resultsBody = document.getElementById('resultsBody');
+  const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+  const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+
+  let lastOutput = []; // holds filtered output for downloads
+
+  clearBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    jsonText.value = '';
+    allowedInput.value = '';
+    caseInsensitive.checked = false;
+    exactMatch.checked = true;
+    resultsBody.innerHTML = '';
+    resultsTable.style.display = 'none';
+    lastOutput = [];
+    setStatus('');
+    setDownloadsEnabled(false);
+  });
+
+  fileInput.addEventListener('change', async (e) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    try {
+      const text = await file.text();
+      jsonText.value = text;
+      setStatus(`Loaded file: ${file.name} (${file.size.toLocaleString()} bytes)`, 'ok');
+    } catch (err) {
+      setStatus(`Failed to read file: ${String(err)}`, 'err');
+    }
+  });
+
+  runBtn.addEventListener('click', () => {
+    setDownloadsEnabled(false);
+    resultsBody.innerHTML = '';
+    resultsTable.style.display = 'none';
+
+    const allowed = parseAllowed(allowedInput.value, caseInsensitive.checked);
+    if (allowed.size === 0) {
+      setStatus('Please enter at least one account_name to match.', 'err');
+      return;
+    }
+
+    let data;
+    try {
+      const raw = (jsonText.value || '').trim();
+      if (!raw) {
+        setStatus('Please load a JSON file or paste JSON into the textbox.', 'err');
+        return;
+      }
+      data = JSON.parse(raw);
+    } catch (e) {
+      setStatus('Invalid JSON. Details:\n' + e.message, 'err');
+      return;
+    }
+
+    const users = Array.isArray(data?.users) ? data.users : null;
+    if (!users) {
+      setStatus('Expected an object with a "users" array at the top level.', 'err');
+      return;
+    }
+
+    const t0 = performance.now();
+    const output = [];
+    let scanned = 0, matched = 0;
+
+    for (const u of users) {
+      scanned++;
+      const roleMembers = Array.isArray(u?.role_members) ? u.role_members : [];
+      const matches = roleMembers.filter(rm => {
+        const name = String(rm?.account_name ?? '');
+        if (!name) return false;
+        return isAllowed(allowed, name, {
+          caseInsensitive: caseInsensitive.checked,
+          exact: exactMatch.checked
+        });
+      });
+      if (matches.length > 0) {
+        matched++;
+        output.push({
+          id: u?.id ?? null,
+          email: u?.email ?? null,
+          display_name: u?.display_name ?? null,
+          matching_accounts: matches.map(m => ({
+            account_name: m?.account_name ?? null,
+            role: m?.role ?? null
+          }))
+        });
+      }
+    }
+    const t1 = performance.now();
+
+    lastOutput = output;
+    renderTable(output);
+    setDownloadsEnabled(output.length > 0);
+
+    setStatus(`Scanned ${scanned.toLocaleString()} user(s), matched ${matched.toLocaleString()} — done in ${(t1 - t0).toFixed(1)}ms.`, 'ok');
+  });
+
+  downloadJsonBtn.addEventListener('click', () => {
+    if (!lastOutput.length) return;
+    const blob = new Blob([JSON.stringify(lastOutput, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, 'filtered-users.json');
+  });
+
+  downloadCsvBtn.addEventListener('click', () => {
+    if (!lastOutput.length) return;
+    const csv = toCsv(lastOutput);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    downloadBlob(blob, 'filtered-users.csv');
+  });
+
+  function renderTable(rows) {
+    resultsBody.innerHTML = '';
+    if (!rows.length) {
+      resultsTable.style.display = 'none';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    rows.forEach((r, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${escapeHtml(r.id)}</td>
+        <td>${escapeHtml(r.email)}</td>
+        <td>${escapeHtml(r.display_name)}</td>
+        <td>${escapeHtml(r.matching_accounts.map(m => `${m.account_name ?? ''}${m.role ? ' ('+m.role+')' : ''}`).join('; '))}</td>
+      `;
+      frag.appendChild(tr);
+    });
+    resultsBody.appendChild(frag);
+    resultsTable.style.display = '';
+  }
+
+  function parseAllowed(input, ci) {
+    const parts = (input || '').split(',').map(s => s.trim()).filter(Boolean);
+    return new Set(parts.map(s => ci ? s.toLowerCase() : s));
+  }
+
+  function isAllowed(allowedSet, name, { caseInsensitive, exact }) {
+    const candidate = caseInsensitive ? name.toLowerCase() : name;
+    if (exact) return allowedSet.has(candidate);
+    // substring match
+    for (const term of allowedSet) {
+      if (candidate.includes(term)) return true;
+    }
+    return false;
+  }
+
+  function toCsv(data) {
+    // columns: id, email, display_name, matching_accounts
+    const header = ['id','email','display_name','matching_accounts'];
+    const lines = [header.join(',')];
+    for (const row of data) {
+      const acc = (row.matching_accounts || [])
+        .map(m => `${m.account_name ?? ''}${m.role ? ' ('+m.role+')' : ''}`)
+        .join('; ');
+      const fields = [row.id, row.email, row.display_name, acc].map(csvEscape);
+      lines.push(fields.join(','));
+    }
+    return lines.join('\r\n');
+  }
+
+  function csvEscape(val) {
+    const s = (val === null || val === undefined) ? '' : String(val);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+    }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
+  }
+
+  function setDownloadsEnabled(on) {
+    downloadJsonBtn.disabled = !on;
+    downloadCsvBtn.disabled = !on;
+  }
+
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status ' + (kind || '');
+  }
+
+  function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, s => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[s]));
+  }
+})();
+</script>
+</body>
+</html>
