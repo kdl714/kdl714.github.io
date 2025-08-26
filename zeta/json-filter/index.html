@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Flexible JSON Filter — Simple UI</title>
+<title>Flexible JSON Filter — Simple UI (fixed outputs)</title>
 <style>
   :root{--bg:#0b0b10;--panel:#131320;--muted:#9aa0ac;--text:#e9e9f1;--accent:#5b8cff;--stroke:#202036;--field:#0f0f19;--ok:#2ecc71;--err:#ff5c5c}
   *{box-sizing:border-box}
@@ -35,7 +35,6 @@
   @media(max-width:980px){.two{grid-template-columns:1fr}}
   .listbox{width:100%;min-height:220px;max-height:260px;overflow:auto;padding:0;margin:0;border:1px solid #1e1e33;border-radius:10px;background:#0c0c16}
   .listbox option{padding:10px 12px;border-bottom:1px solid #17172a}
-  .pathhint{font-family:ui-monospace,Consolas,Menlo,monospace;color:#bdbdd3}
   .chiplist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:240px;overflow:auto;padding:8px;background:#0c0c16;border:1px solid #1e1e33;border-radius:10px}
   .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d6d6e6}
   table{width:100%;border-collapse:separate;border-spacing:0;background:var(--field);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
@@ -51,7 +50,7 @@
   <div class="card">
     <header>
       <h1>Flexible JSON Filter</h1>
-      <div class="sub">No installs • local only • no defaults</div>
+      <div class="sub">Local only • no defaults</div>
     </header>
 
     <div class="content">
@@ -68,7 +67,7 @@
 
       <!-- BUILDER -->
       <div class="section">
-        <label>2) Build your query (filter + outputs)</label>
+        <label>2) Build your query (filter + row mode + outputs)</label>
 
         <div class="group">
           <h3>Filter field</h3>
@@ -84,7 +83,7 @@
               <label><input id="exactMatch" type="checkbox"> Exact match</label>
             </div>
           </div>
-          <div class="hint">Items are shown as <code class="bubble">collection.chain.field</code> with a sample value.</div>
+          <div class="hint">Items are shown as <code class="bubble">collection.chain.field</code> with a sample value. Paths are hidden unless toggled.</div>
         </div>
 
         <div class="group">
@@ -93,15 +92,27 @@
             <label><input type="radio" name="rowmode" id="modeMatch"> Per match (flatten)</label>
             <label><input type="radio" name="rowmode" id="modeParent"> Per parent (aggregate)</label>
           </div>
-          <div class="hint">No ancestor dropdown. “Parent” = the nearest list ancestor of the matching item (e.g. the user above their role_members).</div>
+          <div class="hint">“Parent” = the nearest list ancestor of the matching item (e.g., the user above their role_members). No ancestor dropdown.</div>
         </div>
 
-        <div class="group">
+        <div class="group" id="outputsGroup">
           <h3>Output fields</h3>
-          <div class="row"><strong>Row fields</strong> <button class="btn ghost" id="rowAll">All</button><button class="btn ghost" id="rowNone">None</button></div>
+          <div class="row">
+            <strong>Row fields</strong>
+            <button class="btn ghost" id="rowAll">All</button>
+            <button class="btn ghost" id="rowNone">None</button>
+          </div>
           <div id="rowFieldGrid" class="chiplist"></div>
-          <div class="row" style="margin-top:8px;"><strong>Matched item fields</strong> <span class="hint">(only if filtering inside a nested list)</span> <button class="btn ghost" id="matchAll">All</button><button class="btn ghost" id="matchNone">None</button></div>
-          <div id="matchFieldGrid" class="chiplist"></div>
+
+          <div id="matchBlock" style="margin-top:12px;">
+            <div class="row" style="margin-top:8px;">
+              <strong>Matched item fields</strong>
+              <span class="hint">(only if filtering inside a nested list)</span>
+              <button class="btn ghost" id="matchAll">All</button>
+              <button class="btn ghost" id="matchNone">None</button>
+            </div>
+            <div id="matchFieldGrid" class="chiplist"></div>
+          </div>
         </div>
 
         <div class="row" style="gap:10px;">
@@ -128,73 +139,75 @@
     </div>
 
     <div class="footer">
-      <span class="hint">Everything runs locally in your browser.</span>
-      <span class="hint">Want wildcard search later? Easy to add.</span>
+      <span class="hint">Everything runs locally.</span>
+      <span class="hint">If you want wildcard search next, say the word.</span>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  // DOM refs
+  // --- DOM
   const fileInput=document.getElementById('fileInput'), jsonText=document.getElementById('jsonText'), clearBtn=document.getElementById('clearBtn');
   const fieldSearch=document.getElementById('fieldSearch'), showPaths=document.getElementById('showPaths'), fieldList=document.getElementById('fieldList');
   const valuesInput=document.getElementById('valuesInput'), caseInsensitive=document.getElementById('caseInsensitive'), exactMatch=document.getElementById('exactMatch');
   const modeMatch=document.getElementById('modeMatch'), modeParent=document.getElementById('modeParent');
+  const outputsGroup=document.getElementById('outputsGroup'), matchBlock=document.getElementById('matchBlock');
   const rowFieldGrid=document.getElementById('rowFieldGrid'), matchFieldGrid=document.getElementById('matchFieldGrid');
   const rowAll=document.getElementById('rowAll'), rowNone=document.getElementById('rowNone'), matchAll=document.getElementById('matchAll'), matchNone=document.getElementById('matchNone');
   const runBtn=document.getElementById('runBtn'), statusEl=document.getElementById('status'), resultsTable=document.getElementById('resultsTable'), theadRow=document.getElementById('theadRow'), resultsBody=document.getElementById('resultsBody');
   const downloadJsonBtn=document.getElementById('downloadJsonBtn'), downloadCsvBtn=document.getElementById('downloadCsvBtn'), copyBtn=document.getElementById('copyBtn');
 
-  // State
+  // --- State
   let root=null;
-  let fieldEntries=[]; // [{label, path, sample, holderPath, listAncestors: ['$.users[]','$.users[].role_members[]'], chainLabel: 'users.role_members.account_name', holderName:'role_members', parentName:'users'}]
+  let entries=[];           // field entries across JSON
   let filteredEntries=[];
-  let selectedField=null;
+  let selectedEntry=null;   // current filter field entry
   let selectedRowFields=new Set();
   let selectedMatchFields=new Set();
   let lastRows=[], lastCols=[];
 
-  // Utils
+  // --- Utils
   const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   const setStatus=(m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')}
   const setDownloads=on=>{downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on}
+  const enableRun=()=>{ runBtn.disabled = !(root && selectedEntry && valuesInput.value.trim() && (modeMatch.checked || modeParent.checked)); }
   const parseVals=(s,ci)=>new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x));
   const matchAllowed=(allowed,val,{ci,exact})=>{const t=ci?String(val??'').toLowerCase():String(val??'');if(exact)return allowed.has(t);for(const a of allowed)if(t.includes(a))return true;return false;}
-  const enableRun=()=>{runBtn.disabled=!(root && selectedField && valuesInput.value.trim() && (modeMatch.checked||modeParent.checked));}
 
-  // Token helpers
-  const isColl = tok => /\[\]|\[\*\]$/.test(tok);
-  const base = tok => tok.replace(/\[\]|\[\*\]/,'');
-  const tokensOf = path => path.split('.');
+  // Path helpers
+  const isColl=tok=>/\[\]|\[\*\]$/.test(tok);
+  const base=tok=>tok.replace(/\[\]|\[\*\]/,'');
+  const tokensOf=p=>p.split('.');
 
-  // Scan all scalar fields + context (friendly labels)
+  // Scan all scalar fields (with context)
   function scanFields(root){
     const out=[];
     function walk(node, toks, listAnc){
       if (node==null) return;
       if (Array.isArray(node)){
-        for(const el of node) walk(el, toks, toks.length? (isColl(toks[toks.length-1])? listAnc.concat([toks.join('.')]) : listAnc) : listAnc);
+        for(const el of node) walk(el, toks, isColl(toks[toks.length-1]||'') ? listAnc.concat([toks.join('.')]) : listAnc);
       } else if (typeof node==='object'){
         const parentTok=toks[toks.length-1]||'$';
-        const newListAnc = isColl(parentTok)? listAnc.concat([toks.join('.')]) : listAnc;
+        const newAnc = isColl(parentTok) ? listAnc.concat([toks.join('.')]) : listAnc;
         for(const [k,v] of Object.entries(node)){
-          const tok=(isColl(parentTok)? base(parentTok):parentTok)==='$' ? '$.'+k : k;
           const next = toks.length? toks.concat([k]) : ['$.',k];
           if (v && typeof v==='object'){
-            if (Array.isArray(v)){
-              walk(v, [...next.slice(0,-1), next[next.length-1]+'[]'], newListAnc);
-            } else {
-              walk(v, next, newListAnc);
-            }
+            if (Array.isArray(v)) walk(v, [...next.slice(0,-1), next[next.length-1]+'[]'], newAnc);
+            else walk(v, next, newAnc);
           } else {
             // scalar
-            const holderPath = toks.join('.');
-            const holderName = base(tokensOf(holderPath).slice(-1)[0]||'');
-            const chain = [...newListAnc.map(p=>base(tokensOf(p).slice(-1)[0]||'')), holderName].filter(Boolean).join('.');
-            const chainLabel = (chain? chain+'.':'') + k;
-            const parentName = base(tokensOf(newListAnc.slice(-1)[0]||'')[0]||'') || base(tokensOf(newListAnc.slice(-1)[0]||'').slice(-1)[0]||'');
-            out.push({ path: (toks.length? toks.join('.')+'.':'$.' )+k, sample:v, holderPath, listAncestors:newListAnc, chainLabel, holderName, parentName });
+            const path=(toks.length? toks.join('.')+'.':'$.' )+k;
+            const lastCollIdx = [...toks, k].reduce((acc,t,i)=>isColl(t)?i:acc,-1);
+            const prevCollIdx = [...toks, k].reduce((acc,t,i)=>isColl(t)?(i<lastCollIdx?i:acc):acc,-1);
+            const holderColl = lastCollIdx>=0 ? [...toks, k].slice(0,lastCollIdx+1).join('.') : toks.join('.');
+            const parentColl = prevCollIdx>=0 ? [...toks, k].slice(0,prevCollIdx+1).join('.') : holderColl;
+            const chain = (path.replace(/^\$\./,'').replace(/\[\]|\[\*\]/g,''));
+            out.push({
+              path, sample:v,
+              holderColl, parentColl,
+              chainLabel: chain
+            });
           }
         }
       }
@@ -204,82 +217,65 @@
     const seen=new Set(); return out.filter(e=>{if(seen.has(e.path))return false; seen.add(e.path); return true;});
   }
 
-  // Build list UI
+  // Collect all objects at a collection path (…[]). Supports arrays and object-of-objects.
+  function collectAtCollection(path){
+    const toks=tokensOf(path);
+    function step(nodes, idx){
+      if (idx>=toks.length) return nodes;
+      const tok=toks[idx];
+      if (tok==='$'||tok==='$.') return step(nodes, idx+1);
+      const coll=isColl(tok), key=base(tok);
+      const next=[];
+      for(const n of nodes){
+        if (!n || typeof n!=='object') continue;
+        if (coll){
+          const seq=n[key];
+          if (Array.isArray(seq)) seq.forEach(el=>{ if (el && typeof el==='object') next.push(el); });
+          else if (seq && typeof seq==='object') Object.values(seq).forEach(el=>{ if (el && typeof el==='object') next.push(el); });
+        } else {
+          const obj=n[key];
+          if (obj && typeof obj==='object') next.push(obj);
+        }
+      }
+      return step(next, idx+1);
+    }
+    return step([root], 0);
+  }
+
+  function scalarKeysOf(objs){
+    const set=new Set();
+    const limit=Math.min(100, objs.length);
+    for (let i=0;i<limit;i++){
+      const o=objs[i]; if(!o||typeof o!=='object') continue;
+      for(const [k,v] of Object.entries(o)) if (v==null || typeof v!=='object') set.add(k);
+    }
+    return [...set].sort();
+  }
+
+  // UI renderers
   function renderFieldList(){
     fieldList.innerHTML='';
     filteredEntries.forEach(e=>{
-      const text = showPaths.checked ? `${e.chainLabel} • ${e.path} — sample: ${String(e.sample).slice(0,80)}`
-                                     : `${e.chainLabel} — sample: ${String(e.sample).slice(0,80)}`;
-      const opt=document.createElement('option'); opt.value=e.path; opt.textContent=text; fieldList.appendChild(opt);
+      const label = e.chainLabel + (showPaths.checked ? `  •  ${e.path}` : '');
+      const opt=document.createElement('option');
+      opt.value=e.path; opt.textContent=`${label} — sample: ${String(e.sample).slice(0,80)}`;
+      fieldList.appendChild(opt);
     });
   }
 
-  // Resolve matches for selected field
-  function resolveMatches(fieldPath){
-    const tks=tokensOf(fieldPath);
-    const res=[];
-    function recur(node, idx, listStack, objStack){
-      if (idx>=tks.length) return;
-      const tok=tks[idx];
-      if (tok==='$'||tok==='$.'){recur(node, idx+1, listStack, objStack); return;}
-      const coll=isColl(tok), key=base(tok);
-      if (coll){
-        const seq=node?.[key];
-        const items = Array.isArray(seq)? seq : (seq && typeof seq==='object'? Object.values(seq) : []);
-        for(const el of items){
-          if (el && typeof el==='object') recur(el, idx+1, listStack.concat([{path:tks.slice(0,idx+1).join('.'), name:key, obj:el}]), objStack);
-        }
-      } else {
-        if (idx===tks.length-1){
-          const holder=node;
-          const v=holder?.[key];
-          if (v!==undefined && (typeof v!=='object' || v===null)){
-            res.push({ value:v, holder, listStack, objStack });
-          }
-        } else {
-          const nxt=node?.[key];
-          if (nxt && typeof nxt==='object') recur(nxt, idx+1, listStack, objStack.concat([{path:tks.slice(0,idx+1).join('.'), name:key, obj:nxt}]));
-        }
-      }
-    }
-    recur(root,0,[],[]);
-    return res;
-  }
-
-  // Find parent object (nearest list ancestor)
-  function nearestParent(match){
-    const ls=match.listStack;
-    if (!ls.length) return match.holder; // top-level field inside row
-    return ls[ls.length-1].obj;
-  }
-
-  // Detect scalar keys for objects (row/match)
-  function detectScalarKeys(objs){
-    const set=new Set();
-    const n=Math.min(50,objs.length);
-    for(let i=0;i<n;i++){
-      const o=objs[i];
-      if (!o || typeof o!=='object') continue;
-      for(const [k,v] of Object.entries(o)) if (v==null || typeof v!=='object') set.add(k);
-    }
-    return [...set];
-  }
-
-  // Render chips
-  function renderChips(container, keys, set){
+  function renderChips(container, keys, setRef){
     container.innerHTML='';
-    const make=(k)=>{
+    const mk=(k)=>{
       const lbl=document.createElement('label'); lbl.className='chip';
       const cb=document.createElement('input'); cb.type='checkbox';
-      cb.checked=set.has(k);
-      cb.addEventListener('change',()=>{cb.checked?set.add(k):set.delete(k);});
+      cb.checked=setRef.has(k);
+      cb.addEventListener('change',()=>{ cb.checked?setRef.add(k):setRef.delete(k); });
       const span=document.createElement('span'); span.textContent=k;
       lbl.appendChild(cb); lbl.appendChild(span); return lbl;
     };
-    keys.forEach(k=>container.appendChild(make(k)));
+    keys.forEach(k=>container.appendChild(mk(k)));
   }
 
-  // Build table
   function buildTable(rows, cols){
     resultsBody.innerHTML=''; theadRow.innerHTML='';
     if (!rows.length){ resultsTable.style.display='none'; return; }
@@ -294,21 +290,17 @@
   }
   const toCsv=(rows,cols)=>[cols.join(','),...rows.map(r=>cols.map(c=>{const s=r[c]==null?'':String(r[c]);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
 
-  // Load JSON
+  // ---- Load JSON
   function load(text){
     root=JSON.parse(text);
-    fieldEntries = scanFields(root).map(e=>{
-      // Make human chain label like users.role_members.account_name
-      const chain = e.chainLabel || e.path.replace(/^\$\./,'').replace(/\[\]|\[\*\]/g,'');
-      return {...e, chainLabel: chain};
-    });
-    filteredEntries = fieldEntries;
+    entries = scanFields(root);
+    filteredEntries = entries;
     renderFieldList();
-    setStatus(`Found ${fieldEntries.length.toLocaleString()} fields. Pick one, choose row mode, then outputs.`,`ok`);
+    setStatus(`Found ${entries.length.toLocaleString()} fields. Pick a field, choose row mode, then outputs.`, 'ok');
     enableRun();
   }
 
-  // Events
+  // ---- Events
   fileInput.addEventListener('change', async e=>{
     const f=e.target.files?.[0]; if(!f) return;
     try{ const t=await f.text(); jsonText.value=t; load(t);}catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
@@ -317,10 +309,11 @@
 
   clearBtn.addEventListener('click', ()=>{
     root=null; jsonText.value=''; fileInput.value='';
-    fieldEntries=[]; filteredEntries=[]; fieldList.innerHTML=''; fieldSearch.value=''; showPaths.checked=false;
-    selectedField=null; modeMatch.checked=false; modeParent.checked=false;
+    entries=[]; filteredEntries=[]; fieldList.innerHTML=''; fieldSearch.value=''; showPaths.checked=false;
+    selectedEntry=null; modeMatch.checked=false; modeParent.checked=false;
     selectedRowFields=new Set(); selectedMatchFields=new Set();
     rowFieldGrid.innerHTML=''; matchFieldGrid.innerHTML='';
+    matchBlock.style.display=''; // reset
     resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none';
     setDownloads(false); setStatus('');
     enableRun();
@@ -328,21 +321,40 @@
 
   fieldSearch.addEventListener('input', ()=>{
     const q=fieldSearch.value.toLowerCase().trim();
-    filteredEntries = !q ? fieldEntries : fieldEntries.filter(e=> e.chainLabel.toLowerCase().includes(q));
+    filteredEntries = !q ? entries : entries.filter(e=> e.chainLabel.toLowerCase().includes(q));
     renderFieldList();
   });
   showPaths.addEventListener('change', renderFieldList);
 
   fieldList.addEventListener('change', ()=>{
-    selectedField = fieldEntries.find(e=> e.path===fieldList.value);
-    // compute preview keys for row/match
-    const matches = resolveMatches(selectedField.path);
-    // row objects for both modes
-    const parentObjs = matches.map(nearestParent);
-    const matchObjs = matches.map(m=>m.holder);
+    selectedEntry = entries.find(e=> e.path===fieldList.value);
+    if (!selectedEntry) return;
 
-    renderChips(rowFieldGrid, detectScalarKeys(parentObjs), selectedRowFields);
-    renderChips(matchFieldGrid, detectScalarKeys(matchObjs), selectedMatchFields);
+    // Determine collections
+    const holderColl = selectedEntry.holderColl; // e.g. $.users[].role_members[]
+    const parentColl = selectedEntry.parentColl; // e.g. $.users[]
+    const sameLevel = holderColl === parentColl;
+
+    // Build field sets by scanning the ENTIRE collections (not just matches)
+    const parentObjs = collectAtCollection(parentColl);
+    const holderObjs = collectAtCollection(holderColl);
+
+    const rowKeys   = scalarKeysOf(parentObjs);
+    const matchKeys = sameLevel ? [] : scalarKeysOf(holderObjs);
+
+    // Reset selections and render chips
+    selectedRowFields = new Set();
+    selectedMatchFields = new Set();
+
+    renderChips(rowFieldGrid, rowKeys, selectedRowFields);
+
+    if (matchKeys.length){
+      matchBlock.style.display='';
+      renderChips(matchFieldGrid, matchKeys, selectedMatchFields);
+    } else {
+      matchBlock.style.display='none';
+      matchFieldGrid.innerHTML='';
+    }
 
     enableRun();
   });
@@ -350,18 +362,14 @@
   [modeMatch,modeParent].forEach(el=>el.addEventListener('change', enableRun));
 
   rowAll.addEventListener('click', ()=>{
-    if (!selectedField) return;
-    const matches = resolveMatches(selectedField.path);
-    selectedRowFields = new Set(detectScalarKeys(matches.map(nearestParent)));
-    renderChips(rowFieldGrid, [...selectedRowFields], selectedRowFields);
+    const keys=[...rowFieldGrid.querySelectorAll('label.chip span')].map(s=>s.textContent);
+    selectedRowFields = new Set(keys); renderChips(rowFieldGrid, keys, selectedRowFields);
   });
   rowNone.addEventListener('click', ()=>{ selectedRowFields=new Set(); renderChips(rowFieldGrid, [], selectedRowFields); });
 
   matchAll.addEventListener('click', ()=>{
-    if (!selectedField) return;
-    const matches = resolveMatches(selectedField.path);
-    selectedMatchFields = new Set(detectScalarKeys(matches.map(m=>m.holder)));
-    renderChips(matchFieldGrid, [...selectedMatchFields], selectedMatchFields);
+    const keys=[...matchFieldGrid.querySelectorAll('label.chip span')].map(s=>s.textContent);
+    selectedMatchFields = new Set(keys); renderChips(matchFieldGrid, keys, selectedMatchFields);
   });
   matchNone.addEventListener('click', ()=>{ selectedMatchFields=new Set(); renderChips(matchFieldGrid, [], selectedMatchFields); });
 
@@ -369,71 +377,90 @@
   [caseInsensitive, exactMatch].forEach(e=>e.addEventListener('change', enableRun));
 
   runBtn.addEventListener('click', ()=>{
-    if (!root || !selectedField) return;
+    if (!root || !selectedEntry) return;
+
     const allowed = parseVals(valuesInput.value, caseInsensitive.checked);
     const ci=caseInsensitive.checked, exact=exactMatch.checked;
-    const matches = resolveMatches(selectedField.path).filter(m=> matchAllowed(allowed, m.value, {ci,exact}));
 
-    const rows=[]; const colsSet=new Set(); const perMatch = modeMatch.checked;
-    const prefix = selectedField.holderName ? selectedField.holderName + '_' : 'match_';
+    // Resolve all matches of the selected field
+    const matches = (function resolveMatches(fieldPath){
+      const tks=tokensOf(fieldPath); const res=[];
+      function recur(node, idx, listStack, objStack){
+        if (idx>=tks.length) return;
+        const tok=tks[idx];
+        if (tok==='$'||tok==='$.'){recur(node, idx+1, listStack, objStack); return;}
+        const coll=isColl(tok), key=base(tok);
+        if (coll){
+          const seq=node?.[key];
+          const items = Array.isArray(seq)? seq : (seq && typeof seq==='object'? Object.values(seq) : []);
+          for(const el of items){
+            if (el && typeof el==='object') recur(el, idx+1, listStack.concat([{path:tks.slice(0,idx+1).join('.'), name:key, obj:el}]), objStack);
+          }
+        } else {
+          if (idx===tks.length-1){
+            const holder=node; const v=holder?.[key];
+            if (v!==undefined && (typeof v!=='object' || v===null)) res.push({ value:v, holder, listStack });
+          } else {
+            const nxt=node?.[key];
+            if (nxt && typeof nxt==='object') recur(nxt, idx+1, listStack, objStack.concat([{path:tks.slice(0,idx+1).join('.'), name:key, obj:nxt}]));
+          }
+        }
+      }
+      recur(root,0,[],[]);
+      return res;
+    })(selectedEntry.path).filter(m=> matchAllowed(allowed, m.value, {ci,exact}));
+
+    // Build rows
+    const perMatch = modeMatch.checked;
+    const rows=[]; const colsSet=new Set();
+    const holderName = (function(){ const t=tokensOf(selectedEntry.holderColl); return base(t[t.length-1]||'match'); })();
+    const prefix = holderName ? holderName + '_' : 'match_';
+
+    function nearestParent(m){ const ls=m.listStack; return ls.length? ls[ls.length-1].obj : m.holder; }
 
     if (perMatch){
       for(const m of matches){
-        const rowObj = m.holder;                 // row per matching element
-        const parentObj = nearestParent(m);      // for optional row fields
-        const out={};
-        // row (parent) fields
-        for(const k of selectedRowFields){ out[k]= parentObj?.[k] ?? ''; colsSet.add(k); }
-        // matched fields
-        for(const k of selectedMatchFields){ out[prefix+k]= m.holder?.[k] ?? ''; colsSet.add(prefix+k); }
-        // always include the filter value for traceability
-        if (!colsSet.has(prefix + '_filter_value')) colsSet.add(prefix + '_filter_value');
-        out[prefix + '_filter_value'] = String(m.value);
-        rows.push(out);
-      }
-    } else {
-      // per parent (aggregate)
-      // group by parent object identity
-      const groups = new Map();
-      for(const m of matches){
         const parent = nearestParent(m);
-        if (!groups.has(parent)) groups.set(parent, []);
-        groups.get(parent).push(m);
-      }
-      for(const [parent, ms] of groups){
         const out={};
         // row fields from parent
         for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; colsSet.add(k); }
-        // aggregate matched fields to a single column "matches"
+        // matched fields from holder
+        for(const k of selectedMatchFields){ out[prefix+k]= m.holder?.[k] ?? ''; colsSet.add(prefix+k); }
+        // always include filter value
+        out[prefix+'filter_value'] = String(m.value); colsSet.add(prefix+'filter_value');
+        rows.push(out);
+      }
+      const uniqParents=new Set(matches.map(nearestParent)).size;
+      const uniqVals=new Set(matches.map(m=>String(m.value))).size;
+      setStatus(`Rows: ${rows.length.toLocaleString()} • Unique parents: ${uniqParents.toLocaleString()} • Unique filter values: ${uniqVals.toLocaleString()}`, 'ok');
+    } else {
+      // Group by parent
+      const groups=new Map();
+      for(const m of matches){
+        const p=nearestParent(m);
+        if (!groups.has(p)) groups.set(p, []);
+        groups.get(p).push(m);
+      }
+      for(const [parent, ms] of groups){
+        const out={};
+        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; colsSet.add(k); }
+        // aggregate matched fields or at least the filter value list
         if (selectedMatchFields.size){
           const rendered = ms.map(mm=>{
-            const bits=[];
-            for(const k of selectedMatchFields){
-              const v=mm.holder?.[k];
-              if (v!==undefined && v!==null) bits.push(`${k}:${v}`);
-            }
+            const bits=[]; for(const k of selectedMatchFields){ const v=mm.holder?.[k]; if (v!=null) bits.push(`${k}:${v}`); }
             return bits.join(', ');
           }).filter(Boolean).join('; ');
-          out['matches']=rendered; colsSet.add('matches');
+          out['matches'] = rendered; colsSet.add('matches');
         } else {
-          // at least include the filter values
-          out['matches']= ms.map(mm=> String(mm.value)).join('; '); colsSet.add('matches');
+          out['matches'] = ms.map(mm=>String(mm.value)).join('; '); colsSet.add('matches');
         }
         rows.push(out);
       }
+      setStatus(`Rows: ${rows.length.toLocaleString()}`, 'ok');
     }
 
     const cols=[...colsSet];
     lastRows=rows; lastCols=cols; buildTable(rows, cols); setDownloads(rows.length>0);
-
-    // stats (per-match: show unique parents + unique filter values)
-    if (perMatch){
-      const uniqParents = new Set(matches.map(m=> nearestParent(m))).size;
-      const uniqVals = new Set(matches.map(m=> String(m.value))).size;
-      setStatus(`Rows: ${rows.length.toLocaleString()} • Unique parents: ${uniqParents.toLocaleString()} • Unique filter values: ${uniqVals.toLocaleString()}`, 'ok');
-    } else {
-      setStatus(`Rows: ${rows.length.toLocaleString()}`, 'ok');
-    }
   });
 
   downloadJsonBtn.addEventListener('click', ()=>{
@@ -444,7 +471,8 @@
   });
   downloadCsvBtn.addEventListener('click', ()=>{
     if (!lastRows.length) return;
-    const csv=toCsv(lastRows,lastCols); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const csv = [lastCols.join(','), ...lastRows.map(r=> lastCols.map(c=>{const s=r[c]==null?'':String(r[c]); return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.csv';
     document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
   });
