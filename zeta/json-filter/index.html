@@ -1,14 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>JSON Filter</title>
 <style>
-  :root{
-    --bg:#0b0b10; --panel:#131320; --muted:#9aa0ac; --text:#e9e9f1; --accent:#5b8cff;
-    --stroke:#202036; --field:#0f0f19; --ok:#2ecc71; --err:#ff5c5c;
-  }
+  :root{--bg:#0b0b10;--panel:#131320;--muted:#9aa0ac;--text:#e9e9f1;--accent:#5b8cff;--stroke:#202036;--field:#0f0f19;--ok:#2ecc71;--err:#ff5c5c}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
@@ -18,43 +15,26 @@
   header .sub{color:var(--muted);font-size:13px}
   .content{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px}
   .content.single{grid-template-columns:1fr}
-  @media (max-width: 980px){ .content{grid-template-columns:1fr} }
+  @media(max-width:980px){.content{grid-template-columns:1fr}}
   .section{display:flex;flex-direction:column;gap:10px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   label{font-size:13px;color:var(--muted)}
-  textarea,input[type="text"],select{
-    width:100%;padding:12px;border-radius:12px;border:1px solid var(--stroke);background:var(--field);color:var(--text)
-  }
+  textarea,input[type=text],select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--stroke);background:var(--field);color:var(--text)}
   textarea{min-height:220px;resize:vertical}
-  input[type="file"]{font-size:13px;max-width:100%}
-  .btn{appearance:none;border:none;padding:10px 14px;border-radius:12px;background:var(--accent);color:white;font-weight:600;cursor:pointer}
+  input[type=file]{font-size:13px;max-width:100%}
+  .btn{appearance:none;border:none;padding:10px 14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
   .btn.secondary{background:#2a2a44;color:#d9d9e6}
   .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text)}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   .hint{font-size:12px;color:var(--muted)}
   .status{font-size:13px;margin-top:6px}
   .status.ok{color:var(--ok)} .status.err{color:var(--err);white-space:pre-wrap}
-
-  /* Field picker (fixed visuals) */
   .group{border:1px solid var(--stroke);border-radius:12px;padding:12px;background:#0f0f19}
   .group h3{margin:0 0 8px 0;font-size:13px;color:#bdbdd3}
   .picker-body{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media (max-width: 980px){ .picker-body{grid-template-columns:1fr} }
-  .fieldlist{
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-    gap:8px;
-    max-height:220px; overflow:auto; padding:8px;
-    background:#0c0c16; border:1px solid #1e1e33; border-radius:10px;
-  }
-  .fieldchip{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:8px 10px; border-radius:10px;
-    background:#101022; border:1px solid #232345;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    font-size:13px; color:#d6d6e6;
-  }
-  .picker-tools{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  @media(max-width:980px){.picker-body{grid-template-columns:1fr}}
+  .fieldlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:240px;overflow:auto;padding:8px;background:#0c0c16;border:1px solid #1e1e33;border-radius:10px}
+  .fieldchip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d6d6e6}
   table{width:100%;border-collapse:separate;border-spacing:0;background:var(--field);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
   th,td{padding:10px 12px;border-bottom:1px solid #1e1e30;text-align:left;vertical-align:top}
   th{background:#101022;font-size:12px;color:#bdbdd3;position:sticky;top:0}
@@ -67,72 +47,92 @@
 <div class="wrap">
   <div class="card">
     <header>
-      <h1>Filter JSON</h1>
-      <div class="sub">No installs • Everything runs locally in your browser</div>
+      <h1>JSON Filter</h1>
+      <div class="sub">No installs • Everything runs locally</div>
     </header>
 
-    <!-- Inputs -->
     <div class="content">
+      <!-- left: load -->
       <div class="section">
         <label>1) Load JSON (choose one):</label>
         <div class="row">
-          <input id="fileInput" type="file" accept=".json,application/json" />
+          <input id="fileInput" type="file" accept=".json,application/json"/>
           <button class="btn ghost" id="clearBtn">Clear</button>
         </div>
-        <textarea id="jsonText" placeholder='Paste JSON here. Expected shape: { "users": [ ... ] }'></textarea>
-        <div class="hint">Tip: For very large files, the file picker is faster than pasting.</div>
+        <textarea id="jsonText" placeholder='Paste any JSON here (object or array).'></textarea>
+        <div class="hint">Tip: file picker is faster for very large files.</div>
+
+        <div class="group">
+          <h3>2) Pick your <em>record set</em> (where rows come from)</h3>
+          <div class="row">
+            <select id="recordSetSelect" title="Array/object-of-objects path"></select>
+            <button class="btn ghost" id="rescanBtn" title="Rescan JSON for candidates">Rescan</button>
+          </div>
+          <div class="hint">We auto-detect arrays of objects anywhere in the JSON (and object-of-objects). Choose the one that represents your rows.</div>
+        </div>
       </div>
 
+      <!-- right: filter + output -->
       <div class="section">
-        <label>2) Filter</label>
+        <label>3) Filter & Output</label>
+
         <div class="group">
+          <h3>Filter</h3>
           <div class="row">
-            <label><input type="radio" name="scope" id="scopeUsers" checked> Filter by <code class="bubble">user</code> field</label>
+            <label><input type="radio" name="scope" id="scopeRecord" checked> Filter by <code class="bubble">record</code> field</label>
             <label><input type="radio" name="scope" id="scopeNested"> Filter by <code class="bubble">nested collection</code> field</label>
           </div>
-          <div class="row" id="nestedRow" style="display:none;">
-            <select id="collectionSelect" title="Nested collection (e.g. role_members)"></select>
-            <select id="nestedFieldSelect" title="Field within selected collection"></select>
+
+          <div class="row" id="recordScopeRow">
+            <select id="recordFieldSelect" title="Record field to match"></select>
           </div>
-          <div class="row" id="userRow">
-            <select id="userFieldSelect" title="User field to match"></select>
+
+          <div id="nestedScopeBlock">
+            <div class="row">
+              <select id="collectionSelect" title="Nested collection under each record"></select>
+              <select id="nestedFieldSelect" title="Field within that collection"></select>
+            </div>
+            <div class="row">
+              <label><input id="explodeRows" type="checkbox"> One row per match (flatten)</label>
+              <select id="uniqueBySelect" title="Unique record id for counts"></select>
+            </div>
           </div>
+
           <div class="row">
-            <input id="allowedInput" type="text" placeholder='Values to match (comma-separated) e.g. 0♔ Admin ♔0, Some Other Account'>
+            <input id="valuesInput" type="text" placeholder="Values to match (comma-separated)">
           </div>
           <div class="row">
             <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
             <label><input id="exactMatch" type="checkbox" checked> Exact match</label>
-            <label><input id="explodeRows" type="checkbox"> One row per match (flatten)</label>
           </div>
         </div>
 
         <div class="group">
-          <h3>3) Output fields (auto-detected)</h3>
+          <h3>Output fields</h3>
           <div class="picker-body">
             <div>
-              <div class="hint">User fields</div>
-              <div id="userFieldGrid" class="fieldlist"></div>
-              <div class="picker-tools">
-                <button class="btn ghost" id="userAll">All</button>
-                <button class="btn ghost" id="userNone">None</button>
-                <button class="btn ghost" id="userDefaults">Defaults</button>
+              <div class="hint">Record fields</div>
+              <div id="recordFieldGrid" class="fieldlist"></div>
+              <div class="row" style="margin-top:8px;">
+                <button class="btn ghost" id="recAll">All</button>
+                <button class="btn ghost" id="recNone">None</button>
+                <button class="btn ghost" id="recDefaults">Defaults</button>
               </div>
             </div>
             <div>
-              <div class="hint">Nested fields (<span id="nestedLabel">role_members</span>)</div>
-              <div id="rmFieldGrid" class="fieldlist"></div>
-              <div class="picker-tools">
-                <button class="btn ghost" id="rmAll">All</button>
-                <button class="btn ghost" id="rmNone">None</button>
-                <button class="btn ghost" id="rmDefaults">Defaults</button>
+              <div class="hint">Nested fields (<span id="nestedLabel">—</span>)</div>
+              <div id="nestedFieldGrid" class="fieldlist"></div>
+              <div class="row" style="margin-top:8px;">
+                <button class="btn ghost" id="nestAll">All</button>
+                <button class="btn ghost" id="nestNone">None</button>
+                <button class="btn ghost" id="nestDefaults">Defaults</button>
               </div>
             </div>
           </div>
-          <div class="hint" style="margin-top:6px">Default selection: <code class="bubble">id</code>, <code class="bubble">email</code>, <code class="bubble">display_name</code>, plus nested <code class="bubble">account_name</code> and <code class="bubble">role</code> if present.</div>
+          <div class="hint" style="margin-top:6px">Defaults: <code class="bubble">id</code>, <code class="bubble">email</code>, <code class="bubble">display_name</code> if present; nested defaults: <code class="bubble">name</code>, <code class="bubble">account_name</code>, <code class="bubble">role</code> if present.</div>
         </div>
 
-        <div class="row" style="gap:10px;flex-wrap:wrap;">
+        <div class="row" style="gap:10px;">
           <button class="btn" id="runBtn">Run Filter</button>
           <button class="btn secondary" id="downloadJsonBtn" disabled>Download JSON</button>
           <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
@@ -142,7 +142,7 @@
       </div>
     </div>
 
-    <!-- Results -->
+    <!-- results -->
     <div class="content single">
       <div class="section">
         <label>Results</label>
@@ -156,17 +156,42 @@
     </div>
 
     <div class="footer">
-      <span class="hint">All processing happens locally. No data leaves your machine.</span>
+      <span class="hint">All processing is local; nothing is uploaded.</span>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  // DOM
+  // --- DOM refs
   const fileInput = document.getElementById('fileInput');
   const jsonText = document.getElementById('jsonText');
   const clearBtn = document.getElementById('clearBtn');
+  const rescanBtn = document.getElementById('rescanBtn');
+  const recordSetSelect = document.getElementById('recordSetSelect');
+
+  const scopeRecord = document.getElementById('scopeRecord');
+  const scopeNested = document.getElementById('scopeNested');
+  const recordScopeRow = document.getElementById('recordScopeRow');
+  const nestedScopeBlock = document.getElementById('nestedScopeBlock');
+
+  const recordFieldSelect = document.getElementById('recordFieldSelect');
+  const collectionSelect = document.getElementById('collectionSelect');
+  const nestedFieldSelect = document.getElementById('nestedFieldSelect');
+  const uniqueBySelect = document.getElementById('uniqueBySelect');
+
+  const valuesInput = document.getElementById('valuesInput');
+  const caseInsensitive = document.getElementById('caseInsensitive');
+  const exactMatch = document.getElementById('exactMatch');
+  const explodeRows = document.getElementById('explodeRows');
+
+  const recordFieldGrid = document.getElementById('recordFieldGrid');
+  const nestedFieldGrid = document.getElementById('nestedFieldGrid');
+  const nestedLabel = document.getElementById('nestedLabel');
+
+  const recAll = document.getElementById('recAll'), recNone = document.getElementById('recNone'), recDefaults = document.getElementById('recDefaults');
+  const nestAll = document.getElementById('nestAll'), nestNone = document.getElementById('nestNone'), nestDefaults = document.getElementById('nestDefaults');
+
   const runBtn = document.getElementById('runBtn');
   const statusEl = document.getElementById('status');
   const resultsTable = document.getElementById('resultsTable');
@@ -176,406 +201,389 @@
   const downloadCsvBtn = document.getElementById('downloadCsvBtn');
   const copyBtn = document.getElementById('copyBtn');
 
-  const userFieldGrid = document.getElementById('userFieldGrid');
-  const rmFieldGrid = document.getElementById('rmFieldGrid');
-  const nestedLabel = document.getElementById('nestedLabel');
-
-  const userAll = document.getElementById('userAll');
-  const userNone = document.getElementById('userNone');
-  const userDefaults = document.getElementById('userDefaults');
-  const rmAll = document.getElementById('rmAll');
-  const rmNone = document.getElementById('rmNone');
-  const rmDefaults = document.getElementById('rmDefaults');
-
-  // Filter controls
-  const scopeUsers = document.getElementById('scopeUsers');
-  const scopeNested = document.getElementById('scopeNested');
-  const userRow = document.getElementById('userRow');
-  const nestedRow = document.getElementById('nestedRow');
-  const userFieldSelect = document.getElementById('userFieldSelect');
-  const collectionSelect = document.getElementById('collectionSelect');
-  const nestedFieldSelect = document.getElementById('nestedFieldSelect');
-  const allowedInput = document.getElementById('allowedInput');
-  const exactMatch = document.getElementById('exactMatch');
-  const caseInsensitive = document.getElementById('caseInsensitive');
-  const explodeRows = document.getElementById('explodeRows');
-
   let lastOutput = [];
-  let detected = {
-    userFields: [],
-    nestedCollections: [], // {name, fields}
-  };
-  let selectedFields = {
-    user: new Set(['id','email','display_name']),
-    nested: new Set(['account_name','role'])
+  let rootData = null;
+
+  // state
+  const state = {
+    candidateSets: [], // {label, resolve: (root)=>records, sample, count}
+    selectedSetIndex: 0,
+    recordFields: [],
+    nestedCollections: [], // [{name, fields}]
+    selectedRecordFields: new Set(),
+    selectedNestedFields: new Set()
   };
 
-  // Utils
+  // helpers
   const escapeHtml = v => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  const setStatus = (msg, kind) => { statusEl.textContent = msg || ''; statusEl.className = 'status ' + (kind||''); };
-  const setDownloadsEnabled = on => { downloadJsonBtn.disabled = downloadCsvBtn.disabled = copyBtn.disabled = !on; };
-  const parseAllowed = (input, ci) => new Set((input||'').split(',').map(s=>s.trim()).filter(Boolean).map(s => ci ? s.toLowerCase() : s));
-  function isAllowed(allowedSet, name, {ci, exact}) {
-    const candidate = ci ? String(name).toLowerCase() : String(name);
-    if (exact) return allowedSet.has(candidate);
-    for (const term of allowedSet) if (candidate.includes(term)) return true;
+  const setStatus = (m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')};
+  const setDownloads = on => {downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on};
+  const parseValues = (s,ci)=> new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x));
+  function matchAllowed(allowed,val,{ci,exact}){
+    const t = ci ? String(val??'').toLowerCase() : String(val??'');
+    if (exact) return allowed.has(t);
+    for (const a of allowed) if (t.includes(a)) return true;
     return false;
   }
 
-  // Detection
-  function detectFields(data){
-    detected.userFields = [];
-    detected.nestedCollections = [];
-    const users = Array.isArray(data?.users) ? data.users : [];
-    const sampleUser = users.find(u => u && typeof u === 'object') || {};
+  // find candidate record sets anywhere in JSON
+  function scanCandidates(root){
+    const cands = [];
+    const add = (label, resolver, count, mode) => cands.push({label, resolve:resolver, count, mode});
+    const seen = new Set();
 
-    detected.userFields = Object.keys(sampleUser).filter(k => !Array.isArray(sampleUser[k]) && k !== 'role_members');
-
-    // arrays of objects become selectable collections
-    for (const [k,v] of Object.entries(sampleUser)){
-      if (Array.isArray(v) && v.length && typeof v[0] === 'object' && v[0] !== null){
-        const fields = [...new Set(v.flatMap(o => Object.keys(o||{})))];
-        detected.nestedCollections.push({name:k, fields});
+    function walk(node, pathLabel, resolver){
+      if (!node) return;
+      if (Array.isArray(node)){
+        const objs = node.filter(x => x && typeof x==='object' && !Array.isArray(x));
+        if (objs.length){
+          const lbl = (pathLabel||'$') + '[]';
+          if (!seen.has(lbl)){ add(lbl, root=>resolver(root), objs.length, 'array'); seen.add(lbl); }
+        }
+        node.forEach((child,i)=> walk(child, (pathLabel||'$')+'['+i+']', r=> r(root)[i]));
+      } else if (typeof node==='object'){
+        // object-of-objects candidate
+        const vals = Object.values(node);
+        const objVals = vals.filter(v => v && typeof v==='object' && !Array.isArray(v));
+        if (objVals.length && objVals.length===vals.length){
+          const lbl = (pathLabel||'$') + '{values}';
+          if (!seen.has(lbl)){ add(lbl, root=>Object.values(resolver(root)), objVals.length, 'objectValues'); seen.add(lbl); }
+        }
+        for (const [k,v] of Object.entries(node)){
+          walk(v, (pathLabel?pathLabel+'.':'$.' )+k, r=> r(root)[k]);
+        }
       }
     }
+    walk(root, '$', _=>root);
+    return cands;
+  }
 
-    renderFieldSelectors();
-    renderFilterSelectors();
+  function resolveRecords(){
+    const cand = state.candidateSets[state.selectedSetIndex];
+    if (!cand) return [];
+    const recs = cand.resolve(()=>rootData);
+    // only keep objects
+    return (recs||[]).filter(x=>x && typeof x==='object' && !Array.isArray(x));
+  }
+
+  function detectSchema(records){
+    const sampleCount = Math.min(records.length, 50);
+    const unionKeys = new Set();
+    const nestedMap = new Map(); // name -> Set(fields)
+
+    for (let i=0;i<sampleCount;i++){
+      const r = records[i] || {};
+      Object.keys(r).forEach(k=>{
+        if (Array.isArray(r[k])){
+          const arr = r[k];
+          const objEls = arr.filter(x=>x && typeof x==='object' && !Array.isArray(x));
+          if (objEls.length){
+            if (!nestedMap.has(k)) nestedMap.set(k,new Set());
+            objEls.slice(0,10).forEach(o=> Object.keys(o||{}).forEach(f=> nestedMap.get(k).add(f)));
+          }
+        } else if (r[k] && typeof r[k]==='object'){
+          // allow object-valued field to be treated as nested collection of its values if values are objects
+          const vals = Object.values(r[k]);
+          if (vals.length && vals.every(v=>v && typeof v==='object' && !Array.isArray(v))){
+            if (!nestedMap.has(k)) nestedMap.set(k,new Set());
+            vals.slice(0,10).forEach(o=> Object.keys(o||{}).forEach(f=> nestedMap.get(k).add(f)));
+          } else {
+            unionKeys.add(k); // keep object ref as a field, but won't be flattenable
+          }
+        } else {
+          unionKeys.add(k);
+        }
+      });
+    }
+
+    state.recordFields = [...unionKeys];
+    state.nestedCollections = [...nestedMap.entries()].map(([name,set])=>({name,fields:[...set]}));
+
+    // defaults
+    const defaults = ['id','email','display_name','name','title'];
+    state.selectedRecordFields = new Set(state.recordFields.filter(k=>defaults.includes(k)).slice(0,3));
+    const nDefaults = ['account_name','name','role'];
+    state.selectedNestedFields = new Set(nDefaults);
+  }
+
+  function renderRecordSetPicker(){
+    recordSetSelect.innerHTML='';
+    state.candidateSets.forEach((c,idx)=>{
+      const opt=document.createElement('option');
+      opt.value=idx; opt.textContent=`${c.label}  — ${c.count} item(s)`;
+      recordSetSelect.appendChild(opt);
+    });
+    recordSetSelect.value=String(state.selectedSetIndex||0);
   }
 
   function renderFilterSelectors(){
-    // user fields dropdown
-    userFieldSelect.innerHTML = '';
-    detected.userFields.forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k; opt.textContent = k;
-      userFieldSelect.appendChild(opt);
+    // record field list
+    recordFieldSelect.innerHTML='';
+    state.recordFields.forEach(k=>{
+      const o=document.createElement('option'); o.value=k; o.textContent=k; recordFieldSelect.appendChild(o);
     });
-    // default heuristic
-    if (detected.userFields.includes('email')) userFieldSelect.value = 'email';
-    else if (detected.userFields.includes('display_name')) userFieldSelect.value = 'display_name';
-
-    // nested collections dropdowns
-    collectionSelect.innerHTML = '';
-    detected.nestedCollections.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.name; opt.textContent = c.name;
-      collectionSelect.appendChild(opt);
+    // good default
+    ['email','id','name','display_name','title'].some(k=>{
+      if (state.recordFields.includes(k)){ recordFieldSelect.value=k; return true; }
+      return false;
     });
 
-    if (detected.nestedCollections.length){
-      collectionSelect.value = detected.nestedCollections[0].name;
-      updateNestedFieldOptions();
-    }
-    nestedLabel.textContent = collectionSelect.value || '—';
+    // unique-by list (record)
+    uniqueBySelect.innerHTML='';
+    const uniqCandidates = state.recordFields.filter(k=>['id','email','uid','key','slug'].includes(k)).concat(state.recordFields).filter((v,i,a)=>a.indexOf(v)===i);
+    uniqCandidates.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent='Unique by: '+k; uniqueBySelect.appendChild(o); });
+    if (uniqCandidates.length) uniqueBySelect.value=uniqCandidates[0];
+
+    // nested collection + field
+    collectionSelect.innerHTML='';
+    state.nestedCollections.forEach(c=>{ const o=document.createElement('option'); o.value=c.name; o.textContent=c.name; collectionSelect.appendChild(o); });
+    updateNestedFieldOptions();
+
+    nestedScopeBlock.style.display = state.nestedCollections.length ? '' : 'none';
     toggleScopeUI();
   }
 
   function updateNestedFieldOptions(){
-    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value);
-    nestedFieldSelect.innerHTML = '';
-    if (!coll){ nestedLabel.textContent = '—'; return; }
+    nestedFieldSelect.innerHTML='';
+    const coll = state.nestedCollections.find(c=>c.name===collectionSelect.value) || state.nestedCollections[0];
+    if (!coll){ nestedLabel.textContent='—'; return; }
     nestedLabel.textContent = coll.name;
-    coll.fields.forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k; opt.textContent = k;
-      nestedFieldSelect.appendChild(opt);
-    });
-    // defaults
-    if (coll.fields.includes('account_name')) nestedFieldSelect.value = 'account_name';
-    else if (coll.fields.includes('name')) nestedFieldSelect.value = 'name';
+    coll.fields.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; nestedFieldSelect.appendChild(o); });
+    if (coll.fields.includes('account_name')) nestedFieldSelect.value='account_name';
+    else if (coll.fields.includes('name')) nestedFieldSelect.value='name';
+    // refresh nested field chips
+    renderFieldGrids();
+  }
+
+  function renderFieldGrids(){
+    recordFieldGrid.innerHTML=''; nestedFieldGrid.innerHTML='';
+    const makeChip=(name,set)=>{
+      const lbl=document.createElement('label'); lbl.className='fieldchip';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=set.has(name);
+      cb.addEventListener('change',()=>{ cb.checked?set.add(name):set.delete(name) });
+      const span=document.createElement('span'); span.textContent=name;
+      lbl.appendChild(cb); lbl.appendChild(span); return lbl;
+    };
+    state.recordFields.forEach(k=> recordFieldGrid.appendChild(makeChip(k,state.selectedRecordFields)));
+    const coll = state.nestedCollections.find(c=>c.name===collectionSelect.value);
+    (coll?coll.fields:[]).forEach(k=> nestedFieldGrid.appendChild(makeChip(k,state.selectedNestedFields)));
   }
 
   function toggleScopeUI(){
-    const nestedActive = scopeNested.checked && detected.nestedCollections.length > 0;
-    nestedRow.style.display = nestedActive ? '' : 'none';
-    userRow.style.display = scopeUsers.checked ? '' : 'none';
-    // Enable per-match flatten only if nested scope is active
+    const nestedActive = scopeNested.checked && state.nestedCollections.length>0;
+    recordScopeRow.style.display = scopeRecord.checked ? '' : 'none';
+    nestedScopeBlock.style.display = nestedActive ? '' : 'none';
     explodeRows.disabled = !nestedActive;
     if (!nestedActive) explodeRows.checked = false;
   }
 
-  // Field checkbox grids
-  function renderFieldSelectors(){
-    userFieldGrid.innerHTML = '';
-    rmFieldGrid.innerHTML = '';
-    // user fields
-    detected.userFields.forEach(name => {
-      userFieldGrid.appendChild(makeChip(name, 'user'));
-    });
-    // nested fields (from currently selected collection or first)
-    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value) || detected.nestedCollections[0];
-    const nestedFields = coll ? coll.fields : [];
-    rmFieldGrid.innerHTML = '';
-    nestedFields.forEach(name => {
-      rmFieldGrid.appendChild(makeChip(name, 'nested'));
-    });
-  }
-
-  function makeChip(name, group){
-    const wrap = document.createElement('label'); wrap.className = 'fieldchip';
-    const cb = document.createElement('input'); cb.type='checkbox';
-    cb.checked = selectedFields[group].has(name);
-    cb.addEventListener('change', () => {
-      if (cb.checked) selectedFields[group].add(name);
-      else selectedFields[group].delete(name);
-    });
-    const span = document.createElement('span'); span.textContent = name;
-    wrap.appendChild(cb); wrap.appendChild(span);
-    return wrap;
-  }
-
-  // Picker toolbar handlers
-  function setAll(group, names){ selectedFields[group] = new Set(names); syncChecks(group); }
-  function setNone(group){ selectedFields[group] = new Set(); syncChecks(group); }
-  function setDefaults(){
-    selectedFields.user = new Set(['id','email','display_name'].filter(f => detected.userFields.includes(f)));
-    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value);
-    const defaults = ['account_name','role'].filter(f => coll?.fields.includes(f));
-    selectedFields.nested = new Set(defaults);
-    syncChecks('user'); syncChecks('nested');
-  }
-  function syncChecks(group){
-    const container = (group === 'user') ? userFieldGrid : rmFieldGrid;
-    container.querySelectorAll('label.fieldchip').forEach(lbl => {
-      const name = lbl.querySelector('span').textContent;
-      lbl.querySelector('input[type=checkbox]').checked = selectedFields[group].has(name);
-    });
-  }
-
-  // Build output
-  function buildOutput(users, allowed, filterSpec){
-    const out = [];
-    const ci = caseInsensitive.checked;
-    const exact = exactMatch.checked;
-
-    const userKeys = Array.from(selectedFields.user);
-    const nestedKeys = Array.from(selectedFields.nested);
-
-    if (filterSpec.scope === 'users'){
-      for (const u of users){
-        const val = u?.[filterSpec.userField];
-        if (!isAllowed(allowed, val ?? '', {ci, exact})) continue;
-        // per-user rows only
-        const obj = {};
-        for (const k of userKeys) obj[k] = u?.[k] ?? null;
-        out.push(obj);
-      }
-      return { rows: out, uniques: { users: new Set(out.map(r => r.id ?? r.email ?? JSON.stringify(r))).size, values: new Set(out.map(r => r[filterSpec.userField])).size } };
-    }
-
-    // nested scope
-    const collName = filterSpec.collection;
-    for (const u of users){
-      const nested = Array.isArray(u?.[collName]) ? u[collName] : [];
-      const matches = nested.filter(item => isAllowed(allowed, item?.[filterSpec.nestedField] ?? '', {ci, exact}));
-      if (!matches.length) continue;
-
-      if (explodeRows.checked){
-        for (const m of matches){
-          const obj = {};
-          for (const k of userKeys) obj[k] = u?.[k] ?? null;
-          for (const rk of nestedKeys) obj[`${collName}_${rk}`] = m?.[rk] ?? null;
-          // ensure filter field appears even if not selected
-          if (!nestedKeys.includes(filterSpec.nestedField)){
-            obj[`${collName}_${filterSpec.nestedField}`] = m?.[filterSpec.nestedField] ?? null;
-          }
-          out.push(obj);
-        }
-      }else{
-        const obj = {};
-        for (const k of userKeys) obj[k] = u?.[k] ?? null;
-        const summary = matches.map(m => {
-          if (!nestedKeys.length) return String(m?.[filterSpec.nestedField] ?? '');
-          const parts = [];
-          if (m?.[filterSpec.nestedField] != null) parts.push(String(m[filterSpec.nestedField]));
-          const extras = nestedKeys
-            .filter(k => k !== filterSpec.nestedField)
-            .map(k => m?.[k] != null ? `${k}:${m[k]}` : '')
-            .filter(Boolean);
-          if (extras.length) parts.push(`(${extras.join(', ')})`);
-          return parts.join(' ');
-        }).join('; ');
-        obj[`matching_${collName}`] = summary;
-        out.push(obj);
-      }
-    }
-
-    // Stats for nested
-    const uniqUsers = new Set(out.map(r => r.id ?? r.email ?? JSON.stringify(r))).size;
-    let uniqVals = 0;
-    if (explodeRows.checked){
-      const fieldKey = `${collName}_${filterSpec.nestedField}`;
-      const s = new Set(out.map(r => r[fieldKey]));
-      uniqVals = s.size;
-    } else {
-      uniqVals = new Set(); // not meaningful in aggregated mode
-    }
-    return { rows: out, uniques: { users: uniqUsers, values: uniqVals } };
-  }
-
-  function buildColumns(filterSpec){
-    const userCols = Array.from(selectedFields.user);
-    if (filterSpec.scope === 'users'){
-      return userCols;
-    }
-    const coll = filterSpec.collection;
-    if (explodeRows.checked){
-      const nestedCols = Array.from(selectedFields.nested).map(n => `${coll}_${n}`);
-      // guarantee filter field col exists
-      if (!nestedCols.includes(`${coll}_${filterSpec.nestedField}`)){
-        nestedCols.unshift(`${coll}_${filterSpec.nestedField}`);
-      }
-      return [...userCols, ...nestedCols];
-    }
-    return [...userCols, `matching_${coll}`];
-  }
-
-  function renderTable(rows, columns){
-    resultsBody.innerHTML = '';
-    theadRow.innerHTML = '';
-    if (!rows.length){ resultsTable.style.display='none'; return; }
-    // header
-    const fragHead = document.createDocumentFragment();
-    columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; fragHead.appendChild(th); });
-    theadRow.appendChild(fragHead);
-
-    // body
-    const frag = document.createDocumentFragment();
-    rows.forEach(obj => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = columns.map(c => `<td>${escapeHtml(obj[c])}</td>`).join('');
-      frag.appendChild(tr);
-    });
-    resultsBody.appendChild(frag);
-    resultsTable.style.display = '';
-  }
-
-  function toCsv(rows, columns){
-    const header = columns.join(',');
-    const lines = [header];
-    for (const r of rows){
-      const fields = columns.map(c => {
-        const v = r[c]; const s = (v === null || v === undefined) ? '' : String(v);
-        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  function toCsv(rows, cols){
+    const header=cols.join(',');
+    const lines=[header];
+    for(const r of rows){
+      const fields=cols.map(c=>{
+        const s = (r[c]==null)?'':String(r[c]);
+        return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
       });
       lines.push(fields.join(','));
     }
     return lines.join('\r\n');
   }
 
-  // ---- Events
-  clearBtn.addEventListener('click', () => {
-    fileInput.value = ''; jsonText.value = ''; allowedInput.value = '';
-    caseInsensitive.checked = false; exactMatch.checked = true; explodeRows.checked = false;
-    selectedFields.user = new Set(['id','email','display_name']);
-    selectedFields.nested = new Set(['account_name','role']);
-    resultsBody.innerHTML = ''; theadRow.innerHTML = ''; resultsTable.style.display = 'none';
-    lastOutput = []; setDownloadsEnabled(false); setStatus('');
-  });
+  function renderTable(rows, columns){
+    resultsBody.innerHTML=''; theadRow.innerHTML='';
+    if (!rows.length){ resultsTable.style.display='none'; return; }
+    columns.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; theadRow.appendChild(th); });
+    const frag=document.createDocumentFragment();
+    rows.forEach(o=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = columns.map(c=>`<td>${escapeHtml(o[c])}</td>`).join('');
+      frag.appendChild(tr);
+    });
+    resultsBody.appendChild(frag);
+    resultsTable.style.display='';
+  }
 
-  fileInput.addEventListener('change', async (e) => {
-    if (!e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
-    try{
-      const text = await file.text();
-      jsonText.value = text;
-      const data = JSON.parse(text);
-      detectFields(data);
-      setStatus(`Loaded file: ${file.name} (${file.size.toLocaleString()} bytes)`, 'ok');
-    }catch(err){ setStatus('Failed to read file: ' + String(err), 'err'); }
-  });
+  // build rows
+  function runFilter(){
+    const records = resolveRecords();
+    if (!records.length) return {rows:[], columns:[], stats:null};
 
-  jsonText.addEventListener('blur', () => {
-    try{
-      const raw = (jsonText.value || '').trim(); if (!raw) return;
-      const data = JSON.parse(raw); detectFields(data);
-    }catch(_){}
-  });
+    const allowed = parseValues(valuesInput.value, caseInsensitive.checked);
+    if (!allowed.size) return {rows:[], columns:[], stats:null};
 
-  scopeUsers.addEventListener('change', toggleScopeUI);
-  scopeNested.addEventListener('change', toggleScopeUI);
-  collectionSelect.addEventListener('change', () => {
-    updateNestedFieldOptions();
-    renderFieldSelectors(); // refresh nested field chips to this collection
-    setDefaults(); // keep defaults sensible per collection
-  });
+    const ci=caseInsensitive.checked, exact=exactMatch.checked;
 
-  userAll.addEventListener('click', () => setAll('user', detected.userFields));
-  userNone.addEventListener('click', () => setNone('user'));
-  userDefaults.addEventListener('click', setDefaults);
-  rmAll.addEventListener('click', () => {
-    const coll = detected.nestedCollections.find(c => c.name === collectionSelect.value);
-    setAll('nested', coll ? coll.fields : []);
-  });
-  rmNone.addEventListener('click', () => setNone('nested'));
-  rmDefaults.addEventListener('click', setDefaults);
+    const recCols = [...state.selectedRecordFields];
+    const nestCols = [...state.selectedNestedFields];
 
-  runBtn.addEventListener('click', () => {
-    setDownloadsEnabled(false); resultsBody.innerHTML=''; resultsTable.style.display='none';
+    let rows=[];
+    let columns=[];
 
-    const allowed = parseAllowed(allowedInput.value, caseInsensitive.checked);
-    if (allowed.size === 0) return setStatus('Please enter at least one value to match.', 'err');
+    if (scopeRecord.checked){
+      const field = recordFieldSelect.value;
+      rows = records.filter(r=> matchAllowed(allowed, r?.[field], {ci,exact}))
+                    .map(r=>{
+                      const obj={}; recCols.forEach(k=> obj[k]= r?.[k] ?? null );
+                      return obj;
+                    });
+      columns = recCols;
+      return {rows, columns, stats: {rows:rows.length}};
+    }
 
-    let data; try{
-      const raw = (jsonText.value || '').trim();
-      if (!raw) return setStatus('Please load a JSON file or paste JSON.', 'err');
-      data = JSON.parse(raw);
-    }catch(e){ return setStatus('Invalid JSON. Details:\n' + e.message, 'err'); }
+    // nested
+    const collName = collectionSelect.value;
+    const nestedField = nestedFieldSelect.value;
 
-    const users = Array.isArray(data?.users) ? data.users : null;
-    if (!users) return setStatus('Expected an object with a "users" array at the top level.', 'err');
+    if (explodeRows.checked){
+      for (const r of records){
+        const items = toNestedItems(r[collName]);
+        const matches = items.filter(it=> matchAllowed(allowed, it?.[nestedField], {ci,exact}));
+        for (const m of matches){
+          const obj={};
+          recCols.forEach(k=> obj[k]=r?.[k] ?? null);
+          // ensure filter field exists
+          obj[`${collName}_${nestedField}`] = m?.[nestedField] ?? null;
+          nestCols.forEach(k=> obj[`${collName}_${k}`] = m?.[k] ?? null);
+          rows.push(obj);
+        }
+      }
+      const columnsSet = new Set([...recCols, `${collName}_${nestedField}`, ...nestCols.map(k=>`${collName}_${k}`)]);
+      columns=[...columnsSet];
 
-    const filterSpec = scopeUsers.checked
-      ? { scope:'users', userField:userFieldSelect.value }
-      : { scope:'nested', collection:collectionSelect.value, nestedField:nestedFieldSelect.value };
-
-    const t0 = performance.now();
-    const { rows, uniques } = buildOutput(users, allowed, filterSpec);
-    const columns = buildColumns(filterSpec);
-    const t1 = performance.now();
-
-    lastOutput = rows;
-    renderTable(rows, columns);
-    setDownloadsEnabled(rows.length > 0);
-
-    // Status: include totals + uniques when per-match flatten is used
-    if (filterSpec.scope === 'nested' && explodeRows.checked){
-      setStatus(`Rows: ${rows.length.toLocaleString()} • Unique users: ${uniques.users.toLocaleString()} • Unique ${filterSpec.nestedField}: ${uniques.values.toLocaleString()} — ${(t1 - t0).toFixed(1)}ms.`, 'ok');
+      // stats: unique records + unique filter values
+      const uniqByField = uniqueBySelect.value;
+      const uniqRecords = new Set(rows.map(r=> r[uniqByField])).size;
+      const uniqVals = new Set(rows.map(r=> r[`${collName}_${nestedField}`])).size;
+      return {rows, columns, stats:{rows:rows.length, uniqRecords, uniqVals, uniqField:uniqByField, valueField:`${collName}_${nestedField}`}};
     } else {
-      setStatus(`Matched ${rows.length.toLocaleString()} row(s) — ${(t1 - t0).toFixed(1)}ms.`, 'ok');
+      for (const r of records){
+        const items = toNestedItems(r[collName]);
+        const matches = items.filter(it=> matchAllowed(allowed, it?.[nestedField], {ci,exact}));
+        if (!matches.length) continue;
+        const obj={}; recCols.forEach(k=> obj[k]=r?.[k] ?? null);
+        obj[`matching_${collName}`] = matches.map(m=>{
+          if (!nestCols.length) return String(m?.[nestedField] ?? '');
+          const parts=[];
+          if (m?.[nestedField]!=null) parts.push(String(m[nestedField]));
+          const extras = nestCols.filter(k=>k!==nestedField).map(k=> m?.[k]!=null ? `${k}:${m[k]}` : '').filter(Boolean);
+          if (extras.length) parts.push(`(${extras.join(', ')})`);
+          return parts.join(' ');
+        }).join('; ');
+        rows.push(obj);
+      }
+      columns=[...recCols, `matching_${collName}`];
+      return {rows, columns, stats:{rows:rows.length}};
+    }
+  }
+
+  function toNestedItems(x){
+    if (Array.isArray(x)) return x.filter(o=>o && typeof o==='object' && !Array.isArray(o));
+    if (x && typeof x==='object'){
+      const vals = Object.values(x);
+      if (vals.length && vals.every(v=>v && typeof v==='object' && !Array.isArray(v))) return vals;
+    }
+    return [];
+  }
+
+  // events
+  function loadAndDetect(text){
+    rootData = JSON.parse(text);
+    state.candidateSets = scanCandidates(rootData);
+    if (!state.candidateSets.length){ setStatus('No array/object-of-objects of records found. Paste different JSON or expand nested areas.', 'err'); return; }
+    state.selectedSetIndex = 0;
+    renderRecordSetPicker();
+
+    const records = resolveRecords();
+    detectSchema(records);
+    renderFilterSelectors();
+    renderFieldGrids();
+    setStatus(`Detected ${records.length.toLocaleString()} record(s) from ${state.candidateSets[0].label}.`, 'ok');
+  }
+
+  fileInput.addEventListener('change', async e=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    try{ const t=await f.text(); jsonText.value=t; loadAndDetect(t); }
+    catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
+  });
+
+  rescanBtn.addEventListener('click', ()=>{
+    try{ const raw=(jsonText.value||'').trim(); if(!raw) return setStatus('Paste JSON or load a file first.','err'); loadAndDetect(raw); }
+    catch(e){ setStatus('Invalid JSON: '+e.message,'err'); }
+  });
+
+  jsonText.addEventListener('blur', ()=>{
+    try{ const raw=(jsonText.value||'').trim(); if(!raw) return; loadAndDetect(raw); }catch(_){}
+  });
+
+  recordSetSelect.addEventListener('change', ()=>{
+    state.selectedSetIndex = Number(recordSetSelect.value)||0;
+    const records = resolveRecords();
+    detectSchema(records);
+    renderFilterSelectors();
+    renderFieldGrids();
+    setStatus(`Record set switched: ${records.length.toLocaleString()} record(s).`,'ok');
+  });
+
+  collectionSelect.addEventListener('change', ()=>{ updateNestedFieldOptions(); });
+  scopeRecord.addEventListener('change', toggleScopeUI);
+  scopeNested.addEventListener('change', toggleScopeUI);
+
+  recAll.addEventListener('click', ()=>{ state.selectedRecordFields=new Set(state.recordFields); renderFieldGrids(); });
+  recNone.addEventListener('click', ()=>{ state.selectedRecordFields=new Set(); renderFieldGrids(); });
+  recDefaults.addEventListener('click', ()=>{
+    const defs=['id','email','display_name','name','title'];
+    state.selectedRecordFields=new Set(state.recordFields.filter(k=>defs.includes(k)).slice(0,3));
+    renderFieldGrids();
+  });
+  nestAll.addEventListener('click', ()=>{
+    const coll=state.nestedCollections.find(c=>c.name===collectionSelect.value);
+    state.selectedNestedFields=new Set(coll?coll.fields:[]);
+    renderFieldGrids();
+  });
+  nestNone.addEventListener('click', ()=>{ state.selectedNestedFields=new Set(); renderFieldGrids(); });
+  nestDefaults.addEventListener('click', ()=>{
+    const defs=['name','account_name','role'];
+    const coll=state.nestedCollections.find(c=>c.name===collectionSelect.value);
+    state.selectedNestedFields=new Set((coll?coll.fields:[]).filter(k=>defs.includes(k)));
+    renderFieldGrids();
+  });
+
+  clearBtn.addEventListener('click', ()=>{
+    fileInput.value=''; jsonText.value=''; rootData=null; state.candidateSets=[]; recordSetSelect.innerHTML='';
+    state.recordFields=[]; state.nestedCollections=[]; recordFieldGrid.innerHTML=''; nestedFieldGrid.innerHTML='';
+    resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none'; setDownloads(false); setStatus('');
+  });
+
+  runBtn.addEventListener('click', ()=>{
+    if (!rootData) return setStatus('Load JSON first.', 'err');
+    const {rows, columns, stats} = runFilter();
+    if (!rows.length){ setStatus('No matches.', 'ok'); resultsTable.style.display='none'; setDownloads(false); return; }
+    lastOutput = rows; renderTable(rows, columns); setDownloads(true);
+    if (stats && stats.uniqRecords!=null){
+      setStatus(`Rows: ${stats.rows.toLocaleString()} • Unique records (${stats.uniqField}): ${stats.uniqRecords.toLocaleString()} • Unique values (${stats.valueField}): ${stats.uniqVals.toLocaleString()}`, 'ok');
+    } else {
+      setStatus(`Matched ${rows.length.toLocaleString()} row(s).`, 'ok');
     }
   });
 
-  downloadJsonBtn.addEventListener('click', () => {
+  downloadJsonBtn.addEventListener('click', ()=>{
     if (!lastOutput.length) return;
-    const blob = new Blob([JSON.stringify(lastOutput, null, 2)], {type:'application/json'});
-    triggerDownload(blob, 'filtered-output.json');
+    const blob = new Blob([JSON.stringify(lastOutput,null,2)],{type:'application/json'});
+    trigger(blob,'filtered-output.json');
   });
-  downloadCsvBtn.addEventListener('click', () => {
+  downloadCsvBtn.addEventListener('click', ()=>{
     if (!lastOutput.length) return;
-    const cols = Array.from(theadRow.querySelectorAll('th')).map(th => th.textContent);
+    const cols = Array.from(theadRow.querySelectorAll('th')).map(th=>th.textContent);
     const csv = toCsv(lastOutput, cols);
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    triggerDownload(blob, 'filtered-output.csv');
+    trigger(new Blob([csv],{type:'text/csv;charset=utf-8'}),'filtered-output.csv');
   });
-  copyBtn.addEventListener('click', async () => {
+  copyBtn.addEventListener('click', async()=>{
     if (!lastOutput.length) return;
-    try{
-      await navigator.clipboard.writeText(JSON.stringify(lastOutput, null, 2));
-      setStatus('Copied JSON to clipboard.', 'ok');
-    }catch(e){ setStatus('Copy failed: ' + e.message, 'err'); }
+    try{ await navigator.clipboard.writeText(JSON.stringify(lastOutput,null,2)); setStatus('Copied JSON to clipboard.','ok'); }
+    catch(e){ setStatus('Copy failed: '+e.message,'err'); }
   });
-
-  function triggerDownload(blob, filename){
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
-  }
-
-  // initial empty pickers so layout is stable
-  renderFilterSelectors(); renderFieldSelectors(); toggleScopeUI();
+  function trigger(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},0)}
 })();
 </script>
 </body>
