@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Flexible JSON Filter — Simple UI (fixed outputs)</title>
+<title>Flexible JSON Filter — Correct Output Detection</title>
 <style>
   :root{--bg:#0b0b10;--panel:#131320;--muted:#9aa0ac;--text:#e9e9f1;--accent:#5b8cff;--stroke:#202036;--field:#0f0f19;--ok:#2ecc71;--err:#ff5c5c}
   *{box-sizing:border-box}
@@ -83,7 +83,7 @@
               <label><input id="exactMatch" type="checkbox"> Exact match</label>
             </div>
           </div>
-          <div class="hint">Items are shown as <code class="bubble">collection.chain.field</code> with a sample value. Paths are hidden unless toggled.</div>
+          <div class="hint">Items show a friendly chain (e.g. <code class="bubble">users.role_members.account_name</code>) with a sample. Paths are hidden unless toggled.</div>
         </div>
 
         <div class="group">
@@ -92,7 +92,7 @@
             <label><input type="radio" name="rowmode" id="modeMatch"> Per match (flatten)</label>
             <label><input type="radio" name="rowmode" id="modeParent"> Per parent (aggregate)</label>
           </div>
-          <div class="hint">“Parent” = the nearest list ancestor of the matching item (e.g., the user above their role_members). No ancestor dropdown.</div>
+          <div class="hint">“Parent” = the nearest list ancestor above the matching item (e.g., the <code class="bubble">user</code> that owns a <code class="bubble">role_member</code>).</div>
         </div>
 
         <div class="group" id="outputsGroup">
@@ -107,7 +107,7 @@
           <div id="matchBlock" style="margin-top:12px;">
             <div class="row" style="margin-top:8px;">
               <strong>Matched item fields</strong>
-              <span class="hint">(only if filtering inside a nested list)</span>
+              <span class="hint">(only when filtering inside a nested list)</span>
               <button class="btn ghost" id="matchAll">All</button>
               <button class="btn ghost" id="matchNone">None</button>
             </div>
@@ -140,90 +140,91 @@
 
     <div class="footer">
       <span class="hint">Everything runs locally.</span>
-      <span class="hint">If you want wildcard search next, say the word.</span>
+      <span class="hint">If you want wildcards next, we can add them.</span>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  // --- DOM
+  // DOM
   const fileInput=document.getElementById('fileInput'), jsonText=document.getElementById('jsonText'), clearBtn=document.getElementById('clearBtn');
   const fieldSearch=document.getElementById('fieldSearch'), showPaths=document.getElementById('showPaths'), fieldList=document.getElementById('fieldList');
   const valuesInput=document.getElementById('valuesInput'), caseInsensitive=document.getElementById('caseInsensitive'), exactMatch=document.getElementById('exactMatch');
   const modeMatch=document.getElementById('modeMatch'), modeParent=document.getElementById('modeParent');
-  const outputsGroup=document.getElementById('outputsGroup'), matchBlock=document.getElementById('matchBlock');
-  const rowFieldGrid=document.getElementById('rowFieldGrid'), matchFieldGrid=document.getElementById('matchFieldGrid');
+  const rowFieldGrid=document.getElementById('rowFieldGrid'), matchFieldGrid=document.getElementById('matchFieldGrid'), matchBlock=document.getElementById('matchBlock');
   const rowAll=document.getElementById('rowAll'), rowNone=document.getElementById('rowNone'), matchAll=document.getElementById('matchAll'), matchNone=document.getElementById('matchNone');
   const runBtn=document.getElementById('runBtn'), statusEl=document.getElementById('status'), resultsTable=document.getElementById('resultsTable'), theadRow=document.getElementById('theadRow'), resultsBody=document.getElementById('resultsBody');
   const downloadJsonBtn=document.getElementById('downloadJsonBtn'), downloadCsvBtn=document.getElementById('downloadCsvBtn'), copyBtn=document.getElementById('copyBtn');
 
-  // --- State
+  // State
   let root=null;
-  let entries=[];           // field entries across JSON
+  let entries=[];           // all scalar fields with context
   let filteredEntries=[];
-  let selectedEntry=null;   // current filter field entry
+  let selectedEntry=null;
   let selectedRowFields=new Set();
   let selectedMatchFields=new Set();
   let lastRows=[], lastCols=[];
 
-  // --- Utils
+  // Utils
   const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   const setStatus=(m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')}
   const setDownloads=on=>{downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on}
-  const enableRun=()=>{ runBtn.disabled = !(root && selectedEntry && valuesInput.value.trim() && (modeMatch.checked || modeParent.checked)); }
+  const enableRun=()=>{runBtn.disabled=!(root && selectedEntry && valuesInput.value.trim() && (modeMatch.checked||modeParent.checked));}
   const parseVals=(s,ci)=>new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x));
   const matchAllowed=(allowed,val,{ci,exact})=>{const t=ci?String(val??'').toLowerCase():String(val??'');if(exact)return allowed.has(t);for(const a of allowed)if(t.includes(a))return true;return false;}
-
-  // Path helpers
   const isColl=tok=>/\[\]|\[\*\]$/.test(tok);
   const base=tok=>tok.replace(/\[\]|\[\*\]/,'');
-  const tokensOf=p=>p.split('.');
+  const toks=p=>p.split('.');
 
-  // Scan all scalar fields (with context)
+  // Scan all scalar fields; compute holder & parent collection paths correctly
   function scanFields(root){
     const out=[];
-    function walk(node, toks, listAnc){
+    function walk(node, path){
       if (node==null) return;
       if (Array.isArray(node)){
-        for(const el of node) walk(el, toks, isColl(toks[toks.length-1]||'') ? listAnc.concat([toks.join('.')]) : listAnc);
+        for(const el of node) walk(el, path);
       } else if (typeof node==='object'){
-        const parentTok=toks[toks.length-1]||'$';
-        const newAnc = isColl(parentTok) ? listAnc.concat([toks.join('.')]) : listAnc;
         for(const [k,v] of Object.entries(node)){
-          const next = toks.length? toks.concat([k]) : ['$.',k];
+          const next = path.length? path.concat([k]) : ['$.',k];
           if (v && typeof v==='object'){
-            if (Array.isArray(v)) walk(v, [...next.slice(0,-1), next[next.length-1]+'[]'], newAnc);
-            else walk(v, next, newAnc);
+            if (Array.isArray(v)) walk(v, [...next.slice(0,-1), next[next.length-1]+'[]']);
+            else walk(v, next);
           } else {
             // scalar
-            const path=(toks.length? toks.join('.')+'.':'$.' )+k;
-            const lastCollIdx = [...toks, k].reduce((acc,t,i)=>isColl(t)?i:acc,-1);
-            const prevCollIdx = [...toks, k].reduce((acc,t,i)=>isColl(t)?(i<lastCollIdx?i:acc):acc,-1);
-            const holderColl = lastCollIdx>=0 ? [...toks, k].slice(0,lastCollIdx+1).join('.') : toks.join('.');
-            const parentColl = prevCollIdx>=0 ? [...toks, k].slice(0,prevCollIdx+1).join('.') : holderColl;
-            const chain = (path.replace(/^\$\./,'').replace(/\[\]|\[\*\]/g,''));
-            out.push({
-              path, sample:v,
-              holderColl, parentColl,
-              chainLabel: chain
-            });
+            const tokens = next; // tokens up to the holder object + field
+            const withField = tokens; // current tokens already at holder; field = k
+            const all = withField; // holder tokens
+            const collIdx = all.map((t,i)=>isColl(t)?i:-1).filter(i=>i>=0);
+            let holderColl, parentColl;
+            if (collIdx.length===0){
+              holderColl = all.slice(0, all.length-1).join('.') || '$'; // no list ancestors
+              parentColl = holderColl;
+            } else {
+              const last = collIdx[collIdx.length-1];
+              const prev = collIdx.length>=2 ? collIdx[collIdx.length-2] : last;
+              holderColl = all.slice(0, last+1).join('.');
+              parentColl = all.slice(0, prev+1).join('.');
+            }
+            const fullPath = (all.length? all.join('.') : '$') + '.' + k;
+            const chain = (fullPath.replace(/^\$\./,'').replace(/\[\]|\[\*\]/g,''));
+            out.push({ path: fullPath, sample:v, holderColl, parentColl, chainLabel: chain, field:k });
           }
         }
       }
     }
-    walk(root, ['$'], []);
-    // dedupe by path
-    const seen=new Set(); return out.filter(e=>{if(seen.has(e.path))return false; seen.add(e.path); return true;});
+    walk(root, ['$']);
+    const seen=new Set();
+    return out.filter(e=>{if(seen.has(e.path)) return false; seen.add(e.path); return true;});
   }
 
-  // Collect all objects at a collection path (…[]). Supports arrays and object-of-objects.
-  function collectAtCollection(path){
-    const toks=tokensOf(path);
-    function step(nodes, idx){
-      if (idx>=toks.length) return nodes;
-      const tok=toks[idx];
-      if (tok==='$'||tok==='$.') return step(nodes, idx+1);
+  // Collect objects at a (possibly collection) path
+  function collectObjectsAt(path){
+    const parts=toks(path);
+    function step(nodes, i){
+      if (i>=parts.length) return nodes;
+      const tok=parts[i];
+      if (tok==='$'||tok==='$.') return step(nodes, i+1);
       const coll=isColl(tok), key=base(tok);
       const next=[];
       for(const n of nodes){
@@ -233,32 +234,31 @@
           if (Array.isArray(seq)) seq.forEach(el=>{ if (el && typeof el==='object') next.push(el); });
           else if (seq && typeof seq==='object') Object.values(seq).forEach(el=>{ if (el && typeof el==='object') next.push(el); });
         } else {
-          const obj=n[key];
-          if (obj && typeof obj==='object') next.push(obj);
+          const child=n[key];
+          if (child && typeof child==='object') next.push(child);
         }
       }
-      return step(next, idx+1);
+      return step(next, i+1);
     }
-    return step([root], 0);
+    const res=step([root],0);
+    return res;
   }
 
   function scalarKeysOf(objs){
-    const set=new Set();
-    const limit=Math.min(100, objs.length);
-    for (let i=0;i<limit;i++){
+    const s=new Set();
+    const n=Math.min(200, objs.length);
+    for(let i=0;i<n;i++){
       const o=objs[i]; if(!o||typeof o!=='object') continue;
-      for(const [k,v] of Object.entries(o)) if (v==null || typeof v!=='object') set.add(k);
+      for(const [k,v] of Object.entries(o)) if (v==null || typeof v!=='object') s.add(k);
     }
-    return [...set].sort();
+    return [...s].sort();
   }
 
-  // UI renderers
   function renderFieldList(){
     fieldList.innerHTML='';
     filteredEntries.forEach(e=>{
       const label = e.chainLabel + (showPaths.checked ? `  •  ${e.path}` : '');
-      const opt=document.createElement('option');
-      opt.value=e.path; opt.textContent=`${label} — sample: ${String(e.sample).slice(0,80)}`;
+      const opt=document.createElement('option'); opt.value=e.path; opt.textContent=`${label} — sample: ${String(e.sample).slice(0,80)}`;
       fieldList.appendChild(opt);
     });
   }
@@ -269,7 +269,7 @@
       const lbl=document.createElement('label'); lbl.className='chip';
       const cb=document.createElement('input'); cb.type='checkbox';
       cb.checked=setRef.has(k);
-      cb.addEventListener('change',()=>{ cb.checked?setRef.add(k):setRef.delete(k); });
+      cb.addEventListener('change',()=>{ cb.checked ? setRef.add(k) : setRef.delete(k); });
       const span=document.createElement('span'); span.textContent=k;
       lbl.appendChild(cb); lbl.appendChild(span); return lbl;
     };
@@ -290,17 +290,17 @@
   }
   const toCsv=(rows,cols)=>[cols.join(','),...rows.map(r=>cols.map(c=>{const s=r[c]==null?'':String(r[c]);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
 
-  // ---- Load JSON
+  // Load JSON
   function load(text){
     root=JSON.parse(text);
-    entries = scanFields(root);
-    filteredEntries = entries;
+    entries=scanFields(root);
+    filteredEntries=entries;
     renderFieldList();
     setStatus(`Found ${entries.length.toLocaleString()} fields. Pick a field, choose row mode, then outputs.`, 'ok');
     enableRun();
   }
 
-  // ---- Events
+  // Events
   fileInput.addEventListener('change', async e=>{
     const f=e.target.files?.[0]; if(!f) return;
     try{ const t=await f.text(); jsonText.value=t; load(t);}catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
@@ -312,11 +312,9 @@
     entries=[]; filteredEntries=[]; fieldList.innerHTML=''; fieldSearch.value=''; showPaths.checked=false;
     selectedEntry=null; modeMatch.checked=false; modeParent.checked=false;
     selectedRowFields=new Set(); selectedMatchFields=new Set();
-    rowFieldGrid.innerHTML=''; matchFieldGrid.innerHTML='';
-    matchBlock.style.display=''; // reset
+    rowFieldGrid.innerHTML=''; matchFieldGrid.innerHTML=''; matchBlock.style.display='';
     resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none';
-    setDownloads(false); setStatus('');
-    enableRun();
+    setDownloads(false); setStatus(''); enableRun();
   });
 
   fieldSearch.addEventListener('input', ()=>{
@@ -330,139 +328,118 @@
     selectedEntry = entries.find(e=> e.path===fieldList.value);
     if (!selectedEntry) return;
 
-    // Determine collections
-    const holderColl = selectedEntry.holderColl; // e.g. $.users[].role_members[]
-    const parentColl = selectedEntry.parentColl; // e.g. $.users[]
-    const sameLevel = holderColl === parentColl;
+    // Determine the parent and holder collections properly
+    const parentObjs = collectObjectsAt(selectedEntry.parentColl);
+    const holderObjs = collectObjectsAt(selectedEntry.holderColl);
 
-    // Build field sets by scanning the ENTIRE collections (not just matches)
-    const parentObjs = collectAtCollection(parentColl);
-    const holderObjs = collectAtCollection(holderColl);
+    // If the selected field lives directly on the parent collection object,
+    // holderObjs and parentObjs will be the same (no "matched item" section).
+    const sameLevel = selectedEntry.parentColl === selectedEntry.holderColl;
 
-    const rowKeys   = scalarKeysOf(parentObjs);
+    // Build complete key sets from the FULL collections (not just matches)
+    const rowKeys = scalarKeysOf(parentObjs);
     const matchKeys = sameLevel ? [] : scalarKeysOf(holderObjs);
 
-    // Reset selections and render chips
-    selectedRowFields = new Set();
-    selectedMatchFields = new Set();
-
+    selectedRowFields=new Set(); selectedMatchFields=new Set();
     renderChips(rowFieldGrid, rowKeys, selectedRowFields);
 
     if (matchKeys.length){
       matchBlock.style.display='';
       renderChips(matchFieldGrid, matchKeys, selectedMatchFields);
-    } else {
+    }else{
       matchBlock.style.display='none';
       matchFieldGrid.innerHTML='';
     }
-
     enableRun();
   });
 
   [modeMatch,modeParent].forEach(el=>el.addEventListener('change', enableRun));
-
   rowAll.addEventListener('click', ()=>{
     const keys=[...rowFieldGrid.querySelectorAll('label.chip span')].map(s=>s.textContent);
-    selectedRowFields = new Set(keys); renderChips(rowFieldGrid, keys, selectedRowFields);
+    selectedRowFields=new Set(keys); renderChips(rowFieldGrid, keys, selectedRowFields);
   });
   rowNone.addEventListener('click', ()=>{ selectedRowFields=new Set(); renderChips(rowFieldGrid, [], selectedRowFields); });
-
   matchAll.addEventListener('click', ()=>{
     const keys=[...matchFieldGrid.querySelectorAll('label.chip span')].map(s=>s.textContent);
-    selectedMatchFields = new Set(keys); renderChips(matchFieldGrid, keys, selectedMatchFields);
+    selectedMatchFields=new Set(keys); renderChips(matchFieldGrid, keys, selectedMatchFields);
   });
   matchNone.addEventListener('click', ()=>{ selectedMatchFields=new Set(); renderChips(matchFieldGrid, [], selectedMatchFields); });
 
   valuesInput.addEventListener('input', enableRun);
   [caseInsensitive, exactMatch].forEach(e=>e.addEventListener('change', enableRun));
 
+  // Run
   runBtn.addEventListener('click', ()=>{
     if (!root || !selectedEntry) return;
 
     const allowed = parseVals(valuesInput.value, caseInsensitive.checked);
     const ci=caseInsensitive.checked, exact=exactMatch.checked;
 
-    // Resolve all matches of the selected field
-    const matches = (function resolveMatches(fieldPath){
-      const tks=tokensOf(fieldPath); const res=[];
-      function recur(node, idx, listStack, objStack){
-        if (idx>=tks.length) return;
-        const tok=tks[idx];
-        if (tok==='$'||tok==='$.'){recur(node, idx+1, listStack, objStack); return;}
+    // Resolve matches of the selected field, keeping list ancestor stack
+    const matches=(function resolveMatches(){
+      const p=toks(selectedEntry.path); const res=[];
+      function recur(node,i,stack){
+        if (i>=p.length) return;
+        const tok=p[i];
+        if (tok==='$'||tok==='$.') return recur(node,i+1,stack);
         const coll=isColl(tok), key=base(tok);
         if (coll){
           const seq=node?.[key];
-          const items = Array.isArray(seq)? seq : (seq && typeof seq==='object'? Object.values(seq) : []);
-          for(const el of items){
-            if (el && typeof el==='object') recur(el, idx+1, listStack.concat([{path:tks.slice(0,idx+1).join('.'), name:key, obj:el}]), objStack);
-          }
+          const items=Array.isArray(seq)?seq:(seq&&typeof seq==='object'?Object.values(seq):[]);
+          for(const el of items){ if(el&&typeof el==='object') recur(el,i+1,stack.concat([{path:p.slice(0,i+1).join('.'), name:key, obj:el}])) }
         } else {
-          if (idx===tks.length-1){
-            const holder=node; const v=holder?.[key];
-            if (v!==undefined && (typeof v!=='object' || v===null)) res.push({ value:v, holder, listStack });
+          if (i===p.length-1){
+            const val=node?.[key];
+            if (val!==undefined && (typeof val!=='object' || val===null)) res.push({value:val, holder:node, stack});
           } else {
-            const nxt=node?.[key];
-            if (nxt && typeof nxt==='object') recur(nxt, idx+1, listStack, objStack.concat([{path:tks.slice(0,idx+1).join('.'), name:key, obj:nxt}]));
+            const nxt=node?.[key]; if(nxt&&typeof nxt==='object') recur(nxt,i+1,stack);
           }
         }
       }
-      recur(root,0,[],[]);
-      return res;
-    })(selectedEntry.path).filter(m=> matchAllowed(allowed, m.value, {ci,exact}));
+      recur(root,0,[]);
+      return res.filter(m=> matchAllowed(allowed,m.value,{ci,exact}));
+    })();
 
-    // Build rows
-    const perMatch = modeMatch.checked;
-    const rows=[]; const colsSet=new Set();
-    const holderName = (function(){ const t=tokensOf(selectedEntry.holderColl); return base(t[t.length-1]||'match'); })();
-    const prefix = holderName ? holderName + '_' : 'match_';
+    function nearestParent(m){ return m.stack.length? m.stack[m.stack.length-1].obj : m.holder; }
 
-    function nearestParent(m){ const ls=m.listStack; return ls.length? ls[ls.length-1].obj : m.holder; }
+    const perMatch=modeMatch.checked;
+    const rows=[]; const cols=new Set();
+    const holderName=(function(){const t=toks(selectedEntry.holderColl); return base(t[t.length-1]||'match');})();
+    const prefix=holderName?holderName+'_':'match_';
 
     if (perMatch){
       for(const m of matches){
-        const parent = nearestParent(m);
+        const parent=nearestParent(m);
         const out={};
-        // row fields from parent
-        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; colsSet.add(k); }
-        // matched fields from holder
-        for(const k of selectedMatchFields){ out[prefix+k]= m.holder?.[k] ?? ''; colsSet.add(prefix+k); }
-        // always include filter value
-        out[prefix+'filter_value'] = String(m.value); colsSet.add(prefix+'filter_value');
+        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; cols.add(k); }
+        for(const k of selectedMatchFields){ out[prefix+k]= m.holder?.[k] ?? ''; cols.add(prefix+k); }
+        out[prefix+'filter_value']=String(m.value); cols.add(prefix+'filter_value');
         rows.push(out);
       }
       const uniqParents=new Set(matches.map(nearestParent)).size;
       const uniqVals=new Set(matches.map(m=>String(m.value))).size;
       setStatus(`Rows: ${rows.length.toLocaleString()} • Unique parents: ${uniqParents.toLocaleString()} • Unique filter values: ${uniqVals.toLocaleString()}`, 'ok');
     } else {
-      // Group by parent
+      // aggregate per parent
       const groups=new Map();
-      for(const m of matches){
-        const p=nearestParent(m);
-        if (!groups.has(p)) groups.set(p, []);
-        groups.get(p).push(m);
-      }
-      for(const [parent, ms] of groups){
+      for(const m of matches){ const p=nearestParent(m); if(!groups.has(p)) groups.set(p,[]); groups.get(p).push(m); }
+      for(const [parent,ms] of groups){
         const out={};
-        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; colsSet.add(k); }
-        // aggregate matched fields or at least the filter value list
-        if (selectedMatchFields.size){
-          const rendered = ms.map(mm=>{
-            const bits=[]; for(const k of selectedMatchFields){ const v=mm.holder?.[k]; if (v!=null) bits.push(`${k}:${v}`); }
-            return bits.join(', ');
-          }).filter(Boolean).join('; ');
-          out['matches'] = rendered; colsSet.add('matches');
-        } else {
-          out['matches'] = ms.map(mm=>String(mm.value)).join('; '); colsSet.add('matches');
-        }
+        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; cols.add(k); }
+        const line = (selectedMatchFields.size
+          ? ms.map(mm=>[...selectedMatchFields].map(k=>mm.holder?.[k]!=null?`${k}:${mm.holder[k]}`:'').filter(Boolean).join(', ')).filter(Boolean).join('; ')
+          : ms.map(mm=>String(mm.value)).join('; ')
+        );
+        out['matches']=line; cols.add('matches');
         rows.push(out);
       }
       setStatus(`Rows: ${rows.length.toLocaleString()}`, 'ok');
     }
 
-    const cols=[...colsSet];
-    lastRows=rows; lastCols=cols; buildTable(rows, cols); setDownloads(rows.length>0);
+    const colList=[...cols]; lastRows=rows; lastCols=colList; buildTable(rows,colList); setDownloads(rows.length>0);
   });
 
+  // Downloads / copy
   downloadJsonBtn.addEventListener('click', ()=>{
     if (!lastRows.length) return;
     const blob=new Blob([JSON.stringify(lastRows,null,2)],{type:'application/json'});
@@ -471,7 +448,7 @@
   });
   downloadCsvBtn.addEventListener('click', ()=>{
     if (!lastRows.length) return;
-    const csv = [lastCols.join(','), ...lastRows.map(r=> lastCols.map(c=>{const s=r[c]==null?'':String(r[c]); return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
+    const csv=[lastCols.join(','),...lastRows.map(r=> lastCols.map(c=>{const s=r[c]==null?'':String(r[c]);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.csv';
     document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
