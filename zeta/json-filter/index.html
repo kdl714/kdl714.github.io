@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>JSON Filter</title>
+<title>Flexible JSON Filter — Clean UI</title>
 <style>
   :root{--bg:#0b0b10;--panel:#131320;--muted:#9aa0ac;--text:#e9e9f1;--accent:#5b8cff;--stroke:#202036;--field:#0f0f19;--ok:#2ecc71;--err:#ff5c5c}
   *{box-sizing:border-box}
@@ -30,92 +30,105 @@
   .status{font-size:13px;margin-top:6px}
   .status.ok{color:var(--ok)} .status.err{color:var(--err);white-space:pre-wrap}
 
-  .group{border:1px solid var(--stroke);border-radius:12px;padding:12px;background:#0f0f19}
-  .group h3{margin:0 0 8px 0;font-size:13px;color:#bdbdd3}
+  /* Field browser */
+  .browser{border:1px solid var(--stroke);border-radius:12px;background:#0f0f19;padding:10px}
+  .search{display:flex;gap:8px;margin-bottom:8px}
+  .list{max-height:240px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+  .item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid #1e1e33;border-radius:10px;background:#101022;cursor:pointer}
+  .item:hover{border-color:#2b2b55}
+  .item.active{outline:2px solid var(--accent)}
+  .name{font-weight:600}
+  .sample{color:#cdd0e4;font-size:12px;opacity:.9}
+  .badge{font-size:11px;color:#cfd2e8;background:#0b0b16;border:1px solid #1f1f35;border-radius:999px;padding:4px 8px;white-space:nowrap}
+
+  /* Field checkboxes */
   .chiplist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:240px;overflow:auto;padding:8px;background:#0c0c16;border:1px solid #1e1e33;border-radius:10px}
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d6d6e6}
-  .searchbox{display:flex;gap:8px}
-  .searchbox input{flex:1}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;font-size:13px;color:#d6d6e6}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(max-width:980px){.two{grid-template-columns:1fr}}
+
   table{width:100%;border-collapse:separate;border-spacing:0;background:var(--field);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
   th,td{padding:10px 12px;border-bottom:1px solid #1e1e30;text-align:left;vertical-align:top}
   th{background:#101022;font-size:12px;color:#bdbdd3;position:sticky;top:0}
   tr:last-child td{border-bottom:none}
+
   .footer{padding:12px 18px;border-top:1px solid var(--stroke);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
   code.bubble{background:#101022;padding:2px 6px;border-radius:8px;border:1px solid #232345;font-family:ui-monospace,Consolas,Menlo,monospace}
-  .danger{color:var(--err)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
     <header>
-      <h1>JSON Filter</h1>
+      <h1>Flexible JSON Filter</h1>
       <div class="sub">No installs • Everything runs locally • No defaults</div>
     </header>
 
     <div class="content">
-      <!-- LEFT: Load -->
+      <!-- Load -->
       <div class="section">
-        <label>1) Load JSON (choose one):</label>
+        <label>1) Load JSON</label>
         <div class="row">
           <input id="fileInput" type="file" accept=".json,application/json"/>
           <button class="btn ghost" id="clearBtn">Clear</button>
         </div>
         <textarea id="jsonText" placeholder="Paste any JSON (object or array)"></textarea>
-        <div class="hint">Tip: file picker is faster for very large files.</div>
+        <div class="hint">For very large files, using the file picker is faster.</div>
       </div>
 
-      <!-- RIGHT: Unified Builder -->
+      <!-- Build -->
       <div class="section">
-        <label>2) Build your query (filter + row scope + outputs)</label>
+        <label>2) Build your query</label>
 
-        <div class="group">
-          <h3>Filter field (search across entire JSON)</h3>
-          <div class="searchbox">
-            <input id="pathSearch" type="text" placeholder="Search paths… (e.g. account_name, email, id)">
-            <select id="filterPath" size="8" title="Select a field path found in the JSON" style="min-height:160px;width:100%"></select>
+        <!-- Filter field -->
+        <div class="browser">
+          <div class="search">
+            <input id="searchInput" type="text" placeholder="Search fields by name (e.g., account_name, email, id)"/>
           </div>
-          <div class="two">
-            <input id="valuesInput" type="text" placeholder="Values to match (comma-separated)">
-            <div class="row">
-              <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
-              <label><input id="exactMatch" type="checkbox"> Exact match</label>
+          <div id="fieldList" class="list"></div>
+          <div class="hint" id="fieldCount"></div>
+        </div>
+
+        <div class="two">
+          <input id="valuesInput" type="text" placeholder="Values to match (comma-separated)"/>
+          <div class="row">
+            <label><input id="ci" type="checkbox"> Case-insensitive</label>
+            <label><input id="exact" type="checkbox"> Exact match</label>
+          </div>
+        </div>
+
+        <!-- Row mode -->
+        <div class="row" style="margin-top:8px;">
+          <label><input type="radio" name="mode" id="modeMatch"> One row per <em>match</em></label>
+          <label><input type="radio" name="mode" id="modeRecord"> One row per <em>record</em> (aggregated)</label>
+          <span class="hint" id="recordHint"></span>
+        </div>
+
+        <!-- Output fields -->
+        <div class="two">
+          <div>
+            <div class="row" style="justify-content:space-between">
+              <label>Record fields</label>
+              <div class="row"><button class="btn ghost" id="recAll">All</button><button class="btn ghost" id="recNone">None</button></div>
             </div>
+            <div id="recGrid" class="chiplist"></div>
           </div>
-          <div class="hint">Paths use a simple JSONPath-like form with <code class="bubble">[]</code> to indicate collections, e.g. <code class="bubble">$.users[].role_members[].account_name</code>.</div>
-        </div>
-
-        <div class="group">
-          <h3>Row scope (what becomes a “row”)</h3>
-          <div class="row">
-            <label><input type="radio" name="rowmode" id="rowMatch"> One row per <em>matching element’s object</em></label>
-            <label><input type="radio" name="rowmode" id="rowAggregate"> Aggregate matches to ancestor:</label>
-            <select id="ancestorSelect" disabled title="Pick an ancestor object to aggregate to"></select>
-          </div>
-          <div class="row">
-            <label>Unique by (optional for stats):</label>
-            <select id="uniqueBy" disabled title="Pick a field on your row object to compute unique counts"></select>
-          </div>
-          <div class="hint">No defaults here — pick what you need. “Aggregate” lets you roll up matches to an ancestor object (e.g., from <code class="bubble">role_members</code> to its parent <code class="bubble">user</code>).</div>
-        </div>
-
-        <div class="group">
-          <h3>Output fields (relative to your chosen row)</h3>
-          <div class="row">
-            <button class="btn ghost" id="selectAll">All</button>
-            <button class="btn ghost" id="selectNone">None</button>
-            <span class="hint">No defaults are preselected.</span>
-          </div>
-          <div id="outputGrid" class="chiplist"></div>
-          <div class="row">
-            <input id="customField" type="text" placeholder="Add custom relative path (e.g. profile.name or meta.code)">
-            <button class="btn secondary" id="addCustom">Add</button>
+          <div>
+            <div class="row" style="justify-content:space-between">
+              <label>Nested fields <span class="hint" id="nestedLabel"></span></label>
+              <div class="row"><button class="btn ghost" id="nestAll">All</button><button class="btn ghost" id="nestNone">None</button></div>
+            </div>
+            <div id="nestGrid" class="chiplist"></div>
           </div>
         </div>
 
-        <div class="row" style="gap:10px;">
+        <!-- Unique-by (only used in per-match stats; optional) -->
+        <div class="row">
+          <label>Unique by (optional for stats):</label>
+          <select id="uniqueBy" disabled title="Choose a record field to compute unique counts"></select>
+        </div>
+
+        <div class="row" style="gap:10px;margin-top:6px;">
           <button class="btn" id="runBtn" disabled>Run</button>
           <button class="btn secondary" id="downloadJsonBtn" disabled>Download JSON</button>
           <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
@@ -125,7 +138,7 @@
       </div>
     </div>
 
-    <!-- RESULTS -->
+    <!-- Results -->
     <div class="content single">
       <div class="section">
         <label>Results</label>
@@ -139,7 +152,8 @@
     </div>
 
     <div class="footer">
-      <span class="hint">Everything is processed locally in your browser.</span>
+      <span class="hint">All processing is local; nothing is uploaded.</span>
+      <span class="hint">Want wildcard search next? Happy to add.</span>
     </div>
   </div>
 </div>
@@ -148,207 +162,276 @@
 (function(){
   // ---- DOM
   const fileInput = document.getElementById('fileInput');
-  const jsonText = document.getElementById('jsonText');
-  const clearBtn = document.getElementById('clearBtn');
+  const jsonText  = document.getElementById('jsonText');
+  const clearBtn  = document.getElementById('clearBtn');
 
-  const pathSearch = document.getElementById('pathSearch');
-  const filterPathSel = document.getElementById('filterPath');
+  const searchInput = document.getElementById('searchInput');
+  const fieldList   = document.getElementById('fieldList');
+  const fieldCount  = document.getElementById('fieldCount');
+
   const valuesInput = document.getElementById('valuesInput');
-  const caseInsensitive = document.getElementById('caseInsensitive');
-  const exactMatch = document.getElementById('exactMatch');
+  const ci    = document.getElementById('ci');
+  const exact = document.getElementById('exact');
 
-  const rowMatch = document.getElementById('rowMatch');
-  const rowAggregate = document.getElementById('rowAggregate');
-  const ancestorSelect = document.getElementById('ancestorSelect');
+  const modeMatch  = document.getElementById('modeMatch');
+  const modeRecord = document.getElementById('modeRecord');
+  const recordHint = document.getElementById('recordHint');
+
+  const recGrid   = document.getElementById('recGrid');
+  const nestGrid  = document.getElementById('nestGrid');
+  const recAll    = document.getElementById('recAll');
+  const recNone   = document.getElementById('recNone');
+  const nestAll   = document.getElementById('nestAll');
+  const nestNone  = document.getElementById('nestNone');
+  const nestedLabel = document.getElementById('nestedLabel');
+
   const uniqueBy = document.getElementById('uniqueBy');
 
-  const outputGrid = document.getElementById('outputGrid');
-  const selectAllBtn = document.getElementById('selectAll');
-  const selectNoneBtn = document.getElementById('selectNone');
-  const customField = document.getElementById('customField');
-  const addCustom = document.getElementById('addCustom');
-
   const runBtn = document.getElementById('runBtn');
-  const statusEl = document.getElementById('status');
-  const resultsTable = document.getElementById('resultsTable');
-  const theadRow = document.getElementById('theadRow');
-  const resultsBody = document.getElementById('resultsBody');
   const downloadJsonBtn = document.getElementById('downloadJsonBtn');
-  const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+  const downloadCsvBtn  = document.getElementById('downloadCsvBtn');
   const copyBtn = document.getElementById('copyBtn');
+  const statusEl = document.getElementById('status');
+
+  const resultsTable = document.getElementById('resultsTable');
+  const theadRow     = document.getElementById('theadRow');
+  const resultsBody  = document.getElementById('resultsBody');
 
   // ---- State
   let root = null;
-  let scalarPaths = []; // [{path, sample, ancestors: ['$.users[]','$.users[].role_members[]'], holder:'$.users[].role_members[]'}]
-  let filteredScalarPaths = [];
-  let selectedOutput = new Set();       // relative to row object
-  let customOutputs = new Set();        // user-added relative paths
-  let currentRowCandidates = [];        // list of {label, path} for ancestorSelect
-  let currentRowFieldList = [];         // union of fields for row object
+  let fieldEntries = []; // [{key:'account_name', sample, context:'users › role_members', holderPath, recordPath, holderName, recordName}]
+  let filteredEntries = [];
+  let selectedField = null; // entry
+  let recFields = [];   // scalar keys on record object
+  let nestFields = [];  // scalar keys on holder object
+  let selRec = new Set();   // selected output fields for record
+  let selNest = new Set();  // selected output fields for nested
   let lastRows = [];
-  let lastColumns = [];
+  let lastCols = [];
 
-  // ---- Utils
+  // ---- Utilities
   const esc = v => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   const setStatus = (m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')}
   const setDownloads = on => {downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on}
-  const enableRunIfReady = ()=> {
-    const hasPath = !!filterPathSel.value;
-    const hasValues = !!valuesInput.value.trim();
-    const rowModeChosen = rowMatch.checked || rowAggregate.checked;
-    const aggOk = (!rowAggregate.checked) || (!!ancestorSelect.value);
-    runBtn.disabled = !(root && hasPath && hasValues && rowModeChosen && aggOk);
+  const enableRun = ()=>{
+    const ready = root && selectedField && valuesInput.value.trim() && (modeMatch.checked || modeRecord.checked);
+    runBtn.disabled = !ready;
   };
-
-  function parseValues(s,ci){ return new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x)); }
-  function matchesAllowed(allowed,val,{ci,exact}){
-    const t = ci ? String(val??'').toLowerCase() : String(val??'');
+  const valuesSet = (s,lower)=> new Set((s||'').split(',').map(t=>t.trim()).filter(Boolean).map(x=>lower?x.toLowerCase():x));
+  const matchesAllowed = (allowed,val,{lower,exact})=>{
+    const t = lower ? String(val??'').toLowerCase() : String(val??'');
     if (exact) return allowed.has(t);
     for (const a of allowed) if (t.includes(a)) return true;
     return false;
-  }
+  };
 
-  // ----- Path utilities (supports tokens like foo, foo[], nested.foo[], $.root[], etc.)
-  function tokenize(path){
-    const p = path.replace(/^\$\./,'$.' ).replace(/^\$/,'$');
-    const parts = p.split('.'); // keeps '[]' suffix on tokens
-    return parts;
-  }
-  function isCollectionToken(tok){ return tok.endsWith('[]') || tok.endsWith('[*]'); }
-  function baseName(tok){ return tok.replace(/\[\]|\[\*\]/,''); }
-
-  // Enumerate *all* scalar field paths across the JSON
-  function scanScalarPaths(root){
+  // ---- Scanner: collect scalar fields with context (hide raw paths)
+  function scan(root){
     const out = [];
-    function walk(node, tokens, ancestors, holderPath){
-      if (node===null || node===undefined) return;
-
+    function walk(node, tokens, arrayTrail){
+      if (node === null || node === undefined) return;
       if (Array.isArray(node)){
-        const t = tokens.length?tokens[tokens.length-1]: '$';
+        const name = tokens[tokens.length-1] || '$';
+        const arrName = name?.replace(/\[\]|\[\*\]/g,'') || '(array)';
         // iterate
-        for (let i=0;i<node.length;i++){
-          const el = node[i];
-          walk(el, tokens, ancestors, holderPath); // element inherits same holder
+        for (const el of node){
+          if (el && typeof el==='object'){
+            walk(el, tokens, arrayTrail.concat(arrName));
+          }
         }
       } else if (typeof node === 'object'){
-        // record this object as a potential holder if last token denotes a collection
-        const parentTok = tokens[tokens.length-1] || '$';
-        let newHolder = holderPath;
-        if (isCollectionToken(parentTok)) newHolder = tokens.join('.');
-        // add ancestor collection path when parentTok is collection
-        const newAncestors = [...ancestors];
-        if (isCollectionToken(parentTok)) newAncestors.push(tokens.join('.'));
-
         for (const [k,v] of Object.entries(node)){
-          const tok = k;
-          const nextTokens = tokens.length? [...tokens, tok] : ['$.', tok];
           if (v && typeof v === 'object'){
-            // arrays and objects
             if (Array.isArray(v)){
-              walk(v, [...nextTokens.slice(0,-1), nextTokens[nextTokens.length-1]+'[]'], newAncestors, newHolder);
-            }else{
-              walk(v, nextTokens, newAncestors, newHolder);
+              walk(v, [...tokens,k+'[]'], arrayTrail); // we’ll append when diving in
+              // entering array -> next recursion will add to arrayTrail
+              walk(v, [...tokens,k+'[]'], arrayTrail);
+            } else {
+              walk(v, [...tokens,k], arrayTrail);
             }
           } else {
-            // scalar -> record path
-            const path = (tokens.length?tokens.join('.')+'.':'$.' ) + k;
-            out.push({ path, sample: v, ancestors: newAncestors, holder: newHolder || tokens.join('.') });
+            // scalar field
+            // Holder is the nearest object inside an array; record is the OUTERMOST array ancestor.
+            const trail = arrayTrail.slice(); // e.g., ['users','role_members']
+            const holderName = trail.length ? trail[trail.length-1] : '(root)';
+            const recordName = trail.length ? trail[0] : '(root)';
+            out.push({
+              key: k,
+              sample: v,
+              context: trail.length ? `${trail.join(' › ')}` : '(root)',
+              holderName,
+              recordName,
+              // for resolution later we also keep functions:
+              resolver: makeResolver(tokens, k, trail)
+            });
           }
         }
       }
     }
-    walk(root, ['$'], [], '$');
-    // Deduplicate by path (keep first sample)
-    const seen=new Set();
-    return out.filter(p=>{ if(seen.has(p.path)) return false; seen.add(p.path); return true; });
-  }
 
-  // Given a field path, offer ancestor row candidates (matching element’s object + any ancestor collection objects)
-  function rowCandidatesForField(fieldPath){
-    const entry = scalarPaths.find(p => p.path===fieldPath);
-    if (!entry) return [];
-    const cands = [];
-    // holder object of the field
-    cands.push({label:'(matching element object) '+entry.holder, path:entry.holder});
-    // ancestor collections (closest first)
-    for (let i=entry.ancestors.length-1;i>=0;i--){
-      cands.push({label: 'ancestor '+entry.ancestors[i], path: entry.ancestors[i]});
-    }
-    return cands;
-  }
-
-  // Resolve all matches for a scalar path, including their object contexts + ancestor objects
-  function resolveMatchesForPath(path){
-    const tokens = tokenize(path);
-    const res = [];
-    function recur(node, idx, stack){
-      if (idx >= tokens.length) return;
-      const tok = tokens[idx];
-      if (tok==='$' || tok==='$.') { recur(node, idx+1, stack); return; }
-      const coll = isCollectionToken(tok), key = baseName(tok);
-      if (coll){
-        const next = node?.[key];
-        if (!next) return;
-        const items = Array.isArray(next) ? next : (typeof next==='object' ? Object.values(next) : []);
-        for (const el of items) {
-          if (el && typeof el==='object') recur(el, idx+1, stack.concat({type:'collection', key, obj:el, path: tokens.slice(0,idx+1).join('.')}));
+    // Build a resolver that can enumerate matches + row objects without showing raw paths
+    function makeResolver(tokens, leafKey, trail){
+      return function resolveAll(rootObj){
+        const results = [];
+        function dive(node, idx, seenTrail){
+          if (idx >= tokens.length) return;
+          const token = tokens[idx];
+          if (token.endsWith('[]')){ // array
+            const key = token.replace('[]','').replace('[*]','');
+            const arr = node?.[key];
+            if (Array.isArray(arr)){
+              for (const el of arr){
+                if (el && typeof el==='object') dive(el, idx+1, seenTrail.concat(key));
+              }
+            }
+          } else if (token){ // object step
+            const next = node?.[token];
+            if (next && typeof next === 'object'){
+              dive(next, idx+1, seenTrail);
+            }
+          } else {
+            // no-op
+          }
         }
-      }else{
-        if (idx === tokens.length-1){
-          // last token -> scalar value at node[key]
-          const holderObj = node;
-          const val = holderObj?.[key];
-          if (val!==undefined && (typeof val!=='object' || val===null)){
-            res.push({ value: val, holder: holderObj, stack });
+        function collectHolders(node, idx, seenTrail){
+          // traverse down; when at object that has leafKey (scalar), record a match
+          if (node && typeof node==='object'){
+            if (Object.prototype.hasOwnProperty.call(node, leafKey) && (node[leafKey]===null || typeof node[leafKey] !== 'object')){
+              // compute holder + record (outermost)
+              const holder = node;
+              const record = findOutermostRecordFor(holder, rootObj, trail[0]); // outermost by first trail name
+              results.push({ value: node[leafKey], holder, record });
+            }
+            for (const [k,v] of Object.entries(node)){
+              if (v && typeof v==='object') collectHolders(v, idx+1, seenTrail);
+            }
+          } else if (Array.isArray(node)){
+            for (const el of node) collectHolders(el, idx, seenTrail);
+          }
+        }
+        // A simpler pass: just collect across entire tree
+        collectHolders(rootObj, 0, []);
+        return results;
+      };
+    }
+
+    function findOutermostRecordFor(holderObj, rootObj, recordName){
+      // BFS to find the nearest ancestor object that lives inside the OUTERMOST array with name recordName
+      // For simplicity (and performance), we’ll re-walk from root and keep parents.
+      let found = null;
+      function walkParents(node, parentStack){
+        if (found) return;
+        if (node === holderObj){
+          // climb up stack to find ancestor that sits under recordName array
+          for (let i = parentStack.length-1; i>=0; i--){
+            const p = parentStack[i];
+            if (p && p.arrayName === recordName && p.item){
+              found = p.item; break;
+            }
           }
           return;
-        } else {
-          const next = node?.[key];
-          if (next && typeof next==='object'){
-            recur(next, idx+1, stack.concat({type:'object', key, obj:next, path: tokens.slice(0,idx+1).join('.')}));
+        }
+        if (Array.isArray(node)){
+          // not labeled; climb into elements
+          for (const el of node) walkParents(el, parentStack);
+        } else if (node && typeof node === 'object'){
+          for (const [k,v] of Object.entries(node)){
+            if (Array.isArray(v)){
+              for (const el of v){
+                if (el && typeof el==='object'){
+                  walkParents(el, parentStack.concat({arrayName:k, item:el}));
+                }
+              }
+            } else if (v && typeof v==='object'){
+              walkParents(v, parentStack);
+            }
           }
         }
       }
+      walkParents(rootObj, []);
+      return found || holderObj;
     }
-    recur(root, 0, []);
-    return res;
+
+    // start traversal from root with token '$'
+    walk(root, [], []);
+    // Collapse duplicates by (key+context) so the list is simple
+    const seen = new Map(); // key 'key|context' -> entry
+    for (const e of out){
+      const id = `${e.key}|${e.context}`;
+      if (!seen.has(id)) seen.set(id, e);
+    }
+    return [...seen.values()];
   }
 
-  // From a match context, extract the "row object" according to row mode + ancestor choice
-  function rowObjectFromMatch(match, mode, ancestorPath){
-    if (mode==='match') return match.holder;
-    if (mode==='agg' && ancestorPath){
-      // find closest stack entry whose path equals ancestorPath
-      for (let i=match.stack.length-1;i>=0;i--){
-        if (match.stack[i].path === ancestorPath) return match.stack[i].obj;
-      }
-    }
-    return null;
+  // ---- UI renderers
+  function renderFieldList(){
+    fieldList.innerHTML='';
+    filteredEntries.forEach((e, idx)=>{
+      const item = document.createElement('div');
+      item.className = 'item' + (selectedField===e ? ' active' : '');
+      const left = document.createElement('div');
+      left.style.flex = '1 1 auto';
+      left.innerHTML = `<div class="name">${esc(e.key)}</div><div class="sample">e.g. ${esc(String(e.sample).slice(0,90))}</div>`;
+      const right = document.createElement('div');
+      right.innerHTML = `<span class="badge">${esc(e.context)}</span>`;
+      item.appendChild(left); item.appendChild(right);
+      item.addEventListener('click', ()=>{ selectedField = e; onFieldChosen(); });
+      fieldList.appendChild(item);
+    });
+    fieldCount.textContent = filteredEntries.length ? `${filteredEntries.length} field(s)` : 'No fields found yet.';
   }
 
-  // For a given row object array, build available field list (union of scalar keys up to some depth)
-  function detectRowFields(rows){
+  function onFieldChosen(){
+    // infer record + nested names from selection
+    recordHint.textContent = selectedField ? `Record: ${selectedField.recordName}` : '';
+    nestedLabel.textContent = selectedField ? `(${selectedField.holderName})` : '';
+
+    // Resolve a sample of row objects to detect fields
+    const matches = selectedField.resolver(root);
+    const recs = []; const holders = [];
+    for (let i=0;i<Math.min(matches.length, 60);i++){
+      recs.push(matches[i].record);
+      holders.push(matches[i].holder);
+    }
+    recFields = detectScalarKeys(recs);
+    nestFields = detectScalarKeys(holders);
+
+    // Reset selections (no defaults)
+    selRec.clear(); selNest.clear();
+
+    renderChipGrid(recGrid, recFields, selRec);
+    renderChipGrid(nestGrid, nestFields, selNest);
+
+    // Unique-by options from record fields (no default)
+    uniqueBy.innerHTML = '';
+    recFields.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; uniqueBy.appendChild(o); });
+    uniqueBy.disabled = false;
+
+    enableRun();
+  }
+
+  function detectScalarKeys(objects){
     const keys = new Set();
-    const max = Math.min(50, rows.length);
-    for (let i=0;i<max;i++){
-      const r = rows[i];
-      if (!r || typeof r!=='object') continue;
-      for (const [k,v] of Object.entries(r)){
+    objects.forEach(o=>{
+      if (!o || typeof o!=='object') return;
+      Object.entries(o).forEach(([k,v])=>{
         if (v===null || typeof v!=='object') keys.add(k);
-      }
-    }
+      });
+    });
     return [...keys];
   }
 
-  function getRelPath(obj, rel){
-    if (!rel) return undefined;
-    const parts = rel.split('.').filter(Boolean);
-    let cur = obj;
-    for (const p of parts){
-      if (cur==null) return undefined;
-      cur = cur[p];
-    }
-    return cur;
+  function renderChipGrid(container, fields, selSet){
+    container.innerHTML='';
+    fields.forEach(name=>{
+      const lbl=document.createElement('label'); lbl.className='chip';
+      const cb=document.createElement('input'); cb.type='checkbox';
+      cb.checked = selSet.has(name);
+      cb.addEventListener('change',()=>{ cb.checked ? selSet.add(name) : selSet.delete(name); });
+      const span=document.createElement('span'); span.textContent=name;
+      lbl.appendChild(cb); lbl.appendChild(span);
+      container.appendChild(lbl);
+    });
   }
 
   function buildTable(rows, cols){
@@ -378,224 +461,178 @@
     return lines.join('\r\n');
   }
 
-  // ---- Rendering helpers
-  function renderFilterPathOptions(){
-    filterPathSel.innerHTML='';
-    filteredScalarPaths.forEach(p=>{
-      const opt=document.createElement('option');
-      opt.value=p.path;
-      opt.textContent=`${p.path} — sample: ${String(p.sample).slice(0,60)}`;
-      filterPathSel.appendChild(opt);
-    });
-  }
-  function renderOutputGrid(fieldNames){
-    outputGrid.innerHTML='';
-    const makeChip=(name)=>{
-      const lbl=document.createElement('label'); lbl.className='chip';
-      const cb=document.createElement('input'); cb.type='checkbox';
-      cb.checked = selectedOutput.has(name);
-      cb.addEventListener('change',()=>{ cb.checked ? selectedOutput.add(name) : selectedOutput.delete(name); });
-      const span=document.createElement('span'); span.textContent=name;
-      lbl.appendChild(cb); lbl.appendChild(span); return lbl;
-    };
-    fieldNames.forEach(n=> outputGrid.appendChild(makeChip(n)));
-    // Include custom fields again if not in autodetected
-    [...customOutputs].forEach(n=> { if (!fieldNames.includes(n)) outputGrid.appendChild(makeChip(n)); });
-  }
-  function renderAncestors(){
-    const field = filterPathSel.value;
-    currentRowCandidates = rowCandidatesForField(field);
-    ancestorSelect.innerHTML='';
-    currentRowCandidates.slice(1).forEach(c=>{
-      const o=document.createElement('option'); o.value=c.path; o.textContent=c.label; ancestorSelect.appendChild(o);
-    });
-    ancestorSelect.disabled = !rowAggregate.checked || ancestorSelect.options.length===0;
-  }
-  function refreshRowFieldsPreview(){
-    // when a row mode is picked, compute a few row objects to list fields
-    const field = filterPathSel.value; if (!field) return;
-    const matches = resolveMatchesForPath(field);
-    const mode = rowMatch.checked ? 'match' : (rowAggregate.checked ? 'agg' : null);
-    const anc = rowAggregate.checked ? ancestorSelect.value : null;
-    if (!mode || (mode==='agg' && !anc)) { currentRowFieldList=[]; renderOutputGrid([]); uniqueBy.innerHTML=''; uniqueBy.disabled=true; return; }
-
-    const rows = [];
-    for (const m of matches){
-      const rowObj = rowObjectFromMatch(m, mode, anc);
-      if (rowObj) rows.push(rowObj);
-    }
-    currentRowFieldList = detectRowFields(rows);
-    renderOutputGrid(currentRowFieldList);
-
-    // Unique-by options (no defaults)
-    uniqueBy.innerHTML='';
-    currentRowFieldList.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; uniqueBy.appendChild(o); });
-    uniqueBy.disabled = !rowMatch.checked && !rowAggregate.checked;
-  }
-
   // ---- Actions
   function run(){
-    const filterPath = filterPathSel.value;
-    const allowed = parseValues(valuesInput.value, caseInsensitive.checked);
-    const ci = caseInsensitive.checked, exact = exactMatch.checked;
-    const mode = rowMatch.checked ? 'match' : (rowAggregate.checked ? 'agg' : null);
-    const anc = rowAggregate.checked ? ancestorSelect.value : null;
+    const allowed = valuesSet(valuesInput.value, ci.checked);
+    const exactMatch = exact.checked;
+    const perMatch = modeMatch.checked;
 
     const t0 = performance.now();
-    const matches = resolveMatchesForPath(filterPath).filter(m => matchesAllowed(allowed, m.value, {ci,exact}));
+    const matches = selectedField.resolver(root).filter(m => matchesAllowed(allowed, m.value, {lower:ci.checked, exact:exactMatch}));
+
     const rows = [];
-    const rowObjs = [];
+    const colsSet = new Set();
 
-    for (const m of matches){
-      const rowObj = rowObjectFromMatch(m, mode, anc);
-      if (!rowObj) continue;
-      rowObjs.push(rowObj);
-
-      const out = {};
-      const cols = [...selectedOutput, ...customOutputs];
-      if (cols.length===0){
-        // No selected outputs: provide a readable JSON column (generic, not a domain default)
-        out['row_json'] = JSON.stringify(rowObj);
-      } else {
-        cols.forEach(rel => {
-          let v = getRelPath(rowObj, rel);
-          if (typeof v === 'object') v = JSON.stringify(v);
-          out[rel] = v ?? '';
-        });
-      }
-      // Always helpful to include the filter value column for traceability when per-match rows
-      if (mode==='match'){ out['__filter_value'] = String(m.value); }
-      rows.push(out);
-    }
-
-    // Columns
-    let columns = rows.length ? Object.keys(rows[0]) : [];
-    // Guarantee consistent column order (selected outputs first)
-    if (rows.length && selectedOutput.size){
-      const preferred = [...selectedOutput, ...customOutputs];
-      columns = [...preferred, ...columns.filter(c => !preferred.includes(c))];
-    }
-
-    // Stats: show total + unique counts when per-match mode
-    const t1 = performance.now();
-    lastRows = rows; lastColumns = columns; buildTable(rows, columns);
-    setDownloads(rows.length>0);
-
-    if (mode==='match'){
-      const uniqValSet = new Set(rows.map(r => r['__filter_value']));
-      const uniqByField = uniqueBy.value || null;
-      if (uniqByField){
-        const uniqRec = new Set(rowObjs.map(r => String(getRelPath(r, uniqByField)))).size;
-        setStatus(`Rows: ${rows.length.toLocaleString()} • Unique "${uniqByField}": ${uniqRec.toLocaleString()} • Unique filter values: ${uniqValSet.size.toLocaleString()} — ${(t1-t0).toFixed(1)}ms.`, 'ok');
-      }else{
-        setStatus(`Rows: ${rows.length.toLocaleString()} • Unique filter values: ${uniqValSet.size.toLocaleString()} — ${(t1-t0).toFixed(1)}ms.`, 'ok');
+    if (perMatch){
+      // One row per matching holder; include selected record + nested fields
+      for (const m of matches){
+        const out = {};
+        selRec.forEach(k => { out[k] = valToCell(m.record?.[k]); colsSet.add(k); });
+        selNest.forEach(k => { const col = `${selectedField.holderName}_${k}`; out[col] = valToCell(m.holder?.[k]); colsSet.add(col); });
+        // always include filter value to trace
+        out['filter_value'] = valToCell(m.value); colsSet.add('filter_value');
+        rows.push(out);
       }
     } else {
-      setStatus(`Matched ${rows.length.toLocaleString()} row(s) — ${(t1-t0).toFixed(1)}ms.`, 'ok');
+      // One row per record (aggregate nested matches into a single cell)
+      // group by object identity; to keep simple, stringify a stable key if possible
+      const groups = new Map(); // key -> {record, holders:[]}
+      for (const m of matches){
+        const key = stableKey(m.record);
+        if (!groups.has(key)) groups.set(key, {record:m.record, holders:[]});
+        groups.get(key).holders.push(m.holder);
+      }
+      for (const {record, holders} of groups.values()){
+        const out = {};
+        selRec.forEach(k => { out[k] = valToCell(record?.[k]); colsSet.add(k); });
+        // aggregate selected nested fields as readable list
+        const pieces = holders.map(h=>{
+          if (!selNest.size) return String(valToCell(h?.[selectedField.key])); // if nothing selected, at least show the filtered field
+          const parts = [];
+          selNest.forEach(k=>{
+            const label = (k===selectedField.key ? '' : `${k}: `);
+            parts.push(label + String(valToCell(h?.[k])));
+          });
+          return parts.join(', ');
+        });
+        const aggCol = `matches_${selectedField.holderName}`;
+        out[aggCol] = pieces.join('; ');
+        colsSet.add(aggCol);
+        rows.push(out);
+      }
     }
+
+    const cols = [...colsSet];
+    lastRows = rows; lastCols = cols;
+    buildTable(rows, cols);
+
+    const t1 = performance.now();
+    // Stats
+    if (perMatch){
+      const uniqVals = new Set(rows.map(r => r['filter_value'])).size;
+      let msg = `Rows: ${rows.length.toLocaleString()} • Unique filter values: ${uniqVals.toLocaleString()} — ${(t1-t0).toFixed(1)}ms.`;
+      const uniqField = uniqueBy.value;
+      if (uniqField){
+        const uniqRecs = new Set(matches.map(m => String(m.record?.[uniqField]))).size;
+        msg = `Rows: ${rows.length.toLocaleString()} • Unique ${uniqField}: ${uniqRecs.toLocaleString()} • Unique filter values: ${uniqVals.toLocaleString()} — ${(t1-t0).toFixed(1)}ms.`;
+      }
+      setStatus(msg,'ok');
+    } else {
+      setStatus(`Matched ${rows.length.toLocaleString()} record(s) — ${(t1-t0).toFixed(1)}ms.`,'ok');
+    }
+
+    setDownloads(rows.length>0);
   }
 
-  // ---- Event wiring
-  function loadAndScan(text){
+  function valToCell(v){
+    if (v===null || v===undefined) return '';
+    if (typeof v==='object') return JSON.stringify(v);
+    return v;
+  }
+  function stableKey(obj){
+    // Prefer id/email; fall back to JSON string
+    if (obj && (obj.id!==undefined || obj.email!==undefined)) return `id:${obj.id}|email:${obj.email}`;
+    try{ return JSON.stringify(obj);}catch{ return String(obj); }
+  }
+
+  // ---- Load & init
+  function loadAndIndex(text){
     root = JSON.parse(text);
-    scalarPaths = scanScalarPaths(root);
-    filteredScalarPaths = scalarPaths;
-    renderFilterPathOptions();
-    setStatus(`Scanned ${scalarPaths.length} field path(s). Choose a filter field, row scope, and outputs.`, 'ok');
-    enableRunIfReady();
+    // Build entries
+    fieldEntries = collectFieldsWithContext(root);
+    filteredEntries = fieldEntries;
+    renderFieldList();
+    setStatus(`Scanned ${fieldEntries.length} field(s). Select a field, row mode, outputs, and run.`, 'ok');
+    enableRun();
   }
 
-  fileInput.addEventListener('change', async e=>{
-    const f=e.target.files?.[0]; if(!f) return;
-    try{ const t=await f.text(); jsonText.value=t; loadAndScan(t); }catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
-  });
-  jsonText.addEventListener('blur', ()=>{
-    try{ const raw=(jsonText.value||'').trim(); if(!raw) return; loadAndScan(raw); }catch(_){}
-  });
-
-  clearBtn.addEventListener('click', ()=>{
-    root=null; jsonText.value=''; fileInput.value='';
-    scalarPaths=[]; filteredScalarPaths=[]; filterPathSel.innerHTML='';
-    valuesInput.value=''; caseInsensitive.checked=false; exactMatch.checked=false;
-    rowMatch.checked=false; rowAggregate.checked=false; ancestorSelect.innerHTML=''; ancestorSelect.disabled=true;
-    uniqueBy.innerHTML=''; uniqueBy.disabled=true;
-    selectedOutput=new Set(); customOutputs=new Set(); outputGrid.innerHTML='';
-    resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none'; setDownloads(false);
-    setStatus('');
-    enableRunIfReady();
-  });
-
-  pathSearch.addEventListener('input', ()=>{
-    const q = pathSearch.value.toLowerCase().trim();
-    filteredScalarPaths = !q ? scalarPaths : scalarPaths.filter(p => p.path.toLowerCase().includes(q));
-    renderFilterPathOptions();
-    enableRunIfReady();
-  });
-
-  filterPathSel.addEventListener('change', ()=>{
-    renderAncestors();
-    // Force re-pick of row mode to avoid silent defaults
-    uniqueBy.innerHTML=''; uniqueBy.disabled=true;
-    selectedOutput=new Set(); customOutputs=new Set(); renderOutputGrid([]);
-    enableRunIfReady();
-  });
-
-  rowMatch.addEventListener('change', ()=>{
-    ancestorSelect.disabled = true;
-    refreshRowFieldsPreview();
-    enableRunIfReady();
-  });
-  rowAggregate.addEventListener('change', ()=>{
-    ancestorSelect.disabled = !rowAggregate.checked || ancestorSelect.options.length===0;
-    refreshRowFieldsPreview();
-    enableRunIfReady();
-  });
-  ancestorSelect.addEventListener('change', ()=>{
-    refreshRowFieldsPreview();
-    enableRunIfReady();
-  });
-
-  selectAllBtn.addEventListener('click', ()=>{
-    currentRowFieldList.forEach(f => selectedOutput.add(f));
-    renderOutputGrid(currentRowFieldList);
-  });
-  selectNoneBtn.addEventListener('click', ()=>{
-    selectedOutput.clear();
-    renderOutputGrid(currentRowFieldList);
-  });
-  addCustom.addEventListener('click', ()=>{
-    const rel = (customField.value||'').trim();
-    if (!rel) return;
-    customOutputs.add(rel);
-    selectedOutput.add(rel);
-    renderOutputGrid(currentRowFieldList);
-    customField.value='';
-  });
-
-  valuesInput.addEventListener('input', enableRunIfReady);
-  [caseInsensitive, exactMatch].forEach(el=> el.addEventListener('change', enableRunIfReady));
-  runBtn.addEventListener('click', run);
-
-  downloadJsonBtn.addEventListener('click', ()=>{
-    if (!lastRows.length) return;
-    const blob = new Blob([JSON.stringify(lastRows,null,2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.json';
-    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
-  });
-  downloadCsvBtn.addEventListener('click', ()=>{
-    if (!lastRows.length) return;
-    const csv = toCsv(lastRows, lastColumns);
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.csv';
-    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
-  });
-  copyBtn.addEventListener('click', async ()=>{
-    if (!lastRows.length) return;
-    try{ await navigator.clipboard.writeText(JSON.stringify(lastRows,null,2)); setStatus('Copied JSON to clipboard.','ok'); }
-    catch(e){ setStatus('Copy failed: '+e.message,'err'); }
-  });
-
-})();
-</script>
-</body>
-</html>
+  function collectFieldsWithContext(rootObj){
+    const out = [];
+    function walk(node, pathStack, arrayTrail){
+      if (node===null || node===undefined) return;
+      if (Array.isArray(node)){
+        const last = pathStack[pathStack.length-1] || '';
+        const arrName = last.replace(/\[\]|\[\*\]/g,'') || '(array)';
+        for (const el of node){
+          if (el && typeof el==='object') walk(el, pathStack, arrayTrail.concat(arrName));
+        }
+      } else if (typeof node==='object'){
+        for (const [k,v] of Object.entries(node)){
+          if (v && typeof v==='object'){
+            if (Array.isArray(v)){
+              walk(v, pathStack.concat(k+'[]'), arrayTrail);
+            } else {
+              walk(v, pathStack.concat(k), arrayTrail);
+            }
+          } else {
+            const trail = arrayTrail.slice();
+            const holderName = trail.length ? trail[trail.length-1] : '(root)';
+            const recordName = trail.length ? trail[0] : '(root)';
+            const tokens = pathStack.slice(); // for resolver
+            const entry = {
+              key:k,
+              sample:v,
+              context: trail.length ? `${trail.join(' › ')}` : '(root)',
+              holderName, recordName,
+              resolver: makeResolver(tokens, k, recordName)
+            };
+            out.push(entry);
+          }
+        }
+      }
+    }
+    function makeResolver(tokens, leafKey, recordName){
+      return function resolveAll(rootObj){
+        const results = [];
+        function walk2(node, parents){
+          if (node && typeof node==='object'){
+            if (Object.prototype.hasOwnProperty.call(node, leafKey) && (node[leafKey]===null || typeof node[leafKey] !== 'object')){
+              const holder = node;
+              const record = findRecordAncestor(parents, recordName) || holder;
+              results.push({ value: node[leafKey], holder, record });
+            }
+            for (const [k,v] of Object.entries(node)){
+              if (Array.isArray(v)){
+                for (const el of v){
+                  if (el && typeof el==='object'){
+                    walk2(el, parents.concat({name:k, obj:el}));
+                  }
+                }
+              } else if (v && typeof v==='object'){
+                walk2(v, parents);
+              }
+            }
+          } else if (Array.isArray(node)){
+            for (const el of node) walk2(el, parents);
+          }
+        }
+        function findRecordAncestor(parents, recordName){
+          // outermost match of the first array name we saw (recordName)
+          for (let i=0;i<parents.length;i++){
+            if (parents[i].name === recordName) return parents[i].obj;
+          }
+          return null;
+        }
+        walk2(rootObj, []);
+        return results;
+      }
+    }
+    walk(rootObj, [], []);
+    // dedupe by field name + context
+    const seen = new Map();
+    for (const e of out){
+      const id = `${e.key}|${e.context}`;
+      if (!seen.has(id)) seen.set(id, e);
+    }
+    // Sort by name then context
+    return
