@@ -1,464 +1,693 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Flexible JSON Filter — Correct Output Detection</title>
-<style>
-  :root{--bg:#0b0b10;--panel:#131320;--muted:#9aa0ac;--text:#e9e9f1;--accent:#5b8cff;--stroke:#202036;--field:#0f0f19;--ok:#2ecc71;--err:#ff5c5c}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-  .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
-  .card{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:hidden}
-  header{padding:18px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  header h1{margin:0;font-size:18px}
-  header .sub{color:var(--muted);font-size:13px}
-  .content{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px}
-  .content.single{grid-template-columns:1fr}
-  @media(max-width:980px){.content{grid-template-columns:1fr}}
-  .section{display:flex;flex-direction:column;gap:10px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  label{font-size:13px;color:var(--muted)}
-  textarea,input[type=text],select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--stroke);background:var(--field);color:var(--text)}
-  textarea{min-height:220px;resize:vertical}
-  input[type=file]{font-size:13px;max-width:100%}
-  .btn{appearance:none;border:none;padding:10px 14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
-  .btn.secondary{background:#2a2a44;color:#d9d9e6}
-  .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text)}
-  .btn:disabled{opacity:.6;cursor:not-allowed}
-  .hint{font-size:12px;color:var(--muted)}
-  .status{font-size:13px;margin-top:6px}
-  .status.ok{color:var(--ok)} .status.err{color:var(--err);white-space:pre-wrap}
-  .group{border:1px solid var(--stroke);border-radius:12px;padding:12px;background:#0f0f19}
-  .group h3{margin:0 0 8px 0;font-size:13px;color:#bdbdd3}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media(max-width:980px){.two{grid-template-columns:1fr}}
-  .listbox{width:100%;min-height:220px;max-height:260px;overflow:auto;padding:0;margin:0;border:1px solid #1e1e33;border-radius:10px;background:#0c0c16}
-  .listbox option{padding:10px 12px;border-bottom:1px solid #17172a}
-  .chiplist{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:240px;overflow:auto;padding:8px;background:#0c0c16;border:1px solid #1e1e33;border-radius:10px}
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:#101022;border:1px solid #232345;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d6d6e6}
-  table{width:100%;border-collapse:separate;border-spacing:0;background:var(--field);border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
-  th,td{padding:10px 12px;border-bottom:1px solid #1e1e30;text-align:left;vertical-align:top}
-  th{background:#101022;font-size:12px;color:#bdbdd3;position:sticky;top:0}
-  tr:last-child td{border-bottom:none}
-  .footer{padding:12px 18px;border-top:1px solid var(--stroke);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-  code.bubble{background:#101022;padding:2px 6px;border-radius:8px;border:1px solid #232345;font-family:ui-monospace,Consolas,Menlo,monospace}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON Filter & Flatten</title>
+  <style>
+    :root{
+      --bg:#0b0f14;        /* page background */
+      --panel:#111826;     /* cards */
+      --panel-2:#0f1420;   /* alt panel */
+      --muted:#7b8aa1;     /* secondary text */
+      --text:#e7eefc;      /* primary text */
+      --accent:#6aa9ff;    /* brand */
+      --accent-2:#97c1ff;  /* brand alt */
+      --bad:#ff6b6b;
+      --good:#5ce2a9;
+      --border:#1b2433;
+      --chip:#1a2333;
+      --chip-on:#1d2b43;
+      --focus:#1b2b4b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:linear-gradient(180deg, var(--bg), #0a0d12 40%, #0a0d12);
+      color:var(--text); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    a{color:var(--accent)}
+    .wrap{max-width:1200px;margin:24px auto;padding:0 16px 40px}
+    header h1{font-size:22px;margin:0 0 8px;letter-spacing:.2px}
+    header p{margin:0;color:var(--muted)}
+
+    /* Stepper */
+    .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0 16px}
+    .step{background:var(--panel);border:1px solid var(--border);padding:12px 14px;border-radius:14px;display:flex;gap:10px;align-items:center;opacity:.85}
+    .step.active{background:linear-gradient(180deg,#162236,var(--panel));border-color:#26344d;box-shadow:0 0 0 1px #253144 inset, 0 6px 20px rgba(0,0,0,.25);opacity:1}
+    .step .idx{width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:var(--chip);color:#cfe0ff;font-weight:700}
+    .step.active .idx{background:var(--accent);color:#001632}
+    .step .lab{font-weight:600}
+
+    /* Panels */
+    .grid{display:grid;grid-template-columns:1fr;gap:14px}
+    @media (min-width:1024px){.grid{grid-template-columns:1fr 1fr}}
+
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px}
+    .card h3{margin:0 0 10px;font-size:16px}
+    .card .desc{color:var(--muted);font-size:13px;margin:-3px 0 10px}
+
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .row > *{flex:1}
+
+    .input, textarea, select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);color:var(--text)}
+    textarea{min-height:160px;resize:vertical}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:8px 11px;border:1px dashed var(--border);border-radius:12px;background:var(--panel-2);font-size:13px}
+    .btn{appearance:none;border:1px solid #26344d;background:#152036;color:#d8e7ff;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn:hover{background:#1a2743}
+    .btn.secondary{background:#121a2b;border-color:var(--border);color:#c7d8f7}
+    .btn.bad{background:#2b1515;border-color:#412828;color:#ffd1d1}
+    .btn.good{background:#123023;border-color:#184a34;color:#bdf5df}
+    .muted{color:var(--muted)}
+    .hint{font-size:12px;color:#a9b7cf}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;background:var(--chip);border:1px solid var(--border);border-radius:999px;font-size:12px}
+
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .three{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+
+    .toggle{display:inline-flex;gap:8px;align-items:center}
+    .toggle input{width:36px;height:22px;-webkit-appearance:none;appearance:none;background:#1e2635;border-radius:999px;position:relative;border:1px solid var(--border);outline:none;cursor:pointer}
+    .toggle input:checked{background:#1f334f;border-color:#2a446f}
+    .toggle input:before{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;background:#cfe0ff;border-radius:50%;transition:transform .2s ease}
+    .toggle input:checked:before{transform:translateX(14px)}
+
+    /* Field list */
+    .fieldlist{max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:12px;padding:8px;background:var(--panel-2)}
+    .field-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px}
+    .field-item:hover{background:#131c2c}
+    .field-item input{flex:0}
+    .field-item label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    /* Table */
+    .tablewrap{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:auto}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:0;background:#0f1726;border-bottom:1px solid var(--border);padding:10px 12px;text-align:left;font-size:13px;white-space:nowrap}
+    thead th .th-inner{display:flex;align-items:center;gap:8px}
+    thead th .drag{opacity:.6;cursor:grab}
+    thead th.sortable{cursor:pointer}
+    thead th.disabled{opacity:.4}
+    tbody td{border-bottom:1px solid #121a2b;padding:8px 12px;vertical-align:top;font-size:13px}
+    tbody tr:hover{background:#0f1627}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;background:#0f1a2c;border:1px solid var(--border);padding:2px 6px;border-radius:6px}
+
+    .status{display:flex;align-items:center;gap:10px}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .dot.good{background:var(--good)}
+    .dot.bad{background:var(--bad)}
+
+    footer{margin-top:16px;color:#8ea4c8}
+  </style>
+  <!-- JSONPath-Plus for JSONPath mode (small UMD build). If offline, Field Filter mode still works. -->
+  <script src="https://cdn.jsdelivr.net/npm/jsonpath-plus@7.2.0/dist/index-browser-umd.min.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
+  <div class="wrap">
     <header>
-      <h1>Flexible JSON Filter</h1>
-      <div class="sub">Local only • no defaults</div>
+      <h1>JSON Filter & Flatten</h1>
+      <p class="muted">Load JSON → choose a record root → filter (JSONPath or Field) → pick columns → view live table → export CSV.</p>
     </header>
 
-    <div class="content">
-      <!-- LOAD -->
-      <div class="section">
-        <label>1) Load JSON (choose one):</label>
-        <div class="row">
-          <input id="fileInput" type="file" accept=".json,application/json"/>
-          <button class="btn ghost" id="clearBtn">Clear</button>
-        </div>
-        <textarea id="jsonText" placeholder="Paste any JSON (object or array)"></textarea>
-        <div class="hint">File picker is faster for very large files.</div>
-      </div>
+    <!-- Stepper -->
+    <div class="steps" id="stepper">
+      <div class="step active" data-step="1"><div class="idx">1</div><div class="lab">Load JSON</div></div>
+      <div class="step" data-step="2"><div class="idx">2</div><div class="lab">Define Filter</div></div>
+      <div class="step" data-step="3"><div class="idx">3</div><div class="lab">View & Tweak</div></div>
+      <div class="step" data-step="4"><div class="idx">4</div><div class="lab">Export</div></div>
+    </div>
 
-      <!-- BUILDER -->
-      <div class="section">
-        <label>2) Build your query (filter + row mode + outputs)</label>
-
-        <div class="group">
-          <h3>Filter field</h3>
-          <div class="two">
-            <input id="fieldSearch" type="text" placeholder="Search fields… e.g. account_name, email, id">
-            <label class="row" style="gap:8px;"><input id="showPaths" type="checkbox"> <span class="hint">Show full JSON paths</span></label>
+    <!-- Step 1: Input JSON -->
+    <section class="grid" id="step1">
+      <div class="card">
+        <h3>Provide JSON</h3>
+        <p class="desc">Paste JSON or select a .json file. We validate it before continuing.</p>
+        <div class="two">
+          <div>
+            <label class="muted">Paste JSON</label>
+            <textarea id="jsonText" placeholder='{"items":[{"id":1,"name":"Alice"}]}'></textarea>
           </div>
-          <select id="fieldList" size="10" class="listbox" title="Pick a field to filter"></select>
-          <div class="two">
-            <input id="valuesInput" type="text" placeholder="Values (comma-separated)">
+          <div>
+            <label class="muted">Or Upload .json</label>
             <div class="row">
-              <label><input id="caseInsensitive" type="checkbox"> Case-insensitive</label>
-              <label><input id="exactMatch" type="checkbox"> Exact match</label>
+              <input class="input" type="file" id="jsonFile" accept=".json,application/json" />
             </div>
-          </div>
-          <div class="hint">Items show a friendly chain (e.g. <code class="bubble">users.role_members.account_name</code>) with a sample. Paths are hidden unless toggled.</div>
-        </div>
-
-        <div class="group">
-          <h3>Row mode</h3>
-          <div class="row">
-            <label><input type="radio" name="rowmode" id="modeMatch"> Per match (flatten)</label>
-            <label><input type="radio" name="rowmode" id="modeParent"> Per parent (aggregate)</label>
-          </div>
-          <div class="hint">“Parent” = the nearest list ancestor above the matching item (e.g., the <code class="bubble">user</code> that owns a <code class="bubble">role_member</code>).</div>
-        </div>
-
-        <div class="group" id="outputsGroup">
-          <h3>Output fields</h3>
-          <div class="row">
-            <strong>Row fields</strong>
-            <button class="btn ghost" id="rowAll">All</button>
-            <button class="btn ghost" id="rowNone">None</button>
-          </div>
-          <div id="rowFieldGrid" class="chiplist"></div>
-
-          <div id="matchBlock" style="margin-top:12px;">
-            <div class="row" style="margin-top:8px;">
-              <strong>Matched item fields</strong>
-              <span class="hint">(only when filtering inside a nested list)</span>
-              <button class="btn ghost" id="matchAll">All</button>
-              <button class="btn ghost" id="matchNone">None</button>
+            <div style="margin-top:10px" class="row">
+              <button class="btn secondary" id="loadExample">Load Example</button>
+              <button class="btn" id="validateBtn">Validate & Continue</button>
             </div>
-            <div id="matchFieldGrid" class="chiplist"></div>
+            <p id="jsonStatus" class="status" style="margin-top:10px"><span class="dot" id="jsonDot" style="background:#555"></span><span class="hint">No JSON loaded yet.</span></p>
           </div>
-        </div>
-
-        <div class="row" style="gap:10px;">
-          <button class="btn" id="runBtn" disabled>Run</button>
-          <button class="btn secondary" id="downloadJsonBtn" disabled>Download JSON</button>
-          <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
-          <button class="btn ghost" id="copyBtn" disabled>Copy JSON</button>
-        </div>
-        <div id="status" class="status"></div>
-      </div>
-    </div>
-
-    <!-- RESULTS -->
-    <div class="content single">
-      <div class="section">
-        <label>Results</label>
-        <div style="overflow:auto;max-height:55vh;border-radius:12px">
-          <table id="resultsTable" style="display:none;">
-            <thead><tr id="theadRow"></tr></thead>
-            <tbody id="resultsBody"></tbody>
-          </table>
         </div>
       </div>
-    </div>
+      <div class="card">
+        <h3>Detected Record Roots</h3>
+        <p class="desc">Choose which array-of-objects should be treated as the table's rows.</p>
+        <div class="row">
+          <select id="rootSelect" disabled></select>
+        </div>
+        <p class="hint" id="rootHint" style="margin-top:8px">Root options will appear after loading valid JSON.</p>
+      </div>
+    </section>
 
-    <div class="footer">
-      <span class="hint">Everything runs locally.</span>
-      <span class="hint">If you want wildcards next, we can add them.</span>
-    </div>
+    <!-- Step 2: Define Filter -->
+    <section class="grid" id="step2" style="display:none">
+      <div class="card">
+        <h3>Choose Filter Mode</h3>
+        <div class="row">
+          <label class="pill"><input type="radio" name="mode" value="field" checked> Field filter</label>
+          <label class="pill"><input type="radio" name="mode" value="jsonpath"> JSONPath</label>
+          <span class="chip" id="jpStatus">JSONPath lib: <strong id="jpAvail">checking…</strong></span>
+        </div>
+        <div id="fieldMode" style="margin-top:10px">
+          <div class="two">
+            <div>
+              <label class="muted">Field to filter on</label>
+              <select id="filterField"></select>
+            </div>
+            <div>
+              <label class="muted">Value(s) (comma-separated)</label>
+              <input id="filterValues" class="input" placeholder='e.g. Site 123, Admin' />
+            </div>
+          </div>
+          <p class="hint">Filter is case-insensitive equality against any value found at the chosen path (handles arrays too).</p>
+        </div>
+        <div id="jsonpathMode" style="display:none;margin-top:10px">
+          <label class="muted">JSONPath expression</label>
+          <input id="jsonpathInput" class="input" placeholder='e.g. $.users[?(@.role_members[*].account_name=="Site 123")]' />
+          <p class="hint">Expression should return an array of objects to be used as the table rows. Root is the whole document (<span class="kbd">$</span>).</p>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Pick Columns</h3>
+        <p class="desc">Select which fields to display. Toggle visibility; hidden columns are pushed to the end and show no data.</p>
+        <div class="row" style="margin-bottom:8px">
+          <input id="fieldSearch" class="input" placeholder="Search fields…" />
+          <button class="btn secondary" id="selectCommon">Select common</button>
+          <button class="btn secondary" id="selectAll">All</button>
+          <button class="btn secondary" id="selectNone">None</button>
+        </div>
+        <div id="fields" class="fieldlist"></div>
+      </div>
+    </section>
+
+    <!-- Step 3: View Output -->
+    <section id="step3" style="display:none">
+      <div class="card" style="margin-bottom:10px">
+        <div class="row">
+          <div class="toggle"><input type="checkbox" id="explodeToggle"/><label for="explodeToggle">Flatten nested arrays into new rows</label></div>
+          <div class="toggle"><input type="checkbox" id="caseToggle" checked/><label for="caseToggle">Case-insensitive matching</label></div>
+          <div style="flex:1"></div>
+          <div class="chip">Rows: <strong id="rowCount">0</strong></div>
+          <div class="chip">Columns: <strong id="colCount">0</strong></div>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table id="resultTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Step 4: Export -->
+    <section id="step4" style="display:none">
+      <div class="card">
+        <h3>Export</h3>
+        <div class="row">
+          <button class="btn good" id="exportCsv">Export visible table to CSV</button>
+          <button class="btn secondary" id="resetAll">Start over</button>
+        </div>
+        <p class="hint" style="margin-top:10px">Export respects current column order, visibility and sorting.</p>
+      </div>
+    </section>
+
+    <footer>
+      Built for quick ad‑hoc JSON inspection and extraction.
+    </footer>
   </div>
-</div>
 
 <script>
 (function(){
-  // DOM
-  const fileInput=document.getElementById('fileInput'), jsonText=document.getElementById('jsonText'), clearBtn=document.getElementById('clearBtn');
-  const fieldSearch=document.getElementById('fieldSearch'), showPaths=document.getElementById('showPaths'), fieldList=document.getElementById('fieldList');
-  const valuesInput=document.getElementById('valuesInput'), caseInsensitive=document.getElementById('caseInsensitive'), exactMatch=document.getElementById('exactMatch');
-  const modeMatch=document.getElementById('modeMatch'), modeParent=document.getElementById('modeParent');
-  const rowFieldGrid=document.getElementById('rowFieldGrid'), matchFieldGrid=document.getElementById('matchFieldGrid'), matchBlock=document.getElementById('matchBlock');
-  const rowAll=document.getElementById('rowAll'), rowNone=document.getElementById('rowNone'), matchAll=document.getElementById('matchAll'), matchNone=document.getElementById('matchNone');
-  const runBtn=document.getElementById('runBtn'), statusEl=document.getElementById('status'), resultsTable=document.getElementById('resultsTable'), theadRow=document.getElementById('theadRow'), resultsBody=document.getElementById('resultsBody');
-  const downloadJsonBtn=document.getElementById('downloadJsonBtn'), downloadCsvBtn=document.getElementById('downloadCsvBtn'), copyBtn=document.getElementById('copyBtn');
+  // --- Global state ---
+  const state = {
+    raw: null,              // original parsed object
+    rawText: '',
+    roots: new Map(),       // path => Array<arrayRef>
+    rootPath: null,         // selected root path key in roots, or "<top-array>"
+    records: [],            // current record set (array of objects)
 
-  // State
-  let root=null;
-  let entries=[];           // all scalar fields with context
-  let filteredEntries=[];
-  let selectedEntry=null;
-  let selectedRowFields=new Set();
-  let selectedMatchFields=new Set();
-  let lastRows=[], lastCols=[];
+    mode: 'field',          // 'field' | 'jsonpath'
+    filterField: null,
+    filterValues: [],
+    caseInsensitive: true,
+    jsonpathExpr: '',
 
-  // Utils
-  const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  const setStatus=(m,k)=>{statusEl.textContent=m||'';statusEl.className='status '+(k||'')}
-  const setDownloads=on=>{downloadJsonBtn.disabled=downloadCsvBtn.disabled=copyBtn.disabled=!on}
-  const enableRun=()=>{runBtn.disabled=!(root && selectedEntry && valuesInput.value.trim() && (modeMatch.checked||modeParent.checked));}
-  const parseVals=(s,ci)=>new Set((s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>ci?x.toLowerCase():x));
-  const matchAllowed=(allowed,val,{ci,exact})=>{const t=ci?String(val??'').toLowerCase():String(val??'');if(exact)return allowed.has(t);for(const a of allowed)if(t.includes(a))return true;return false;}
-  const isColl=tok=>/\[\]|\[\*\]$/.test(tok);
-  const base=tok=>tok.replace(/\[\]|\[\*\]/,'');
-  const toks=p=>p.split('.');
+    allFields: [],          // list of dot paths (relative to record)
+    selectedFields: [],     // visible fields (ordered)
+    hiddenFields: new Set(),
+    columnsOrder: [],       // all columns order (visible first + hidden tail)
 
-  // Scan all scalar fields; compute holder & parent collection paths correctly
-  function scanFields(root){
-    const out=[];
-    function walk(node, path){
-      if (node==null) return;
-      if (Array.isArray(node)){
-        for(const el of node) walk(el, path);
-      } else if (typeof node==='object'){
-        for(const [k,v] of Object.entries(node)){
-          const next = path.length? path.concat([k]) : ['$.',k];
-          if (v && typeof v==='object'){
-            if (Array.isArray(v)) walk(v, [...next.slice(0,-1), next[next.length-1]+'[]']);
-            else walk(v, next);
-          } else {
-            // scalar
-            const tokens = next; // tokens up to the holder object + field
-            const withField = tokens; // current tokens already at holder; field = k
-            const all = withField; // holder tokens
-            const collIdx = all.map((t,i)=>isColl(t)?i:-1).filter(i=>i>=0);
-            let holderColl, parentColl;
-            if (collIdx.length===0){
-              holderColl = all.slice(0, all.length-1).join('.') || '$'; // no list ancestors
-              parentColl = holderColl;
-            } else {
-              const last = collIdx[collIdx.length-1];
-              const prev = collIdx.length>=2 ? collIdx[collIdx.length-2] : last;
-              holderColl = all.slice(0, last+1).join('.');
-              parentColl = all.slice(0, prev+1).join('.');
-            }
-            const fullPath = (all.length? all.join('.') : '$') + '.' + k;
-            const chain = (fullPath.replace(/^\$\./,'').replace(/\[\]|\[\*\]/g,''));
-            out.push({ path: fullPath, sample:v, holderColl, parentColl, chainLabel: chain, field:k });
-          }
-        }
+    explode: false,
+    sort: { field: null, dir: 1 },
+  };
+
+  // --- DOM helpers ---
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const stepEls = $$('#stepper .step');
+  const setStep = n => {
+    stepEls.forEach(el=>el.classList.toggle('active', +el.dataset.step===n));
+    ['#step1','#step2','#step3','#step4'].forEach((id,i)=>{
+      const show = (i+1)<=n && (i+1>=n || i+1===3 || i+1===4 ? true : (i+1)===n);
+      // Keep prior steps visible for context through step2; show table/export only when reached
+      if(i+1<3) $(id).style.display = (i+1<=n)?'grid':'none';
+      if(i+1>=3) $(id).style.display = (i+1<=n)?'block':'none';
+    });
+  };
+
+  // --- JSON utilities ---
+  function isObj(x){ return x && typeof x==='object' && !Array.isArray(x); }
+  function isPrim(x){ return x==null || typeof x!=='object'; }
+
+  function enumeratePaths(node, prefix='', acc=new Set()){
+    if(Array.isArray(node)){
+      for(const el of node){ enumeratePaths(el, prefix, acc); }
+      return acc;
+    }
+    if(isObj(node)){
+      for(const [k,v] of Object.entries(node)){
+        const p = prefix? prefix+'.'+k : k;
+        if(isPrim(v)) acc.add(p);
+        else enumeratePaths(v, p, acc);
+      }
+      return acc;
+    }
+    acc.add(prefix);
+    return acc;
+  }
+
+  function findArrayObjectPaths(node, prefix='', map){
+    if(Array.isArray(node)){
+      if(node.length && node.every(el=>isObj(el))){
+        const key = prefix || '<top-array>';
+        if(!map.has(key)) map.set(key, []);
+        map.get(key).push(node);
+      }
+      for(const el of node) findArrayObjectPaths(el, prefix, map);
+      return;
+    }
+    if(isObj(node)){
+      for(const [k,v] of Object.entries(node)){
+        const p = prefix? prefix+'.'+k : k;
+        findArrayObjectPaths(v, p, map);
       }
     }
-    walk(root, ['$']);
-    const seen=new Set();
-    return out.filter(e=>{if(seen.has(e.path)) return false; seen.add(e.path); return true;});
   }
 
-  // Collect objects at a (possibly collection) path
-  function collectObjectsAt(path){
-    const parts=toks(path);
-    function step(nodes, i){
-      if (i>=parts.length) return nodes;
-      const tok=parts[i];
-      if (tok==='$'||tok==='$.') return step(nodes, i+1);
-      const coll=isColl(tok), key=base(tok);
-      const next=[];
-      for(const n of nodes){
-        if (!n || typeof n!=='object') continue;
-        if (coll){
-          const seq=n[key];
-          if (Array.isArray(seq)) seq.forEach(el=>{ if (el && typeof el==='object') next.push(el); });
-          else if (seq && typeof seq==='object') Object.values(seq).forEach(el=>{ if (el && typeof el==='object') next.push(el); });
-        } else {
-          const child=n[key];
-          if (child && typeof child==='object') next.push(child);
-        }
+  function valuesAt(obj, path){
+    const parts = path.split('.');
+    let current = [obj];
+    for(const part of parts){
+      const next = [];
+      for(const item of current){
+        if(item==null) continue;
+        let v = item[part];
+        if(Array.isArray(v)) next.push(...v);
+        else next.push(v);
       }
-      return step(next, i+1);
+      current = next;
     }
-    const res=step([root],0);
-    return res;
+    // Flatten to primitives
+    const out = [];
+    const stack = [...current];
+    while(stack.length){
+      const v = stack.pop();
+      if(Array.isArray(v)) stack.push(...v);
+      else if(isObj(v)) out.push(JSON.stringify(v));
+      else out.push(v);
+    }
+    return out.filter(x=>x!==undefined);
   }
 
-  function scalarKeysOf(objs){
-    const s=new Set();
-    const n=Math.min(200, objs.length);
-    for(let i=0;i<n;i++){
-      const o=objs[i]; if(!o||typeof o!=='object') continue;
-      for(const [k,v] of Object.entries(o)) if (v==null || typeof v!=='object') s.add(k);
-    }
-    return [...s].sort();
+  function cartesian(arrays){
+    if(!arrays.length) return [[]];
+    return arrays.reduce((acc,cur)=>{
+      const out=[]; for(const a of acc){ for(const c of cur){ out.push(a.concat([c])) } } return out;
+    }, [[]]);
   }
 
+  function normalizeStr(x){
+    if(x==null) return '';
+    if(typeof x==='string') return x;
+    return String(x);
+  }
+
+  // --- Rendering Field List ---
   function renderFieldList(){
-    fieldList.innerHTML='';
-    filteredEntries.forEach(e=>{
-      const label = e.chainLabel + (showPaths.checked ? `  •  ${e.path}` : '');
-      const opt=document.createElement('option'); opt.value=e.path; opt.textContent=`${label} — sample: ${String(e.sample).slice(0,80)}`;
-      fieldList.appendChild(opt);
-    });
-  }
-
-  function renderChips(container, keys, setRef){
+    const container = $('#fields');
+    const q = $('#fieldSearch').value.trim().toLowerCase();
     container.innerHTML='';
-    const mk=(k)=>{
-      const lbl=document.createElement('label'); lbl.className='chip';
-      const cb=document.createElement('input'); cb.type='checkbox';
-      cb.checked=setRef.has(k);
-      cb.addEventListener('change',()=>{ cb.checked ? setRef.add(k) : setRef.delete(k); });
-      const span=document.createElement('span'); span.textContent=k;
-      lbl.appendChild(cb); lbl.appendChild(span); return lbl;
-    };
-    keys.forEach(k=>container.appendChild(mk(k)));
-  }
-
-  function buildTable(rows, cols){
-    resultsBody.innerHTML=''; theadRow.innerHTML='';
-    if (!rows.length){ resultsTable.style.display='none'; return; }
-    cols.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; theadRow.appendChild(th); });
-    const frag=document.createDocumentFragment();
-    rows.forEach(r=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=cols.map(c=>`<td>${esc(r[c])}</td>`).join('');
-      frag.appendChild(tr);
-    });
-    resultsBody.appendChild(frag); resultsTable.style.display='';
-  }
-  const toCsv=(rows,cols)=>[cols.join(','),...rows.map(r=>cols.map(c=>{const s=r[c]==null?'':String(r[c]);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
-
-  // Load JSON
-  function load(text){
-    root=JSON.parse(text);
-    entries=scanFields(root);
-    filteredEntries=entries;
-    renderFieldList();
-    setStatus(`Found ${entries.length.toLocaleString()} fields. Pick a field, choose row mode, then outputs.`, 'ok');
-    enableRun();
-  }
-
-  // Events
-  fileInput.addEventListener('change', async e=>{
-    const f=e.target.files?.[0]; if(!f) return;
-    try{ const t=await f.text(); jsonText.value=t; load(t);}catch(err){ setStatus('Failed to read file: '+String(err),'err'); }
-  });
-  jsonText.addEventListener('blur', ()=>{ try{ const t=(jsonText.value||'').trim(); if(!t) return; load(t);}catch(_){}});
-
-  clearBtn.addEventListener('click', ()=>{
-    root=null; jsonText.value=''; fileInput.value='';
-    entries=[]; filteredEntries=[]; fieldList.innerHTML=''; fieldSearch.value=''; showPaths.checked=false;
-    selectedEntry=null; modeMatch.checked=false; modeParent.checked=false;
-    selectedRowFields=new Set(); selectedMatchFields=new Set();
-    rowFieldGrid.innerHTML=''; matchFieldGrid.innerHTML=''; matchBlock.style.display='';
-    resultsBody.innerHTML=''; theadRow.innerHTML=''; resultsTable.style.display='none';
-    setDownloads(false); setStatus(''); enableRun();
-  });
-
-  fieldSearch.addEventListener('input', ()=>{
-    const q=fieldSearch.value.toLowerCase().trim();
-    filteredEntries = !q ? entries : entries.filter(e=> e.chainLabel.toLowerCase().includes(q));
-    renderFieldList();
-  });
-  showPaths.addEventListener('change', renderFieldList);
-
-  fieldList.addEventListener('change', ()=>{
-    selectedEntry = entries.find(e=> e.path===fieldList.value);
-    if (!selectedEntry) return;
-
-    // Determine the parent and holder collections properly
-    const parentObjs = collectObjectsAt(selectedEntry.parentColl);
-    const holderObjs = collectObjectsAt(selectedEntry.holderColl);
-
-    // If the selected field lives directly on the parent collection object,
-    // holderObjs and parentObjs will be the same (no "matched item" section).
-    const sameLevel = selectedEntry.parentColl === selectedEntry.holderColl;
-
-    // Build complete key sets from the FULL collections (not just matches)
-    const rowKeys = scalarKeysOf(parentObjs);
-    const matchKeys = sameLevel ? [] : scalarKeysOf(holderObjs);
-
-    selectedRowFields=new Set(); selectedMatchFields=new Set();
-    renderChips(rowFieldGrid, rowKeys, selectedRowFields);
-
-    if (matchKeys.length){
-      matchBlock.style.display='';
-      renderChips(matchFieldGrid, matchKeys, selectedMatchFields);
-    }else{
-      matchBlock.style.display='none';
-      matchFieldGrid.innerHTML='';
-    }
-    enableRun();
-  });
-
-  [modeMatch,modeParent].forEach(el=>el.addEventListener('change', enableRun));
-  rowAll.addEventListener('click', ()=>{
-    const keys=[...rowFieldGrid.querySelectorAll('label.chip span')].map(s=>s.textContent);
-    selectedRowFields=new Set(keys); renderChips(rowFieldGrid, keys, selectedRowFields);
-  });
-  rowNone.addEventListener('click', ()=>{ selectedRowFields=new Set(); renderChips(rowFieldGrid, [], selectedRowFields); });
-  matchAll.addEventListener('click', ()=>{
-    const keys=[...matchFieldGrid.querySelectorAll('label.chip span')].map(s=>s.textContent);
-    selectedMatchFields=new Set(keys); renderChips(matchFieldGrid, keys, selectedMatchFields);
-  });
-  matchNone.addEventListener('click', ()=>{ selectedMatchFields=new Set(); renderChips(matchFieldGrid, [], selectedMatchFields); });
-
-  valuesInput.addEventListener('input', enableRun);
-  [caseInsensitive, exactMatch].forEach(e=>e.addEventListener('change', enableRun));
-
-  // Run
-  runBtn.addEventListener('click', ()=>{
-    if (!root || !selectedEntry) return;
-
-    const allowed = parseVals(valuesInput.value, caseInsensitive.checked);
-    const ci=caseInsensitive.checked, exact=exactMatch.checked;
-
-    // Resolve matches of the selected field, keeping list ancestor stack
-    const matches=(function resolveMatches(){
-      const p=toks(selectedEntry.path); const res=[];
-      function recur(node,i,stack){
-        if (i>=p.length) return;
-        const tok=p[i];
-        if (tok==='$'||tok==='$.') return recur(node,i+1,stack);
-        const coll=isColl(tok), key=base(tok);
-        if (coll){
-          const seq=node?.[key];
-          const items=Array.isArray(seq)?seq:(seq&&typeof seq==='object'?Object.values(seq):[]);
-          for(const el of items){ if(el&&typeof el==='object') recur(el,i+1,stack.concat([{path:p.slice(0,i+1).join('.'), name:key, obj:el}])) }
-        } else {
-          if (i===p.length-1){
-            const val=node?.[key];
-            if (val!==undefined && (typeof val!=='object' || val===null)) res.push({value:val, holder:node, stack});
-          } else {
-            const nxt=node?.[key]; if(nxt&&typeof nxt==='object') recur(nxt,i+1,stack);
-          }
+    const fields = state.allFields.slice().sort((a,b)=>a.localeCompare(b));
+    const frag = document.createDocumentFragment();
+    for(const f of fields){
+      if(q && !f.toLowerCase().includes(q)) continue;
+      const row = document.createElement('div');
+      row.className='field-item';
+      const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = state.selectedFields.includes(f);
+      cb.addEventListener('change',()=>{
+        if(cb.checked){
+          if(!state.selectedFields.includes(f)) state.selectedFields.push(f);
+          state.hiddenFields.delete(f);
+        }else{
+          state.selectedFields = state.selectedFields.filter(x=>x!==f);
+          state.hiddenFields.add(f);
         }
-      }
-      recur(root,0,[]);
-      return res.filter(m=> matchAllowed(allowed,m.value,{ci,exact}));
-    })();
+        rebuildColumnsOrder();
+        renderTable();
+      });
+      const lab = document.createElement('label'); lab.textContent=f;
+      row.append(cb, lab);
+      frag.append(row);
+    }
+    container.append(frag);
+  }
 
-    function nearestParent(m){ return m.stack.length? m.stack[m.stack.length-1].obj : m.holder; }
+  function rebuildColumnsOrder(){
+    // Visible fields first (in selected order), then hidden ones (alphabetical) appended
+    const hidden = state.allFields.filter(f=>state.hiddenFields.has(f) && !state.selectedFields.includes(f)).sort((a,b)=>a.localeCompare(b));
+    state.columnsOrder = [...state.selectedFields, ...hidden];
+  }
 
-    const perMatch=modeMatch.checked;
-    const rows=[]; const cols=new Set();
-    const holderName=(function(){const t=toks(selectedEntry.holderColl); return base(t[t.length-1]||'match');})();
-    const prefix=holderName?holderName+'_':'match_';
+  // --- Records + Filtering ---
+  function recomputeRecordsFromRoot(){
+    const key = state.rootPath;
+    if(!key){ state.records=[]; return; }
+    const arrays = state.roots.get(key) || [];
+    const recs = [];
+    for(const arr of arrays){
+      for(const item of arr){ if(isObj(item)) recs.push(item); }
+    }
+    state.records = recs;
+    // Compute fields relative to record
+    const fieldSet = new Set();
+    for(const r of state.records.slice(0, 200)){ // sample for speed
+      enumeratePaths(r, '', fieldSet);
+    }
+    state.allFields = Array.from(fieldSet);
+    // initialize selections if empty
+    if(state.selectedFields.length===0){
+      state.selectedFields = state.allFields.slice(0, Math.min(6, state.allFields.length));
+      state.hiddenFields.clear();
+      for(const f of state.allFields){ if(!state.selectedFields.includes(f)) state.hiddenFields.add(f); }
+      rebuildColumnsOrder();
+    }
+    // Set a default filter field if not set
+    if(!state.filterField && state.allFields.length){ state.filterField = state.allFields.includes('id')? 'id' : state.allFields[0]; }
+  }
 
-    if (perMatch){
-      for(const m of matches){
-        const parent=nearestParent(m);
-        const out={};
-        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; cols.add(k); }
-        for(const k of selectedMatchFields){ out[prefix+k]= m.holder?.[k] ?? ''; cols.add(prefix+k); }
-        out[prefix+'filter_value']=String(m.value); cols.add(prefix+'filter_value');
-        rows.push(out);
+  function applyFilter(){
+    let base = state.records;
+    if(state.mode==='jsonpath' && state.jsonpathExpr.trim()){
+      const jpFunc = (window.JSONPath && window.JSONPath.JSONPath) ? window.JSONPath.JSONPath : window.JSONPath;
+      if(typeof jpFunc === 'function'){
+        try{
+          const out = jpFunc({ path: state.jsonpathExpr, json: state.raw });
+          // Accept array of objects; otherwise ignore
+          if(Array.isArray(out) && out.every(x=>isObj(x))){ base = out; }
+        }catch(e){ /* ignore parse errors; keep base */ }
       }
-      const uniqParents=new Set(matches.map(nearestParent)).size;
-      const uniqVals=new Set(matches.map(m=>String(m.value))).size;
-      setStatus(`Rows: ${rows.length.toLocaleString()} • Unique parents: ${uniqParents.toLocaleString()} • Unique filter values: ${uniqVals.toLocaleString()}`, 'ok');
-    } else {
-      // aggregate per parent
-      const groups=new Map();
-      for(const m of matches){ const p=nearestParent(m); if(!groups.has(p)) groups.set(p,[]); groups.get(p).push(m); }
-      for(const [parent,ms] of groups){
-        const out={};
-        for(const k of selectedRowFields){ out[k]= parent?.[k] ?? ''; cols.add(k); }
-        const line = (selectedMatchFields.size
-          ? ms.map(mm=>[...selectedMatchFields].map(k=>mm.holder?.[k]!=null?`${k}:${mm.holder[k]}`:'').filter(Boolean).join(', ')).filter(Boolean).join('; ')
-          : ms.map(mm=>String(mm.value)).join('; ')
-        );
-        out['matches']=line; cols.add('matches');
-        rows.push(out);
+    } else if(state.mode==='field' && state.filterField && state.filterValues.length){
+      const wanted = state.filterValues;
+      const ci = !!state.caseInsensitive;
+      base = base.filter(rec=>{
+        const vals = valuesAt(rec, state.filterField).map(v=>normalizeStr(v));
+        if(ci){
+          const set = new Set(vals.map(s=>s.toLowerCase()));
+          for(const w of wanted){ if(set.has(w.toLowerCase())) return true; }
+          return false;
+        } else {
+          const set = new Set(vals);
+          for(const w of wanted){ if(set.has(w)) return true; }
+          return false;
+        }
+      });
+    }
+    return base;
+  }
+
+  // --- Table Rendering ---
+  function renderTable(){
+    const visible = state.selectedFields.slice();
+    const hidden = state.columnsOrder.filter(c=>!visible.includes(c));
+
+    const thead = $('#resultTable thead');
+    const tbody = $('#resultTable tbody');
+    thead.innerHTML=''; tbody.innerHTML='';
+
+    // Header row
+    const trh = document.createElement('tr');
+    const headers = [...visible, ...hidden];
+
+    headers.forEach((col, idx)=>{
+      const th = document.createElement('th');
+      th.dataset.col = col;
+      th.classList.toggle('disabled', hidden.includes(col));
+      if(!hidden.includes(col)) th.classList.add('sortable');
+      const inner = document.createElement('div');
+      inner.className='th-inner';
+      const drag = document.createElement('span'); drag.className='drag'; drag.innerHTML='⋮⋮';
+      th.draggable = !hidden.includes(col);
+      th.addEventListener('dragstart', ev=>{
+        ev.dataTransfer.setData('text/plain', String(idx));
+      });
+      th.addEventListener('dragover', ev=>{ if(!hidden.includes(col)){ ev.preventDefault(); }});
+      th.addEventListener('drop', ev=>{
+        ev.preventDefault();
+        const from = +ev.dataTransfer.getData('text/plain');
+        const to = idx;
+        // Only allow reorder within visible segment
+        const visLen = visible.length;
+        if(from<visLen && to<visLen){
+          const moved = state.selectedFields.splice(from,1)[0];
+          state.selectedFields.splice(to,0,moved);
+          rebuildColumnsOrder();
+          renderTable();
+        }
+      });
+      th.addEventListener('click', ()=>{
+        if(hidden.includes(col)) return;
+        if(state.sort.field===col){ state.sort.dir *= -1; } else { state.sort.field=col; state.sort.dir=1; }
+        renderTable();
+      });
+      const lab = document.createElement('span'); lab.textContent = hidden.includes(col) ? col+"  [off]" : col;
+      const sortGlyph = document.createElement('span'); sortGlyph.style.opacity = .6;
+      if(state.sort.field===col) sortGlyph.textContent = state.sort.dir>0? ' ▲' : ' ▼';
+      inner.append(drag, lab, sortGlyph);
+      th.append(inner);
+      trh.append(th);
+    });
+    thead.append(trh);
+
+    // Rows
+    const base = applyFilter();
+    let rows = [];
+    for(const rec of base){
+      if(state.explode){
+        const matrix = visible.map(col => {
+          const vals = valuesAt(rec, col).map(v=>normalizeStr(v));
+          return vals.length? vals : [''];
+        });
+        for(const combo of cartesian(matrix)){
+          const row = {}; visible.forEach((c,i)=> row[c]=combo[i]); rows.push(row);
+        }
+      } else {
+        const row = {};
+        for(const col of visible){
+          const vals = valuesAt(rec, col).map(v=>normalizeStr(v));
+          row[col] = vals.length>1 ? vals.join(', ') : (vals[0]??'');
+        }
+        rows.push(row);
       }
-      setStatus(`Rows: ${rows.length.toLocaleString()}`, 'ok');
     }
 
-    const colList=[...cols]; lastRows=rows; lastCols=colList; buildTable(rows,colList); setDownloads(rows.length>0);
+    // Sorting
+    if(state.sort.field){
+      const f = state.sort.field, d = state.sort.dir;
+      rows.sort((a,b)=>{
+        const A = normalizeStr(a[f]); const B = normalizeStr(b[f]);
+        return A.localeCompare(B, undefined, {numeric:true, sensitivity: state.caseInsensitive? 'accent':'variant'}) * d;
+      });
+    }
+
+    // Render body
+    const frag = document.createDocumentFragment();
+    for(const r of rows){
+      const tr = document.createElement('tr');
+      for(const col of headers){
+        const td = document.createElement('td');
+        if(visible.includes(col)) td.textContent = r[col] ?? '';
+        else td.textContent = '';
+        tr.append(td);
+      }
+      frag.append(tr);
+    }
+    tbody.append(frag);
+
+    // Counters
+    $('#rowCount').textContent = rows.length;
+    $('#colCount').textContent = visible.length + hidden.length;
+  }
+
+  // --- CSV Export ---
+  function exportCSV(){
+    const headers = state.columnsOrder.filter(c=>!state.hiddenFields.has(c)); // visible only
+    const base = applyFilter();
+    const rows = [];
+    for(const rec of base){
+      if(state.explode){
+        const matrix = headers.map(col => {
+          const vals = valuesAt(rec, col).map(v=>normalizeStr(v));
+          return vals.length? vals : [''];
+        });
+        for(const combo of cartesian(matrix)){
+          const obj = {}; headers.forEach((c,i)=> obj[c]=combo[i]); rows.push(obj);
+        }
+      } else {
+        const obj = {};
+        for(const col of headers){
+          const vals = valuesAt(rec, col).map(v=>normalizeStr(v));
+          obj[col] = vals.length>1 ? vals.join(', ') : (vals[0]??'');
+        }
+        rows.push(obj);
+      }
+    }
+    // Sort to match UI sort
+    if(state.sort.field){
+      const f = state.sort.field, d = state.sort.dir;
+      rows.sort((a,b)=>{
+        const A = normalizeStr(a[f]); const B = normalizeStr(b[f]);
+        return A.localeCompare(B, undefined, {numeric:true, sensitivity: state.caseInsensitive? 'accent':'variant'}) * d;
+      });
+    }
+
+    const esc = v => '"'+ String(v??'').replace(/"/g,'""') +'"';
+    const csv = [headers.map(esc).join(',')]
+      .concat(rows.map(r=> headers.map(h=>esc(r[h])).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const ts = new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `filtered_export_${ts}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  // --- Wiring ---
+  function updateJsonStatus(ok, msg){
+    $('#jsonDot').className = 'dot ' + (ok? 'good':'bad');
+    $('#jsonStatus .hint').textContent = msg;
+  }
+
+  function prepareAfterJsonLoad(){
+    // Roots
+    state.roots = new Map();
+    findArrayObjectPaths(state.raw, '', state.roots);
+    const sel = $('#rootSelect'); sel.innerHTML='';
+    if(state.roots.size===0){
+      $('#rootHint').innerHTML = 'No array-of-objects found. If your root itself is an array of objects, paste it directly.';
+      // handle top-level array
+      if(Array.isArray(state.raw) && state.raw.every(x=>isObj(x))){
+        state.roots.set('<top-array>', [state.raw]);
+      }
+    }
+    // Fill select
+    for(const [k, arrs] of state.roots.entries()){
+      const opt = document.createElement('option');
+      const count = arrs.reduce((n,a)=>n+a.length,0);
+      opt.value = k; opt.textContent = `${k}  (${count} items)`;
+      sel.append(opt);
+    }
+    sel.disabled = state.roots.size===0;
+
+    // pick first root
+    state.rootPath = state.roots.keys().next().value || null;
+    if(state.rootPath){ sel.value = state.rootPath; }
+
+    // compute records & fields
+    recomputeRecordsFromRoot();
+
+    // Populate filter field dropdown
+    const ff = $('#filterField'); ff.innerHTML='';
+    for(const f of state.allFields){ const o=document.createElement('option'); o.value=o.textContent=f; ff.append(o); }
+    state.filterField = ff.value;
+
+    // Field list UI
+    renderFieldList();
+    setStep(2);
+    renderTable();
+  }
+
+  // Inputs
+  $('#jsonFile').addEventListener('change', async (ev)=>{
+    const f = ev.target.files[0]; if(!f) return;
+    try{
+      const txt = await f.text();
+      const obj = JSON.parse(txt);
+      state.raw = obj; state.rawText = txt;
+      updateJsonStatus(true, `Loaded: ${f.name} (${txt.length.toLocaleString()} chars)`);
+      prepareAfterJsonLoad();
+    }catch(err){ updateJsonStatus(false, 'Invalid JSON in uploaded file.'); }
   });
 
-  // Downloads / copy
-  downloadJsonBtn.addEventListener('click', ()=>{
-    if (!lastRows.length) return;
-    const blob=new Blob([JSON.stringify(lastRows,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.json';
-    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
-  });
-  downloadCsvBtn.addEventListener('click', ()=>{
-    if (!lastRows.length) return;
-    const csv=[lastCols.join(','),...lastRows.map(r=> lastCols.map(c=>{const s=r[c]==null?'':String(r[c]);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))].join('\r\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filtered-output.csv';
-    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
-  });
-  copyBtn.addEventListener('click', async()=>{
-    if (!lastRows.length) return;
-    try{ await navigator.clipboard.writeText(JSON.stringify(lastRows,null,2)); setStatus('Copied JSON to clipboard.','ok'); }
-    catch(e){ setStatus('Copy failed: '+e.message,'err'); }
+  $('#validateBtn').addEventListener('click', ()=>{
+    const txt = $('#jsonText').value.trim(); if(!txt){ updateJsonStatus(false,'Please paste JSON or upload a file.'); return; }
+    try{
+      const obj = JSON.parse(txt);
+      state.raw = obj; state.rawText = txt;
+      updateJsonStatus(true, `Valid JSON (${txt.length.toLocaleString()} chars)`);
+      prepareAfterJsonLoad();
+    }catch(err){ updateJsonStatus(false, 'Invalid JSON: ' + err.message); }
   });
 
+  $('#loadExample').addEventListener('click', ()=>{
+    const example = `{"users":[{"id":15013,"email":"nodela@zetaglobal.com","first_name":"Narender","last_name":null,"display_name":"Narender Odela","account_id":8437,"org_account_id":1425,"created_at":"2017-08-03T12:35:30.000Z","current_sign_in_at":"2025-08-18T18:01:23.000Z","sign_in_count":508,"is_active":true,"role_members":[{"id":14991,"account_id":1425,"account_name":"Admin","role_id":153,"role":"Acquisition General Access","user_id":15013,"company_name":"Admin","created_at":"2018-12-28T06:50:43.000Z","updated_at":"2023-10-24T17:39:26.000Z"},{"id":137407,"account_id":5617,"account_name":"Site 123","role_id":1,"role":"Super User","user_id":15013,"company_name":"Verizon 1","created_at":"2024-01-25T01:23:35.000Z","updated_at":"2024-01-25T01:23:35.000Z"}]}]}`;
+    $('#jsonText').value = example;
+  });
+
+  $('#rootSelect').addEventListener('change', (ev)=>{
+    state.rootPath = ev.target.value;
+    recomputeRecordsFromRoot();
+    renderFieldList();
+    renderTable();
+    setStep(2);
+  });
+
+  $('input[name="mode"][value="field"]').addEventListener('change', ()=>{ state.mode='field'; $('#fieldMode').style.display='block'; $('#jsonpathMode').style.display='none'; renderTable(); });
+  $('input[name="mode"][value="jsonpath"]').addEventListener('change', ()=>{ state.mode='jsonpath'; $('#fieldMode').style.display='none'; $('#jsonpathMode').style.display='block'; renderTable(); });
+
+  $('#filterField').addEventListener('change', (ev)=>{ state.filterField = ev.target.value; renderTable(); });
+  $('#filterValues').addEventListener('input', (ev)=>{ state.filterValues = ev.target.value.split(',').map(s=>s.trim()).filter(Boolean); renderTable(); });
+  $('#caseToggle').addEventListener('change', (ev)=>{ state.caseInsensitive = ev.target.checked; renderTable(); });
+
+  $('#jsonpathInput').addEventListener('input', (ev)=>{ state.jsonpathExpr = ev.target.value; renderTable(); });
+
+  $('#fieldSearch').addEventListener('input', renderFieldList);
+  $('#selectAll').addEventListener('click', ()=>{ state.selectedFields = state.allFields.slice(); state.hiddenFields.clear(); rebuildColumnsOrder(); renderFieldList(); renderTable(); });
+  $('#selectNone').addEventListener('click', ()=>{ state.selectedFields = []; state.hiddenFields = new Set(state.allFields); rebuildColumnsOrder(); renderFieldList(); renderTable(); });
+  $('#selectCommon').addEventListener('click', ()=>{
+    const prefs = ['id','email','name','display_name','created_at','updated_at'];
+    state.selectedFields = state.allFields.filter(f=> prefs.some(p=> f.endsWith(p)) ).slice(0,6);
+    state.hiddenFields.clear(); for(const f of state.allFields){ if(!state.selectedFields.includes(f)) state.hiddenFields.add(f); }
+    rebuildColumnsOrder(); renderFieldList(); renderTable();
+  });
+
+  $('#explodeToggle').addEventListener('change', (ev)=>{ state.explode = ev.target.checked; renderTable(); setStep(3); });
+
+  $('#exportCsv').addEventListener('click', exportCSV);
+  $('#resetAll').addEventListener('click', ()=>{ location.reload(); });
+
+  // Check JSONPath availability
+  (function(){
+    const jpFunc = (window.JSONPath && window.JSONPath.JSONPath) ? window.JSONPath.JSONPath : window.JSONPath;
+    $('#jpAvail').textContent = (typeof jpFunc==='function')? 'available' : 'unavailable';
+  })();
 })();
 </script>
 </body>
