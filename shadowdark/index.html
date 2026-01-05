@@ -2,7 +2,11 @@
 
 
 <script>
-  fetch("https://script.google.com/macros/s/AKfycbxYDR-tGiJTva6xdXaVqerDr2a3IV1AXh84hdoxMHdCWfH4jS7Z4BDLsUAgjWtSk8JI/exec?action=names")
-  .then(res => res.json())
-  .then(data => console.log(data));
+  function handleNames(data) {
+  console.log("All names:", data);
+}
+
+var script = document.createElement('script');
+script.src = "https://script.google.com/macros/s/AKfycbwZrJPmfTPizEAGwOCCZ3HDpoeqApJt2IkpnKQkbRvPFQubGwI0Jpb0Jg6-rnoZzhBIww/exec?action=names&callback=handleNames";
+document.body.appendChild(script);
 </script>
