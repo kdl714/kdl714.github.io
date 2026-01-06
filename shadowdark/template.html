@@ -22,6 +22,14 @@
       margin-left: 12px;
     }
 
+    select {
+      padding: 4px;
+    }
+
+    #sheet {
+      margin-top: 20px; /* padding below select */
+    }
+
     .sheet {
       display: grid;
       grid-template-columns: 320px 260px 1fr;
@@ -30,7 +38,8 @@
     }
 
     .box {
-      border: 2px solid #000;
+      border: 1px solid #000;
+      border-radius: 3px;
       padding: 6px;
       margin-bottom: 8px;
     }
@@ -63,22 +72,31 @@
     }
 
     .stat {
-      border: 2px solid #000;
+      border: 1px solid #000;
+      border-radius: 3px;
       padding: 4px;
-      font-weight: bold;
       text-align: center;
+    }
+
+    .stat-label {
+      font-weight: bold;
     }
 
     .stat-value {
       display: flex;
       justify-content: center;
       gap: 6px;
+      margin-top: 2px;
     }
 
     .stat-value input {
       width: 40px;
       text-align: center;
-      font-weight: bold;
+      font-weight: normal; /* normal text for stat input */
+    }
+
+    .stat-value span {
+      font-weight: bold; /* mod remains bold */
     }
 
     .combat {
@@ -96,7 +114,7 @@
     }
 
     .combat-line input {
-      width: 50px;
+      width: 40px;
       text-align: center;
       font-weight: bold;
     }
@@ -114,6 +132,7 @@
 
     .middle input {
       text-align: right;
+      font-size: 16px; /* larger font than label */
     }
 
     .xp-line {
@@ -125,6 +144,10 @@
     .xp-line input {
       width: 70px;
       text-align: center;
+    }
+
+    .xp-line input:last-child {
+      font-weight: bold; /* XP_TO_NEXT_LEVEL bold */
     }
 
     /* RIGHT COLUMN */
@@ -148,6 +171,7 @@
     .currency-box input {
       width: 50px;
       text-align: center;
+      border-bottom: 1px solid #000;
     }
 
     .gear-list {
@@ -240,7 +264,7 @@ function render(c) {
       <div class="stats">
         ${['STR','DEX','CON','INT','WIS','CHA'].map(s => `
           <div class="stat">
-            ${s}
+            <div class="stat-label">${s}</div>
             <div class="stat-value">
               <input value="${c[s]}"
                 oninput="
@@ -270,6 +294,7 @@ function render(c) {
         <div class="box">
           <div class="title">AC</div>
           <input value="${c.AC}"
+            maxlength="2"
             oninput="saveDebounced('${c.ID}','AC',this.value)">
         </div>
       </div>
