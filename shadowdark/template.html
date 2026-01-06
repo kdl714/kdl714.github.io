@@ -24,7 +24,7 @@
 
     .sheet {
       display: grid;
-      grid-template-columns: 300px 260px 1fr;
+      grid-template-columns: 320px 260px 1fr;
       gap: 16px;
       max-width: 1300px;
     }
@@ -32,6 +32,7 @@
     .box {
       border: 2px solid #000;
       padding: 6px;
+      margin-bottom: 8px;
     }
 
     .title {
@@ -45,37 +46,91 @@
       width: 100%;
       font-family: inherit;
       background: transparent;
+      font-size: 14px;
     }
 
     textarea {
       resize: none;
     }
 
-    /* LEFT */
+    /* LEFT COLUMN */
+
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 4px;
+      margin-bottom: 8px;
     }
 
     .stat {
       border: 2px solid #000;
       padding: 4px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .combat {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .combat input {
       text-align: center;
       font-weight: bold;
     }
 
-    /* MIDDLE */
+    .attacks textarea {
+      height: 120px;
+    }
+
+    /* MIDDLE COLUMN */
+
     .middle {
       display: grid;
       gap: 8px;
     }
 
-    /* RIGHT */
+    .xp-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .xp-line input {
+      width: 70px;
+      text-align: center;
+    }
+
+    /* RIGHT COLUMN */
+
+    .talents textarea {
+      height: 210px;
+    }
+
+    .currency-box {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 4px;
+    }
+
+    .currency-box div {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .currency-box input {
+      width: 50px;
+      text-align: center;
+    }
+
     .gear-list {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 4px 16px;
+      margin-bottom: 6px;
     }
 
     .gear-item {
@@ -85,14 +140,8 @@
 
     .free {
       border-top: 1px solid #000;
-      margin-top: 6px;
       padding-top: 6px;
-    }
-
-    .currency-box {
-      display: flex;
-      justify-content: space-around;
-      margin-bottom: 8px;
+      margin-top: 6px;
     }
 
     .loading {
@@ -160,28 +209,50 @@ function render(c) {
   document.getElementById('sheet').classList.remove('loading');
 
   document.getElementById('sheet').innerHTML = `
+    <!-- LEFT -->
     <div>
       <h1>${c.NAME || ''}</h1>
 
       <div class="stats">
-        ${['STR','DEX','CON','INT','WIS','CHA'].map(s => {
-          const m = mod(c[s]);
-          return `
-            <div class="stat">
-              <input value="${c[s]}"
-                oninput="saveDebounced('${c.ID}','${s}',this.value)">
-              <div>${c[s]} / ${m >= 0 ? '+' : ''}${m}</div>
-            </div>`;
-        }).join('')}
+        ${['STR','DEX','CON','INT','WIS','CHA'].map(s => `
+          <div class="stat">
+            ${s}
+            <input value="${c[s]}"
+              oninput="
+                this.nextElementSibling.textContent =
+                  (mod(this.value)>=0?'+':'')+mod(this.value);
+                saveDebounced('${c.ID}','${s}',this.value);
+              ">
+            <div>${mod(c[s])>=0?'+':''}${mod(c[s])}</div>
+          </div>
+        `).join('')}
       </div>
 
-      <div class="box">
+      <div class="combat">
+        <div class="box">
+          <div class="title">HP</div>
+          <input value="${c.HP_CURRENT}"
+            oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
+          /
+          <input value="${c.HP_MAX}"
+            oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
+        </div>
+
+        <div class="box">
+          <div class="title">AC</div>
+          <input value="${c.AC}"
+            oninput="saveDebounced('${c.ID}','AC',this.value)">
+        </div>
+      </div>
+
+      <div class="box attacks">
         <div class="title">ATTACKS</div>
         <textarea
           oninput="saveDebounced('${c.ID}','ATTACKS',this.value)">${c.ATTACKS || ''}</textarea>
       </div>
     </div>
 
+    <!-- MIDDLE -->
     <div class="middle">
       ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY']
         .map(f => `
@@ -189,19 +260,24 @@ function render(c) {
             <div class="title">${f.replace(/_/g,' ')}</div>
             <input value="${c[f] || ''}"
               oninput="saveDebounced('${c.ID}','${f}',this.value)">
-          </div>`).join('')}
+          </div>
+        `).join('')}
 
       <div class="box">
         <div class="title">XP</div>
-        <input value="${c.XP_CURRENT || ''}"
-          oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)"> /
-        <input value="${c.XP_TO_NEXT_LEVEL || ''}"
-          oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
+        <div class="xp-line">
+          <input value="${c.XP_CURRENT}"
+            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
+          /
+          <input value="${c.XP_TO_NEXT_LEVEL}"
+            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
+        </div>
       </div>
     </div>
 
+    <!-- RIGHT -->
     <div>
-      <div class="box">
+      <div class="box talents">
         <div class="title">TALENTS / SPELLS</div>
         <textarea
           oninput="saveDebounced('${c.ID}','TALENTS_SPELLS',this.value)">${c.TALENTS_SPELLS || ''}</textarea>
@@ -211,8 +287,10 @@ function render(c) {
         <div class="title">CURRENCY</div>
         <div class="currency-box">
           ${['GP','SP','CP'].map(f => `
-            <div>${f} <input value="${c[f] || ''}"
-              oninput="saveDebounced('${c.ID}','${f}',this.value)"></div>
+            <div>${f}
+              <input value="${c[f]}"
+                oninput="saveDebounced('${c.ID}','${f}',this.value)">
+            </div>
           `).join('')}
         </div>
       </div>
@@ -220,12 +298,8 @@ function render(c) {
       <div class="box">
         <div class="title">GEAR</div>
         <div class="gear-list">
-          <div>
-            ${gearColumn(1,10)}
-          </div>
-          <div>
-            ${gearColumn(11,20)}
-          </div>
+          <div>${gearColumn(1,10)}</div>
+          <div>${gearColumn(11,20)}</div>
         </div>
 
         <div class="free">
