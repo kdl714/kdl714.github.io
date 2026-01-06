@@ -147,6 +147,30 @@
     .free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
 
     .loading { opacity: 0.6; font-style: italic; }
+
+    @media (max-width: 768px) {
+  .sheet {
+    grid-template-columns: 1fr; /* stack columns vertically */
+  }
+  
+  .sheet > div {
+    width: 100%; /* ensure each column takes full width */
+  }
+
+  .gear-list {
+    grid-template-columns: 1fr; /* stack gear items in one column on mobile */
+  }
+  
+  .currency-box {
+    flex-direction: column; /* stack GP/SP/CP vertically */
+    gap: 4px;
+  }
+
+  .combat {
+    grid-template-columns: 1fr; /* stack HP and AC vertically */
+  }
+}
+
   </style>
 </head>
 
