@@ -163,11 +163,9 @@
 <script>
 let saveTimer;
 let currentChar;
+let saveLock = false; // true when a save is in progress
 
 function mod(v) { return Math.floor((v - 10)/2); }
-
-let saveTimer;
-let saveLock = false; // true when a save is in progress
 
 function saveDebounced(id, field, value) {
   if (saveLock) return; // ignore new edits while saving
