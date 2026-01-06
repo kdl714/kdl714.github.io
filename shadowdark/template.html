@@ -166,18 +166,31 @@ let currentChar;
 
 function mod(v) { return Math.floor((v - 10)/2); }
 
+let saveTimer;
+let saveLock = false; // true when a save is in progress
+
 function saveDebounced(id, field, value) {
+  if (saveLock) return; // ignore new edits while saving
+
   const statusEl = document.getElementById('saveStatus');
   statusEl.textContent = 'Saving…';
   statusEl.className = 'status saving';
+
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    saveLock = true;
+    // disable all inputs while saving
+    document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = true);
+
     google.script.run.withSuccessHandler(() => {
+      saveLock = false;
+      document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = false);
       statusEl.textContent = 'Saved';
       statusEl.className = 'status saved';
     }).updateCharacterField(id, field, value);
   }, 600);
 }
+
 
 /* Load characters */
 google.script.run.withSuccessHandler(chars => {
