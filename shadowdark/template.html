@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v1.1 -->
+  <!-- v1.2 -->
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body {
@@ -39,22 +38,22 @@
       max-width: 1300px;
     }
 
-    /* JS-forced mobile layout (Apps Script safe) */
+    /* ===== MOBILE (UA-DETECTED) ===== */
     .sheet.mobile {
-      grid-template-columns: 1fr !important;
+      grid-template-columns: 1fr;
     }
 
     .sheet.mobile .gear-list {
-      grid-template-columns: 1fr !important;
+      grid-template-columns: 1fr;
     }
 
     .sheet.mobile .currency-box {
-      flex-direction: column !important;
+      flex-direction: column;
       gap: 4px;
     }
 
     .sheet.mobile .combat {
-      grid-template-columns: 1fr !important;
+      grid-template-columns: 1fr;
     }
 
     /* ===== BOXES ===== */
@@ -235,19 +234,21 @@ let saveTimer;
 let saveLock = false;
 let currentChar;
 
-/* ===== MOBILE DETECTION (Apps Script SAFE) ===== */
+/* ===== MOBILE DETECTION (USER AGENT) ===== */
+function isMobileDevice() {
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
 function applyMobileLayout() {
   const sheet = document.getElementById('sheet');
   if (!sheet) return;
 
-  if (window.screen.width <= 768) {
+  if (isMobileDevice()) {
     sheet.classList.add('mobile');
   } else {
     sheet.classList.remove('mobile');
   }
 }
-
-window.addEventListener('resize', applyMobileLayout);
 
 function mod(v) { return Math.floor((v - 10) / 2); }
 
@@ -313,7 +314,7 @@ function render(c) {
       <h1>${c.NAME || ''}</h1>
 
       <div class="stats">
-        ${['STR','DEX','CON','INT','WIS','CHA'].map(s => `
+        ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
           <div class="stat">
             <div class="stat-label">${s}</div>
             <div class="stat-value">
@@ -416,7 +417,7 @@ ${c.TALENTS_SPELLS || ''}</textarea>
     </div>
   `;
 
-  applyMobileLayout(); // ✅ CRITICAL
+  applyMobileLayout(); // ✅ REQUIRED
 }
 
 function gearColumn(start,end){
