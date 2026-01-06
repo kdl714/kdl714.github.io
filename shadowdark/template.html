@@ -2,7 +2,6 @@
 <html>
 <head>
   <base target="_top">
-  <meta charset="utf-8">
 
   <style>
     body {
@@ -13,15 +12,21 @@
     }
 
     h1 {
-      font-size: 42px;
+      font-size: 36px;
       margin: 0 0 12px 0;
+    }
+
+    .status {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-left: 12px;
     }
 
     .sheet {
       display: grid;
-      grid-template-columns: 340px 280px 1fr;
+      grid-template-columns: 300px 260px 1fr;
       gap: 16px;
-      max-width: 1200px;
+      max-width: 1300px;
     }
 
     .box {
@@ -35,11 +40,18 @@
       margin-bottom: 4px;
     }
 
-    .left, .middle, .right {
-      display: grid;
-      gap: 8px;
+    input, textarea {
+      border: none;
+      width: 100%;
+      font-family: inherit;
+      background: transparent;
     }
 
+    textarea {
+      resize: none;
+    }
+
+    /* LEFT */
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -49,27 +61,17 @@
     .stat {
       border: 2px solid #000;
       padding: 4px;
+      text-align: center;
       font-weight: bold;
     }
 
-    .combat {
+    /* MIDDLE */
+    .middle {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px;
+      gap: 8px;
     }
 
-    textarea, input {
-      border: none;
-      width: 100%;
-      font-family: inherit;
-      background: transparent;
-    }
-
-    textarea {
-      resize: none;
-      height: 90px;
-    }
-
+    /* RIGHT */
     .gear-list {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -81,27 +83,21 @@
       gap: 6px;
     }
 
-    .xp {
+    .free {
+      border-top: 1px solid #000;
+      margin-top: 6px;
+      padding-top: 6px;
+    }
+
+    .currency-box {
       display: flex;
-      gap: 4px;
-      align-items: center;
+      justify-content: space-around;
+      margin-bottom: 8px;
     }
-    .status {
-    position: fixed;
-    top: 8px;
-    right: 12px;
-    padding: 4px 8px;
-    font-size: 12px;
-    border: 1px solid #000;
-    background: #fff;
-    }
-    
-    .status.saving { background: #eef; }
-    .status.error { background: #fee; }
-    
+
     .loading {
+      opacity: 0.6;
       font-style: italic;
-      opacity: 0.7;
     }
   </style>
 </head>
@@ -109,188 +105,152 @@
 <body>
 
 <div>
-  <label>Character</label>
   <select id="characterSelect"></select>
+  <span id="loadStatus" class="status loading">Loading…</span>
+  <span id="saveStatus" class="status"></span>
 </div>
 
-<div id="sheet" class="sheet"></div>
+<div id="sheet" class="sheet loading"></div>
 
 <script>
-const SAVE_DELAY = 500;
-const saveTimers = {};
-let currentCharacterId = null;
-
-/* ---------- UI helpers ---------- */
-
-function setStatus(text, cls = 'idle') {
-  const el = document.getElementById('status');
-  el.textContent = text;
-  el.className = `status ${cls}`;
-}
-
-function showSheetLoading() {
-  document.getElementById('sheet').innerHTML =
-    '<div class="loading">Loading character…</div>';
-}
-
-/* ---------- Debounced save ---------- */
-
-function saveDebounced(id, field, value) {
-  const key = `${id}:${field}`;
-
-  if (saveTimers[key]) {
-    clearTimeout(saveTimers[key]);
-  }
-
-  setStatus('Saving…', 'saving');
-
-  saveTimers[key] = setTimeout(() => {
-    google.script.run
-      .withSuccessHandler(() => {
-        setStatus('Saved ✓');
-      })
-      .withFailureHandler(err => {
-        console.error(err);
-        setStatus('Error saving', 'error');
-      })
-      .updateCharacterField(id, field, value);
-  }, SAVE_DELAY);
-}
-
-/* ---------- Utility ---------- */
+let saveTimer;
+let currentChar;
 
 function mod(v) {
-  v = Number(v) || 10;
   return Math.floor((v - 10) / 2);
 }
 
-/* ---------- Initial load ---------- */
+function saveDebounced(id, field, value) {
+  document.getElementById('saveStatus').textContent = 'Saving…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    google.script.run
+      .withSuccessHandler(() => {
+        document.getElementById('saveStatus').textContent = 'Saved';
+      })
+      .updateCharacterField(id, field, value);
+  }, 600);
+}
 
-document.body.insertAdjacentHTML(
-  'afterbegin',
-  '<div id="status" class="status idle">Loading…</div>'
-);
+/* Load characters */
+google.script.run.withSuccessHandler(chars => {
+  const sel = document.getElementById('characterSelect');
+  sel.innerHTML = '<option>Select character…</option>';
 
-google.script.run
-  .withSuccessHandler(chars => {
-    const sel = document.getElementById('characterSelect');
-    sel.innerHTML = '<option>Select…</option>';
+  chars.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.name;
+    sel.appendChild(o);
+  });
 
-    chars.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.id;
-      o.textContent = c.name;
-      sel.appendChild(o);
-    });
+  document.getElementById('loadStatus').textContent = '';
 
-    setStatus('Ready');
+  sel.onchange = () => {
+    document.getElementById('sheet').classList.add('loading');
+    google.script.run
+      .withSuccessHandler(render)
+      .getCharacterById(sel.value);
+  };
+}).getAllCharacters();
 
-    sel.onchange = () => {
-      currentCharacterId = sel.value;
-      showSheetLoading();
-      google.script.run
-        .withSuccessHandler(render)
-        .withFailureHandler(() => {
-          setStatus('Failed to load character', 'error');
-        })
-        .getCharacterById(sel.value);
-    };
-  })
-  .withFailureHandler(() => {
-    setStatus('Failed to load characters', 'error');
-  })
-  .getAllCharacters();
-
-/* ---------- Render ---------- */
-
+/* Render */
 function render(c) {
-  setStatus('Loaded');
-
-  const gearColumn = (start, end) =>
-    Array.from({ length: end - start + 1 }, (_, i) => {
-      const n = start + i;
-      return `
-        <div class="gear-item">
-          <span>${n}.</span>
-          <input value="${c['GEAR_' + n] || ''}"
-            oninput="saveDebounced('${c.ID}','GEAR_${n}',this.value)">
-        </div>`;
-    }).join('');
+  currentChar = c;
+  document.getElementById('sheet').classList.remove('loading');
 
   document.getElementById('sheet').innerHTML = `
-    <div class="left">
-      <h1>Shadowdark</h1>
+    <div>
+      <h1>${c.NAME || ''}</h1>
 
       <div class="stats">
-        ${['STR','DEX','CON','INT','WIS','CHA'].map(s => `
-          <div class="stat">
-            ${s}
-            <input value="${c[s] || ''}"
-              oninput="saveDebounced('${c.ID}','${s}',this.value)">
-            <span>${mod(c[s])}</span>
-          </div>
-        `).join('')}
+        ${['STR','DEX','CON','INT','WIS','CHA'].map(s => {
+          const m = mod(c[s]);
+          return `
+            <div class="stat">
+              <input value="${c[s]}"
+                oninput="saveDebounced('${c.ID}','${s}',this.value)">
+              <div>${c[s]} / ${m >= 0 ? '+' : ''}${m}</div>
+            </div>`;
+        }).join('')}
       </div>
 
-      <div class="combat">
-        <div class="box">
-          <div class="title">HP</div>
-          <input value="${c.HP_CURRENT}"
-            oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)"> /
-          <input value="${c.HP_MAX}"
-            oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
-        </div>
-        <div class="box">
-          <div class="title">AC</div>
-          <input value="${c.AC}"
-            oninput="saveDebounced('${c.ID}','AC',this.value)">
-        </div>
+      <div class="box">
+        <div class="title">ATTACKS</div>
+        <textarea
+          oninput="saveDebounced('${c.ID}','ATTACKS',this.value)">${c.ATTACKS || ''}</textarea>
       </div>
     </div>
 
     <div class="middle">
-      <div class="box">
-        <div class="title">CHARACTER</div>
-        ${['ANCESTRY','CLASS','TITLE','ALIGNMENT','BACKGROUND','DEITY','LEVEL']
-          .map(f => `
-            <div>
-              <strong>${f}</strong>
-              <input value="${c[f] || ''}"
-                oninput="saveDebounced('${c.ID}','${f}',this.value)">
-            </div>
-          `).join('')}
+      ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY']
+        .map(f => `
+          <div class="box">
+            <div class="title">${f.replace(/_/g,' ')}</div>
+            <input value="${c[f] || ''}"
+              oninput="saveDebounced('${c.ID}','${f}',this.value)">
+          </div>`).join('')}
 
-        <div class="xp">
-          <strong>XP</strong>
-          <input value="${c.XP_CURRENT || ''}"
-            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
-          /
-          <input value="${c.XP_TO_NEXT_LEVEL || ''}"
-            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
-        </div>
+      <div class="box">
+        <div class="title">XP</div>
+        <input value="${c.XP_CURRENT || ''}"
+          oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)"> /
+        <input value="${c.XP_TO_NEXT_LEVEL || ''}"
+          oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
       </div>
     </div>
 
-    <div class="right">
+    <div>
       <div class="box">
         <div class="title">TALENTS / SPELLS</div>
         <textarea
-          oninput="saveDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
-        >${c.TALENTS_SPELLS || ''}</textarea>
+          oninput="saveDebounced('${c.ID}','TALENTS_SPELLS',this.value)">${c.TALENTS_SPELLS || ''}</textarea>
+      </div>
+
+      <div class="box">
+        <div class="title">CURRENCY</div>
+        <div class="currency-box">
+          ${['GP','SP','CP'].map(f => `
+            <div>${f} <input value="${c[f] || ''}"
+              oninput="saveDebounced('${c.ID}','${f}',this.value)"></div>
+          `).join('')}
+        </div>
       </div>
 
       <div class="box">
         <div class="title">GEAR</div>
         <div class="gear-list">
-          <div>${gearColumn(1,10)}</div>
-          <div>${gearColumn(11,20)}</div>
+          <div>
+            ${gearColumn(1,10)}
+          </div>
+          <div>
+            ${gearColumn(11,20)}
+          </div>
+        </div>
+
+        <div class="free">
+          <div class="title">FREE TO CARRY</div>
+          <input value="${c.FREE_TO_CARRY || ''}"
+            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
         </div>
       </div>
     </div>
   `;
 }
-</script>
 
+function gearColumn(start, end) {
+  let out = '';
+  for (let i = start; i <= end; i++) {
+    out += `
+      <div class="gear-item">
+        <span>${i}.</span>
+        <input value="${currentChar['GEAR_'+i] || ''}"
+          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
+      </div>`;
+  }
+  return out;
+}
+</script>
 
 </body>
 </html>
