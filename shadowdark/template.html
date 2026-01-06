@@ -2,8 +2,9 @@
 <html>
 <head>
   <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
+  <style>
     body {
       font-family: serif;
       background: #fff;
@@ -58,7 +59,7 @@
 
     /* Inputs & Textareas */
     input, textarea {
-      border: 1px solid transparent; /* reserve space for focus border */
+      border: 1px solid transparent;
       box-sizing: border-box;
       width: 100%;
       font-family: inherit;
@@ -69,7 +70,6 @@
 
     textarea { resize: none; }
 
-    /* Hover/focus highlight without jumping */
     input:hover, textarea:hover,
     input:focus, textarea:focus {
       background: #f0f8ff;
@@ -153,20 +153,24 @@
     /* MOBILE RESPONSIVE */
     @media (max-width: 768px) {
       .sheet {
-        grid-template-columns: 1fr; /* stack columns vertically */
+        grid-template-columns: 1fr !important;
+      }
+
+      .sheet > div {
+        width: 100% !important;
       }
 
       .gear-list {
-        grid-template-columns: 1fr; /* gear items stacked */
+        grid-template-columns: 1fr !important;
       }
 
       .currency-box {
-        flex-direction: column; /* stack GP/SP/CP */
+        flex-direction: column !important;
         gap: 4px;
       }
 
       .combat {
-        grid-template-columns: 1fr; /* stack HP and AC */
+        grid-template-columns: 1fr !important;
       }
     }
   </style>
@@ -184,13 +188,13 @@
 
 <script>
 let saveTimer;
+let saveLock = false;
 let currentChar;
-let saveLock = false; // true when a save is in progress
 
 function mod(v) { return Math.floor((v - 10)/2); }
 
 function saveDebounced(id, field, value) {
-  if (saveLock) return; // ignore new edits while saving
+  if (saveLock) return;
 
   const statusEl = document.getElementById('saveStatus');
   statusEl.textContent = 'Saving…';
@@ -199,7 +203,6 @@ function saveDebounced(id, field, value) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveLock = true;
-    // disable all inputs while saving
     document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = true);
 
     google.script.run.withSuccessHandler(() => {
@@ -210,7 +213,6 @@ function saveDebounced(id, field, value) {
     }).updateCharacterField(id, field, value);
   }, 600);
 }
-
 
 /* Load characters */
 google.script.run.withSuccessHandler(chars => {
@@ -244,7 +246,7 @@ function render(c) {
       <h1>${c.NAME || ''}</h1>
 
       <div class="stats">
-        ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
+        ${['STR','DEX','CON','INT','WIS','CHA'].map(s => `
           <div class="stat">
             <div class="stat-label">${s}</div>
             <div class="stat-value">
