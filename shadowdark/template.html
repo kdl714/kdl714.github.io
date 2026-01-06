@@ -60,9 +60,19 @@
       font-family: inherit;
       background: transparent;
       font-size: 14px;
+      transition: background 0.2s, border 0.2s;
     }
 
     textarea { resize: none; }
+
+    /* Hover/focus highlight for all inputs/textarea */
+    input:hover, textarea:hover,
+    input:focus, textarea:focus {
+      background: #f0f8ff;
+      outline: none;
+      border: 1px solid #0077cc;
+      border-radius: 3px;
+    }
 
     /* LEFT COLUMN */
 
@@ -114,7 +124,7 @@
 
     /* MIDDLE COLUMN */
 
-    .middle { display: grid; gap: 4px; } /* restored smaller gap */
+    .middle { display: grid; gap: 4px; }
 
     .middle input { text-align: right; font-size: 16px; }
     .middle .box .title { border-bottom: none; text-align: left; }
@@ -133,7 +143,7 @@
     .gear-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 6px; }
     .gear-item { display: flex; gap: 6px; }
 
-    .gear-item input.greyed { color: gray; }
+    .gear-item input.greyed { background: #eee; }
 
     .free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
 
