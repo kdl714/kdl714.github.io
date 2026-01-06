@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v1.5 -->
   <base target="_top">
 
   <style>
-    /* ================= BASE ================= */
     body {
       font-family: serif;
       background: #fff;
@@ -14,320 +12,326 @@
     }
 
     h1 {
-      font-size: 42px;
+      font-size: 36px;
       margin: 0 0 12px 0;
     }
 
-    select, input, textarea {
-      font-family: inherit;
-      font-size: 14px;
-      background: transparent;
-      border: none;
-      outline: none;
+    .status {
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 12px;
     }
 
-    textarea { resize: none; }
+    .status.loading { color: orange; }
+    .status.saving { color: blue; }
+    .status.saved { color: green; }
 
-    .title {
-      font-weight: bold;
-      font-size: 12px;
-      margin-bottom: 4px;
+    select {
+      padding: 4px;
+    }
+
+    #sheet {
+      margin-top: 20px;
+    }
+
+    .sheet {
+      display: grid;
+      grid-template-columns: 320px 260px 1fr;
+      gap: 16px;
+      max-width: 1300px;
     }
 
     .box {
       border: 1px solid #000;
       border-radius: 3px;
       padding: 10px;
+      margin-bottom: 8px;
     }
 
-    /* ================= LAYOUT ================= */
-    .sheet {
-      display: grid;
-      grid-template-columns: 340px 260px 1fr;
-      gap: 16px;
-      max-width: 1200px;
+    .title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      text-align: center;
     }
 
-    .left, .middle, .right {
-      display: grid;
-      gap: 12px;
+    /* Inputs & Textareas */
+    input, textarea {
+      border: 1px solid transparent; /* reserve space for focus border */
+      box-sizing: border-box;        /* prevent layout shift */
+      width: 100%;
+      font-family: inherit;
+      background: transparent;
+      font-size: 14px;
+      transition: background 0.2s, border-color 0.2s;
     }
 
-    /* ================= STATS ================= */
+    textarea { resize: none; }
+
+    /* Hover/focus highlight without jumping */
+    input:hover, textarea:hover,
+    input:focus, textarea:focus {
+      background: #f0f8ff;
+      border-color: #0077cc;
+      outline: none;
+      border-radius: 3px;
+    }
+
+    /* LEFT COLUMN */
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
+      margin-bottom: 8px;
     }
 
     .stat {
       border: 1px solid #000;
       border-radius: 3px;
-      padding: 6px;
+      padding: 8px;
       text-align: center;
     }
 
-    .stat-label {
-      font-weight: bold;
-      font-size: 12px;
-      margin-bottom: 4px;
-    }
-
-    .stat-line {
+    .stat-label { font-weight: bold; }
+    .stat-value {
       display: flex;
       justify-content: center;
       gap: 6px;
+      margin-top: 4px;
     }
 
-    .stat-line input {
-      width: 40px;
-      text-align: center;
-      font-weight: normal;
-    }
+    .stat-value input { width: 40px; text-align: center; font-weight: normal; }
+    .stat-value span { font-weight: bold; }
 
-    .mod { font-weight: bold; }
-
-    /* ================= COMBAT ================= */
     .combat {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 6px;
+      margin-bottom: 8px;
     }
 
     .combat-line {
       display: flex;
       justify-content: center;
+      align-items: center;
       gap: 6px;
     }
 
     .combat-line input {
-      width: 50px;
-      text-align: center;
-    }
-
-    .ac input {
       width: 40px;
       text-align: center;
-      font-weight: bold;
     }
 
-    /* ================= TEXT AREAS ================= */
     .attacks textarea { height: 120px; }
-    .talents textarea { height: 180px; }
 
-    /* ================= MIDDLE ================= */
-    .field input {
-      width: 100%;
-      font-size: 16px;
-      text-align: right;
-    }
+    /* MIDDLE COLUMN */
+    .middle { display: grid; gap: 4px; }
 
-    .xp-line {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-    }
+    .middle input { text-align: right; font-size: 16px; }
+    .middle .box .title { border-bottom: none; text-align: left; }
 
-    .xp-line input {
-      width: 70px;
-      text-align: center;
-    }
+    .xp-line { display: flex; align-items: center; gap: 6px; }
+    .xp-line input { width: 70px; text-align: center; }
+    .xp-line input:last-child { font-weight: bold; }
 
-    .xp-line input:last-child {
-      font-weight: bold;
-    }
+    /* RIGHT COLUMN */
+    .talents textarea { height: 210px; }
+    .currency-box { display: flex; justify-content: space-around; margin-top: 4px; }
+    .currency-box div { display: flex; gap: 4px; align-items: center; }
+    .currency-box input { width: 50px; text-align: center; border-bottom: 1px solid #000; }
 
-    /* ================= GEAR ================= */
-    .gear-list {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px 16px;
-    }
+    .gear-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 6px; }
+    .gear-item { display: flex; gap: 6px; }
 
-    .gear-item {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
+    .gear-item input.greyed { background: #eee; font-style: italic; color: #555; }
 
-    .gear-item input {
-      flex: 1;
-    }
+    .free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
 
-    .gear-item input.dash {
-      background: #eee;
-      color: #666;
-    }
-
-    .free { margin-top: 8px; }
-
-    /* ================= CURRENCY ================= */
-    .currency-box {
-      display: flex;
-      justify-content: space-around;
-      gap: 12px;
-    }
-
-    .currency-box input {
-      width: 50px;
-      text-align: center;
-      border-bottom: 1px solid #000;
-    }
-
-    /* ================= STATUS ================= */
-    #saveStatus {
-      margin-top: 8px;
-      font-weight: bold;
-    }
-
-    .saving { color: orange; }
-    .saved { color: green; }
-
-    /* ================= MOBILE (GAS-SAFE) ================= */
-    body.mobile {
-      font-size: 20px;
-    }
-
-    body.mobile .sheet {
-      grid-template-columns: 1fr;
-    }
-
-    body.mobile #characterSelect {
-      font-size: 22px;
-      padding: 14px;
-      width: 100%;
-      margin-bottom: 20px;
-    }
-
-    body.mobile input,
-    body.mobile textarea {
-      font-size: 20px;
-      padding: 6px 8px;
-    }
-
-    body.mobile .box {
-      padding: 8px;
-    }
+    .loading { opacity: 0.6; font-style: italic; }
   </style>
 </head>
 
 <body>
 
+<div>
   <select id="characterSelect"></select>
-  <div id="saveStatus"></div>
+  <span id="loadStatus" class="status loading">Loading…</span>
+  <span id="saveStatus" class="status"></span>
+</div>
 
-  <div id="sheet" class="sheet"></div>
+<div id="sheet" class="sheet loading"></div>
 
-  <script>
-    /* ================= MOBILE DETECTION ================= */
-    if (/android|iphone|ipad|ipod/i.test(navigator.userAgent)) {
-      document.body.classList.add('mobile');
-    }
+<script>
+let saveTimer;
+let currentChar;
+let saveLock = false; // true when a save is in progress
 
-    /* ================= SAVE LOGIC ================= */
-    let currentCharacterId = null;
-    let saveTimer = null;
-    let saveInProgress = false;
+function mod(v) { return Math.floor((v - 10)/2); }
 
-    function scheduleSave(field, value) {
-      if (saveInProgress) return;
+function saveDebounced(id, field, value) {
+  if (saveLock) return; // ignore new edits while saving
 
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        saveInProgress = true;
-        setStatus('Saving…', 'saving');
+  const statusEl = document.getElementById('saveStatus');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'status saving';
 
-        google.script.run
-          .withSuccessHandler(() => {
-            saveInProgress = false;
-            setStatus('Saved', 'saved');
-          })
-          .updateCharacterField(currentCharacterId, field, value);
-      }, 400);
-    }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveLock = true;
+    // disable all inputs while saving
+    document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = true);
 
-    function setStatus(text, cls) {
-      const el = document.getElementById('saveStatus');
-      el.textContent = text;
-      el.className = cls;
-    }
+    google.script.run.withSuccessHandler(() => {
+      saveLock = false;
+      document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = false);
+      statusEl.textContent = 'Saved';
+      statusEl.className = 'status saved';
+    }).updateCharacterField(id, field, value);
+  }, 600);
+}
 
-    function mod(v) {
-      return Math.floor((v - 10) / 2);
-    }
 
-    /* ================= LOAD CHARACTERS ================= */
-    google.script.run.withSuccessHandler(chars => {
-      const sel = document.getElementById('characterSelect');
-      sel.innerHTML = '<option>Select character…</option>';
+/* Load characters */
+google.script.run.withSuccessHandler(chars => {
+  const sel = document.getElementById('characterSelect');
+  sel.innerHTML = '<option>Select character…</option>';
 
-      chars.forEach(c => {
-        const o = document.createElement('option');
-        o.value = c.id;
-        o.textContent = c.status === 'deceased'
-          ? `☠️ ${c.name}`
-          : c.name;
-        sel.appendChild(o);
-      });
+  chars.forEach(c => {
+    const label = (c.STATUS || '').toLowerCase() === 'deceased' ? `💀 ${c.name}` : c.name;
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = label;
+    sel.appendChild(o);
+  });
 
-      sel.onchange = () => {
-        google.script.run.withSuccessHandler(render)
-          .getCharacterById(sel.value);
-      };
-    }).getAllCharacters();
+  document.getElementById('loadStatus').textContent = '';
 
-    /* ================= RENDER ================= */
-    function render(c) {
-      currentCharacterId = c.ID;
+  sel.onchange = () => {
+    document.getElementById('sheet').classList.add('loading');
+    google.script.run.withSuccessHandler(render).getCharacterById(sel.value);
+  };
+}).getAllCharacters();
 
-      document.getElementById('sheet').innerHTML = `
-        <div class="left">
-          <h1>Shadowdark</h1>
+/* Render sheet */
+function render(c) {
+  currentChar = c;
+  document.getElementById('sheet').classList.remove('loading');
 
-          <div class="stats">
-            ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
-              <div class="stat">
-                <div class="stat-label">${s}</div>
-                <div class="stat-line">
-                  <input value="${c[s] || ''}"
-                    oninput="scheduleSave('${s}', this.value)">
-                  <span>/</span>
-                  <span class="mod">${mod(c[s]) >= 0 ? '+' : ''}${mod(c[s])}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
+  document.getElementById('sheet').innerHTML = `
+    <!-- LEFT -->
+    <div>
+      <h1>${c.NAME || ''}</h1>
 
-          <div class="combat">
-            <div class="box">
-              <div class="title" style="text-align:center">HP</div>
-              <div class="combat-line">
-                <input value="${c.HP_CURRENT}"
-                  oninput="scheduleSave('HP_CURRENT', this.value)">
-                <span>/</span>
-                <input value="${c.HP_MAX}"
-                  oninput="scheduleSave('HP_MAX', this.value)"
-                  style="font-weight:bold">
-              </div>
-            </div>
-
-            <div class="box ac">
-              <div class="title" style="text-align:center">AC</div>
-              <div class="combat-line">
-                <input value="${c.AC}"
-                  oninput="scheduleSave('AC', this.value)">
-              </div>
+      <div class="stats">
+        ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
+          <div class="stat">
+            <div class="stat-label">${s}</div>
+            <div class="stat-value">
+              <input value="${c[s]}"
+                oninput="
+                  this.nextElementSibling.textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
+                  saveDebounced('${c.ID}','${s}',this.value);
+                ">
+              /
+              <span>${mod(c[s])>=0?'+':''}${mod(c[s])}</span>
             </div>
           </div>
+        `).join('')}
+      </div>
 
-          <div class="box attacks">
-            <div class="title">ATTACKS</div>
-            <textarea oninput="scheduleSave('ATTACKS', this.value)">${c.ATTACKS || ''}</textarea>
+      <div class="combat">
+        <div class="box">
+          <div class="title">HP</div>
+          <div class="combat-line">
+            <input value="${c.HP_CURRENT}" 
+                   oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
+            /
+            <input value="${c.HP_MAX}" style="font-weight:bold;"
+                   oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
           </div>
         </div>
-      `;
-    }
-  </script>
+
+        <div class="box">
+          <div class="title">AC</div>
+          <div style="display:flex; justify-content:center;">
+            <input value="${c.AC}" maxlength="2" style="width:40px; font-weight:bold; text-align:center;"
+              oninput="saveDebounced('${c.ID}','AC',this.value)">
+          </div>
+        </div>
+      </div>
+
+      <div class="box attacks">
+        <div class="title">ATTACKS</div>
+        <textarea oninput="saveDebounced('${c.ID}','ATTACKS',this.value)">${c.ATTACKS || ''}</textarea>
+      </div>
+    </div>
+
+    <!-- MIDDLE -->
+    <div class="middle">
+      ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY'].map(f => `
+        <div class="box">
+          <div class="title">${f.replace(/_/g,' ')}</div>
+          <input value="${c[f] || ''}"
+            oninput="saveDebounced('${c.ID}','${f}',this.value)">
+        </div>`).join('')}
+      
+      <div class="box">
+        <div class="title">XP</div>
+        <div class="xp-line">
+          <input value="${c.XP_CURRENT}" 
+            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
+          /
+          <input value="${c.XP_TO_NEXT_LEVEL}" 
+            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="box talents">
+        <div class="title">TALENTS / SPELLS</div>
+        <textarea oninput="saveDebounced('${c.ID}','TALENTS_SPELLS',this.value)">${c.TALENTS_SPELLS || ''}</textarea>
+      </div>
+
+      <div class="box">
+        <div class="title">CURRENCY</div>
+        <div class="currency-box">
+          ${['GP','SP','CP'].map(f => `
+            <div>${f}<input value="${c[f]}" oninput="saveDebounced('${c.ID}','${f}',this.value)"></div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="title">GEAR</div>
+        <div class="gear-list">
+          <div>${gearColumn(1,10)}</div>
+          <div>${gearColumn(11,20)}</div>
+        </div>
+
+        <div class="free">
+          <div class="title">FREE TO CARRY</div>
+          <input value="${c.FREE_TO_CARRY || ''}" oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function gearColumn(start,end){
+  let out='';
+  for(let i=start;i<=end;i++){
+    const val=currentChar['GEAR_'+i]||'';
+    const greyClass = val==='-' ? 'greyed' : '';
+    out += `<div class="gear-item">
+      <span>${i}.</span>
+      <input class="${greyClass}" value="${val}" 
+        oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
+    </div>`;
+  }
+  return out;
+}
+</script>
 
 </body>
 </html>
