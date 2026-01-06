@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- v2.0 -->
   <base target="_top">
 
   <style>
@@ -54,10 +55,9 @@
       text-align: center;
     }
 
-    /* Inputs & Textareas */
     input, textarea {
-      border: 1px solid transparent; /* reserve space for focus border */
-      box-sizing: border-box;        /* prevent layout shift */
+      border: 1px solid transparent;
+      box-sizing: border-box;
       width: 100%;
       font-family: inherit;
       background: transparent;
@@ -67,7 +67,6 @@
 
     textarea { resize: none; }
 
-    /* Hover/focus highlight without jumping */
     input:hover, textarea:hover,
     input:focus, textarea:focus {
       background: #f0f8ff;
@@ -76,7 +75,6 @@
       border-radius: 3px;
     }
 
-    /* LEFT COLUMN */
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -123,7 +121,6 @@
 
     .attacks textarea { height: 120px; }
 
-    /* MIDDLE COLUMN */
     .middle { display: grid; gap: 4px; }
 
     .middle input { text-align: right; font-size: 16px; }
@@ -133,7 +130,6 @@
     .xp-line input { width: 70px; text-align: center; }
     .xp-line input:last-child { font-weight: bold; }
 
-    /* RIGHT COLUMN */
     .talents textarea { height: 210px; }
     .currency-box { display: flex; justify-content: space-around; margin-top: 4px; }
     .currency-box div { display: flex; gap: 4px; align-items: center; }
@@ -147,6 +143,11 @@
     .free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
 
     .loading { opacity: 0.6; font-style: italic; }
+
+    /* ================= MOBILE FIX ================= */
+    body.mobile .sheet {
+      grid-template-columns: 1fr;
+    }
   </style>
 </head>
 
@@ -163,12 +164,12 @@
 <script>
 let saveTimer;
 let currentChar;
-let saveLock = false; // true when a save is in progress
+let saveLock = false;
 
 function mod(v) { return Math.floor((v - 10)/2); }
 
 function saveDebounced(id, field, value) {
-  if (saveLock) return; // ignore new edits while saving
+  if (saveLock) return;
 
   const statusEl = document.getElementById('saveStatus');
   statusEl.textContent = 'Saving…';
@@ -177,7 +178,6 @@ function saveDebounced(id, field, value) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveLock = true;
-    // disable all inputs while saving
     document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = true);
 
     google.script.run.withSuccessHandler(() => {
@@ -189,6 +189,10 @@ function saveDebounced(id, field, value) {
   }, 600);
 }
 
+/* MOBILE DETECTION */
+if (/android|iphone|ipad|ipod/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile');
+}
 
 /* Load characters */
 google.script.run.withSuccessHandler(chars => {
