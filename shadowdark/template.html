@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v1.4 -->
+  <!-- v1.5 -->
   <base target="_top">
 
   <style>
@@ -23,11 +23,10 @@
       font-size: 14px;
       background: transparent;
       border: none;
+      outline: none;
     }
 
-    textarea {
-      resize: none;
-    }
+    textarea { resize: none; }
 
     .title {
       font-weight: bold;
@@ -78,7 +77,6 @@
       display: flex;
       justify-content: center;
       gap: 6px;
-      align-items: baseline;
     }
 
     .stat-line input {
@@ -87,9 +85,7 @@
       font-weight: normal;
     }
 
-    .mod {
-      font-weight: bold;
-    }
+    .mod { font-weight: bold; }
 
     /* ================= COMBAT ================= */
     .combat {
@@ -116,13 +112,8 @@
     }
 
     /* ================= TEXT AREAS ================= */
-    .attacks textarea {
-      height: 120px;
-    }
-
-    .talents textarea {
-      height: 180px;
-    }
+    .attacks textarea { height: 120px; }
+    .talents textarea { height: 180px; }
 
     /* ================= MIDDLE ================= */
     .field input {
@@ -168,9 +159,7 @@
       color: #666;
     }
 
-    .free {
-      margin-top: 8px;
-    }
+    .free { margin-top: 8px; }
 
     /* ================= CURRENCY ================= */
     .currency-box {
@@ -185,9 +174,18 @@
       border-bottom: 1px solid #000;
     }
 
-    /* ================= MOBILE (THIS IS THE KEY PART) ================= */
+    /* ================= STATUS ================= */
+    #saveStatus {
+      margin-top: 8px;
+      font-weight: bold;
+    }
+
+    .saving { color: orange; }
+    .saved { color: green; }
+
+    /* ================= MOBILE (GAS-SAFE) ================= */
     body.mobile {
-      font-size: 18px;
+      font-size: 20px;
     }
 
     body.mobile .sheet {
@@ -195,57 +193,70 @@
     }
 
     body.mobile #characterSelect {
-      font-size: 20px;
-      padding: 12px 14px;
+      font-size: 22px;
+      padding: 14px;
       width: 100%;
       margin-bottom: 20px;
     }
 
     body.mobile input,
     body.mobile textarea {
-      font-size: 18px;
+      font-size: 20px;
       padding: 6px 8px;
-    }
-
-    body.mobile .title {
-      font-size: 14px;
     }
 
     body.mobile .box {
       padding: 8px;
-    }
-
-    body.mobile .attacks textarea {
-      height: 140px;
-    }
-
-    body.mobile .talents textarea {
-      height: 200px;
     }
   </style>
 </head>
 
 <body>
 
-  <div>
-    <select id="characterSelect"></select>
-  </div>
+  <select id="characterSelect"></select>
+  <div id="saveStatus"></div>
 
   <div id="sheet" class="sheet"></div>
 
   <script>
-    function isMobileDevice() {
-      return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+    /* ================= MOBILE DETECTION ================= */
+    if (/android|iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      document.body.classList.add('mobile');
     }
 
-    if (isMobileDevice()) {
-      document.body.classList.add('mobile');
+    /* ================= SAVE LOGIC ================= */
+    let currentCharacterId = null;
+    let saveTimer = null;
+    let saveInProgress = false;
+
+    function scheduleSave(field, value) {
+      if (saveInProgress) return;
+
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        saveInProgress = true;
+        setStatus('Saving…', 'saving');
+
+        google.script.run
+          .withSuccessHandler(() => {
+            saveInProgress = false;
+            setStatus('Saved', 'saved');
+          })
+          .updateCharacterField(currentCharacterId, field, value);
+      }, 400);
+    }
+
+    function setStatus(text, cls) {
+      const el = document.getElementById('saveStatus');
+      el.textContent = text;
+      el.className = cls;
     }
 
     function mod(v) {
       return Math.floor((v - 10) / 2);
     }
 
+    /* ================= LOAD CHARACTERS ================= */
     google.script.run.withSuccessHandler(chars => {
       const sel = document.getElementById('characterSelect');
       sel.innerHTML = '<option>Select character…</option>';
@@ -265,7 +276,10 @@
       };
     }).getAllCharacters();
 
+    /* ================= RENDER ================= */
     function render(c) {
+      currentCharacterId = c.ID;
+
       document.getElementById('sheet').innerHTML = `
         <div class="left">
           <h1>Shadowdark</h1>
@@ -275,7 +289,8 @@
               <div class="stat">
                 <div class="stat-label">${s}</div>
                 <div class="stat-line">
-                  <input value="${c[s] || ''}">
+                  <input value="${c[s] || ''}"
+                    oninput="scheduleSave('${s}', this.value)">
                   <span>/</span>
                   <span class="mod">${mod(c[s]) >= 0 ? '+' : ''}${mod(c[s])}</span>
                 </div>
@@ -287,74 +302,27 @@
             <div class="box">
               <div class="title" style="text-align:center">HP</div>
               <div class="combat-line">
-                <input value="${c.HP_CURRENT}">
+                <input value="${c.HP_CURRENT}"
+                  oninput="scheduleSave('HP_CURRENT', this.value)">
                 <span>/</span>
-                <input value="${c.HP_MAX}" style="font-weight:bold">
+                <input value="${c.HP_MAX}"
+                  oninput="scheduleSave('HP_MAX', this.value)"
+                  style="font-weight:bold">
               </div>
             </div>
 
             <div class="box ac">
               <div class="title" style="text-align:center">AC</div>
               <div class="combat-line">
-                <input value="${c.AC}">
+                <input value="${c.AC}"
+                  oninput="scheduleSave('AC', this.value)">
               </div>
             </div>
           </div>
 
           <div class="box attacks">
             <div class="title">ATTACKS</div>
-            <textarea>${c.ATTACKS || ''}</textarea>
-          </div>
-        </div>
-
-        <div class="middle">
-          ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY'].map(f => `
-            <div class="box field">
-              <div class="title">${f}</div>
-              <input value="${c[f] || ''}">
-            </div>
-          `).join('')}
-
-          <div class="box">
-            <div class="title">XP</div>
-            <div class="xp-line">
-              <input value="${c.XP_CURRENT}">
-              <span>/</span>
-              <input value="${c.XP_TO_NEXT_LEVEL}">
-            </div>
-          </div>
-        </div>
-
-        <div class="right">
-          <div class="box talents">
-            <div class="title">TALENTS / SPELLS</div>
-            <textarea>${c.TALENTS_SPELLS || ''}</textarea>
-          </div>
-
-          <div class="box currency-box">
-            ${['GP','SP','CP'].map(cur => `
-              <div>${cur} <input value="${c[cur] || ''}"></div>
-            `).join('')}
-          </div>
-
-          <div class="box">
-            <div class="title">GEAR</div>
-            <div class="gear-list">
-              ${Array.from({length:20},(_,i)=>{
-                const val = c['GEAR_'+(i+1)] || '';
-                return `
-                  <div class="gear-item">
-                    <span>${i+1}.</span>
-                    <input class="${val === '-' ? 'dash' : ''}" value="${val}">
-                  </div>
-                `;
-              }).join('')}
-            </div>
-
-            <div class="free">
-              <div class="title">FREE TO CARRY</div>
-              <input value="${c.FREE_TO_CARRY || ''}">
-            </div>
+            <textarea oninput="scheduleSave('ATTACKS', this.value)">${c.ATTACKS || ''}</textarea>
           </div>
         </div>
       `;
