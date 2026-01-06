@@ -19,7 +19,7 @@
 
     .sheet {
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 340px 280px 1fr;
       gap: 16px;
       max-width: 1200px;
     }
@@ -35,9 +35,8 @@
       margin-bottom: 4px;
     }
 
-    .left {
+    .left, .middle, .right {
       display: grid;
-      grid-template-rows: auto auto auto auto 1fr;
       gap: 8px;
     }
 
@@ -59,25 +58,50 @@
       gap: 4px;
     }
 
-    .right {
-      display: grid;
-      grid-template-rows: 180px 1fr;
-      gap: 8px;
+    textarea, input {
+      border: none;
+      width: 100%;
+      font-family: inherit;
+      background: transparent;
     }
 
     textarea {
-      width: 100%;
-      height: 100px;
-      border: none;
       resize: none;
-      font-family: inherit;
+      height: 90px;
     }
 
-    input {
-      border: none;
-      width: 100%;
-      background: transparent;
-      font-family: inherit;
+    .gear-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 16px;
+    }
+
+    .gear-item {
+      display: flex;
+      gap: 6px;
+    }
+
+    .xp {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .status {
+    position: fixed;
+    top: 8px;
+    right: 12px;
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid #000;
+    background: #fff;
+    }
+    
+    .status.saving { background: #eef; }
+    .status.error { background: #fee; }
+    
+    .loading {
+      font-style: italic;
+      opacity: 0.7;
     }
   </style>
 </head>
@@ -92,7 +116,60 @@
 <div id="sheet" class="sheet"></div>
 
 <script>
-function mod(v) { return Math.floor((v - 10) / 2); }
+const SAVE_DELAY = 500;
+const saveTimers = {};
+let currentCharacterId = null;
+
+/* ---------- UI helpers ---------- */
+
+function setStatus(text, cls = 'idle') {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = `status ${cls}`;
+}
+
+function showSheetLoading() {
+  document.getElementById('sheet').innerHTML =
+    '<div class="loading">Loading character…</div>';
+}
+
+/* ---------- Debounced save ---------- */
+
+function saveDebounced(id, field, value) {
+  const key = `${id}:${field}`;
+
+  if (saveTimers[key]) {
+    clearTimeout(saveTimers[key]);
+  }
+
+  setStatus('Saving…', 'saving');
+
+  saveTimers[key] = setTimeout(() => {
+    google.script.run
+      .withSuccessHandler(() => {
+        setStatus('Saved ✓');
+      })
+      .withFailureHandler(err => {
+        console.error(err);
+        setStatus('Error saving', 'error');
+      })
+      .updateCharacterField(id, field, value);
+  }, SAVE_DELAY);
+}
+
+/* ---------- Utility ---------- */
+
+function mod(v) {
+  v = Number(v) || 10;
+  return Math.floor((v - 10) / 2);
+}
+
+/* ---------- Initial load ---------- */
+
+document.body.insertAdjacentHTML(
+  'afterbegin',
+  '<div id="status" class="status idle">Loading…</div>'
+);
 
 google.script.run
   .withSuccessHandler(chars => {
@@ -106,37 +183,114 @@ google.script.run
       sel.appendChild(o);
     });
 
-    sel.onchange = () =>
+    setStatus('Ready');
+
+    sel.onchange = () => {
+      currentCharacterId = sel.value;
+      showSheetLoading();
       google.script.run
         .withSuccessHandler(render)
+        .withFailureHandler(() => {
+          setStatus('Failed to load character', 'error');
+        })
         .getCharacterById(sel.value);
+    };
+  })
+  .withFailureHandler(() => {
+    setStatus('Failed to load characters', 'error');
   })
   .getAllCharacters();
 
+/* ---------- Render ---------- */
+
 function render(c) {
+  setStatus('Loaded');
+
+  const gearColumn = (start, end) =>
+    Array.from({ length: end - start + 1 }, (_, i) => {
+      const n = start + i;
+      return `
+        <div class="gear-item">
+          <span>${n}.</span>
+          <input value="${c['GEAR_' + n] || ''}"
+            oninput="saveDebounced('${c.ID}','GEAR_${n}',this.value)">
+        </div>`;
+    }).join('');
+
   document.getElementById('sheet').innerHTML = `
     <div class="left">
       <h1>Shadowdark</h1>
-
-      <div class="box">
-        <div class="title">NAME</div>
-        <input value="${c.NAME || ''}">
-      </div>
 
       <div class="stats">
         ${['STR','DEX','CON','INT','WIS','CHA'].map(s => `
           <div class="stat">
             ${s}
-            <input type="number" value="${c[s]}" 
-              onchange="this.nextElementSibling.textContent = mod(this.value)">
-            <span>${mod(c[s]) >= 0 ? '+' : ''}${mod(c[s])}</span>
+            <input value="${c[s] || ''}"
+              oninput="saveDebounced('${c.ID}','${s}',this.value)">
+            <span>${mod(c[s])}</span>
           </div>
         `).join('')}
+      </div>
+
+      <div class="combat">
+        <div class="box">
+          <div class="title">HP</div>
+          <input value="${c.HP_CURRENT}"
+            oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)"> /
+          <input value="${c.HP_MAX}"
+            oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
+        </div>
+        <div class="box">
+          <div class="title">AC</div>
+          <input value="${c.AC}"
+            oninput="saveDebounced('${c.ID}','AC',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <div class="middle">
+      <div class="box">
+        <div class="title">CHARACTER</div>
+        ${['ANCESTRY','CLASS','TITLE','ALIGNMENT','BACKGROUND','DEITY','LEVEL']
+          .map(f => `
+            <div>
+              <strong>${f}</strong>
+              <input value="${c[f] || ''}"
+                oninput="saveDebounced('${c.ID}','${f}',this.value)">
+            </div>
+          `).join('')}
+
+        <div class="xp">
+          <strong>XP</strong>
+          <input value="${c.XP_CURRENT || ''}"
+            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
+          /
+          <input value="${c.XP_TO_NEXT_LEVEL || ''}"
+            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="box">
+        <div class="title">TALENTS / SPELLS</div>
+        <textarea
+          oninput="saveDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
+        >${c.TALENTS_SPELLS || ''}</textarea>
+      </div>
+
+      <div class="box">
+        <div class="title">GEAR</div>
+        <div class="gear-list">
+          <div>${gearColumn(1,10)}</div>
+          <div>${gearColumn(11,20)}</div>
+        </div>
       </div>
     </div>
   `;
 }
 </script>
+
 
 </body>
 </html>
