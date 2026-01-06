@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v1.3 -->
+  <!-- v1.4 -->
   <base target="_top">
 
   <style>
@@ -13,20 +13,16 @@
       color: #000;
     }
 
-    select {
-      font-family: inherit;
-    }
-
     h1 {
       font-size: 42px;
       margin: 0 0 12px 0;
     }
 
-    input, textarea {
-      border: none;
-      background: transparent;
+    select, input, textarea {
       font-family: inherit;
       font-size: 14px;
+      background: transparent;
+      border: none;
     }
 
     textarea {
@@ -35,8 +31,8 @@
 
     .title {
       font-weight: bold;
-      margin-bottom: 4px;
       font-size: 12px;
+      margin-bottom: 4px;
     }
 
     .box {
@@ -78,14 +74,14 @@
       margin-bottom: 4px;
     }
 
-    .stat-value {
+    .stat-line {
       display: flex;
       justify-content: center;
       gap: 6px;
       align-items: baseline;
     }
 
-    .stat-value input {
+    .stat-line input {
       width: 40px;
       text-align: center;
       font-weight: normal;
@@ -137,8 +133,8 @@
 
     .xp-line {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .xp-line input {
@@ -189,36 +185,42 @@
       border-bottom: 1px solid #000;
     }
 
-    /* ================= STATUS ================= */
-    #status {
-      margin-top: 8px;
-      font-weight: bold;
-    }
-
-    /* ================= MOBILE ================= */
-    .sheet.mobile {
-      grid-template-columns: 1fr;
+    /* ================= MOBILE (THIS IS THE KEY PART) ================= */
+    body.mobile {
       font-size: 18px;
     }
 
-    .sheet.mobile .box {
-      padding: 8px;
+    body.mobile .sheet {
+      grid-template-columns: 1fr;
     }
 
-    .sheet.mobile input,
-    .sheet.mobile textarea {
+    body.mobile #characterSelect {
+      font-size: 20px;
+      padding: 12px 14px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    body.mobile input,
+    body.mobile textarea {
       font-size: 18px;
       padding: 6px 8px;
     }
 
-    .sheet.mobile .title {
+    body.mobile .title {
       font-size: 14px;
     }
 
-    .sheet.mobile select#characterSelect {
-      font-size: 18px;
-      padding: 10px 12px;
-      width: 100%;
+    body.mobile .box {
+      padding: 8px;
+    }
+
+    body.mobile .attacks textarea {
+      height: 140px;
+    }
+
+    body.mobile .talents textarea {
+      height: 200px;
     }
   </style>
 </head>
@@ -227,7 +229,6 @@
 
   <div>
     <select id="characterSelect"></select>
-    <div id="status"></div>
   </div>
 
   <div id="sheet" class="sheet"></div>
@@ -237,9 +238,8 @@
       return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
     }
 
-    function applyMobileLayout() {
-      const sheet = document.getElementById('sheet');
-      if (isMobileDevice()) sheet.classList.add('mobile');
+    if (isMobileDevice()) {
+      document.body.classList.add('mobile');
     }
 
     function mod(v) {
@@ -274,7 +274,7 @@
             ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
               <div class="stat">
                 <div class="stat-label">${s}</div>
-                <div class="stat-value">
+                <div class="stat-line">
                   <input value="${c[s] || ''}">
                   <span>/</span>
                   <span class="mod">${mod(c[s]) >= 0 ? '+' : ''}${mod(c[s])}</span>
@@ -342,11 +342,10 @@
             <div class="gear-list">
               ${Array.from({length:20},(_,i)=>{
                 const val = c['GEAR_'+(i+1)] || '';
-                const dash = val === '-' ? 'dash' : '';
                 return `
                   <div class="gear-item">
                     <span>${i+1}.</span>
-                    <input class="${dash}" value="${val}">
+                    <input class="${val === '-' ? 'dash' : ''}" value="${val}">
                   </div>
                 `;
               }).join('')}
@@ -359,8 +358,6 @@
           </div>
         </div>
       `;
-
-      applyMobileLayout();
     }
   </script>
 
