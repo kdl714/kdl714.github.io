@@ -1,154 +1,205 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.0 -->
+  <!-- v2.1 -->
   <base target="_top">
 
   <style>
-    body {
-      font-family: serif;
-      background: #fff;
-      padding: 24px;
-      color: #000;
-    }
+body {
+  font-family: serif;
+  background: #fff;
+  padding: 24px;
+  color: #000;
+}
 
-    h1 {
-      font-size: 36px;
-      margin: 0 0 12px 0;
-    }
+h1 {
+  font-size: 36px;
+  margin: 0 0 12px 0;
+}
 
-    .status {
-      font-size: 12px;
-      font-weight: bold;
-      margin-left: 12px;
-    }
+.status {
+  font-size: 12px;
+  font-weight: bold;
+  margin-left: 12px;
+}
 
-    .status.loading { color: orange; }
-    .status.saving { color: blue; }
-    .status.saved { color: green; }
+.status.loading { color: orange; }
+.status.saving { color: blue; }
+.status.saved { color: green; }
 
-    select {
-      padding: 4px;
-    }
+select {
+  padding: 4px;
+}
 
-    #sheet {
-      margin-top: 20px;
-    }
+#sheet {
+  margin-top: 20px;
+}
 
-    .sheet {
-      display: grid;
-      grid-template-columns: 320px 260px 1fr;
-      gap: 16px;
-      max-width: 1300px;
-    }
+.sheet {
+  display: grid;
+  grid-template-columns: 320px 260px 1fr;
+  gap: 16px;
+  max-width: 1300px;
+}
 
-    .box {
-      border: 1px solid #000;
-      border-radius: 3px;
-      padding: 10px;
-      margin-bottom: 8px;
-    }
+.box {
+  border: 1px solid #000;
+  border-radius: 3px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
 
-    .title {
-      font-weight: bold;
-      margin-bottom: 4px;
-      text-align: center;
-    }
+.title {
+  font-weight: bold;
+  margin-bottom: 4px;
+  text-align: center;
+}
 
-    input, textarea {
-      border: 1px solid transparent;
-      box-sizing: border-box;
-      width: 100%;
-      font-family: inherit;
-      background: transparent;
-      font-size: 14px;
-      transition: background 0.2s, border-color 0.2s;
-    }
+/* Inputs & Textareas */
+input, textarea {
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: inherit;
+  background: transparent;
+  font-size: 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
 
-    textarea { resize: none; }
+textarea { resize: none; }
 
-    input:hover, textarea:hover,
-    input:focus, textarea:focus {
-      background: #f0f8ff;
-      border-color: #0077cc;
-      outline: none;
-      border-radius: 3px;
-    }
+input:hover, textarea:hover,
+input:focus, textarea:focus {
+  background: #f0f8ff;
+  border-color: #0077cc;
+  outline: none;
+  border-radius: 3px;
+}
 
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
+/* LEFT COLUMN */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
 
-    .stat {
-      border: 1px solid #000;
-      border-radius: 3px;
-      padding: 8px;
-      text-align: center;
-    }
+.stat {
+  border: 1px solid #000;
+  border-radius: 3px;
+  padding: 8px;
+  text-align: center;
+}
 
-    .stat-label { font-weight: bold; }
-    .stat-value {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 4px;
-    }
+.stat-label { font-weight: bold; }
+.stat-value {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
 
-    .stat-value input { width: 40px; text-align: center; font-weight: normal; }
-    .stat-value span { font-weight: bold; }
+.stat-value input { width: 40px; text-align: center; font-weight: normal; }
+.stat-value span { font-weight: bold; }
 
-    .combat {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
+.combat {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
 
-    .combat-line {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
-    }
+.combat-line {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
 
-    .combat-line input {
-      width: 40px;
-      text-align: center;
-    }
+.combat-line input {
+  width: 40px;
+  text-align: center;
+}
 
-    .attacks textarea { height: 120px; }
+.attacks textarea { height: 120px; }
 
-    .middle { display: grid; gap: 4px; }
+/* MIDDLE COLUMN */
+.middle { display: grid; gap: 4px; }
 
-    .middle input { text-align: right; font-size: 16px; }
-    .middle .box .title { border-bottom: none; text-align: left; }
+.middle input { text-align: right; font-size: 16px; }
+.middle .box .title { border-bottom: none; text-align: left; }
 
-    .xp-line { display: flex; align-items: center; gap: 6px; }
-    .xp-line input { width: 70px; text-align: center; }
-    .xp-line input:last-child { font-weight: bold; }
+.xp-line { display: flex; align-items: center; gap: 6px; }
+.xp-line input { width: 70px; text-align: center; }
+.xp-line input:last-child { font-weight: bold; }
 
-    .talents textarea { height: 210px; }
-    .currency-box { display: flex; justify-content: space-around; margin-top: 4px; }
-    .currency-box div { display: flex; gap: 4px; align-items: center; }
-    .currency-box input { width: 50px; text-align: center; border-bottom: 1px solid #000; }
+/* RIGHT COLUMN */
+.talents textarea { height: 210px; }
+.currency-box { display: flex; justify-content: space-around; margin-top: 4px; }
+.currency-box div { display: flex; gap: 4px; align-items: center; }
+.currency-box input { width: 50px; text-align: center; border-bottom: 1px solid #000; }
 
-    .gear-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 6px; }
-    .gear-item { display: flex; gap: 6px; }
+.gear-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 6px; }
+.gear-item { display: flex; gap: 6px; }
 
-    .gear-item input.greyed { background: #eee; font-style: italic; color: #555; }
+.gear-item input.greyed { background: #eee; font-style: italic; color: #555; }
 
-    .free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
+.free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
 
-    .loading { opacity: 0.6; font-style: italic; }
+.loading { opacity: 0.6; font-style: italic; }
 
-    /* ================= MOBILE FIX ================= */
-    body.mobile .sheet {
-      grid-template-columns: 1fr;
-    }
-  </style>
+/* Hover/focus highlight without jumping */
+input:hover, textarea:hover,
+input:focus, textarea:focus {
+  background: #f0f8ff;
+  border-color: #0077cc;
+  outline: none;
+  border-radius: 3px;
+}
+
+/* ================= MOBILE FIX ================= */
+body.mobile .sheet {
+  grid-template-columns: 1fr;
+}
+
+body.mobile #characterSelect {
+  font-size: 20px;
+  padding: 8px;
+}
+
+body.mobile input,
+body.mobile textarea {
+  font-size: 18px;
+  padding: 6px;
+}
+
+body.mobile .title {
+  font-size: 16px;
+}
+
+body.mobile h1 {
+  font-size: 28px;
+}
+
+body.mobile .gear-item span {
+  font-size: 16px;
+}
+
+body.mobile .currency-box input {
+  font-size: 16px;
+}
+
+body.mobile .stat-label {
+  font-size: 16px;
+}
+
+body.mobile .stat-value input,
+body.mobile .stat-value span {
+  font-size: 16px;
+}
+</style>
+
+  
 </head>
 
 <body>
