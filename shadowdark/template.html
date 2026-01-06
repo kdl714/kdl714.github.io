@@ -3,7 +3,7 @@
 <head>
   <base target="_top">
 
-  <style>
+    <style>
     body {
       font-family: serif;
       background: #fff;
@@ -41,6 +41,8 @@
       max-width: 1300px;
     }
 
+    .sheet > div { width: 100%; }
+
     .box {
       border: 1px solid #000;
       border-radius: 3px;
@@ -57,7 +59,7 @@
     /* Inputs & Textareas */
     input, textarea {
       border: 1px solid transparent; /* reserve space for focus border */
-      box-sizing: border-box;        /* prevent layout shift */
+      box-sizing: border-box;
       width: 100%;
       font-family: inherit;
       background: transparent;
@@ -148,29 +150,25 @@
 
     .loading { opacity: 0.6; font-style: italic; }
 
+    /* MOBILE RESPONSIVE */
     @media (max-width: 768px) {
-  .sheet {
-    grid-template-columns: 1fr; /* stack columns vertically */
-  }
-  
-  .sheet > div {
-    width: 100%; /* ensure each column takes full width */
-  }
+      .sheet {
+        grid-template-columns: 1fr; /* stack columns vertically */
+      }
 
-  .gear-list {
-    grid-template-columns: 1fr; /* stack gear items in one column on mobile */
-  }
-  
-  .currency-box {
-    flex-direction: column; /* stack GP/SP/CP vertically */
-    gap: 4px;
-  }
+      .gear-list {
+        grid-template-columns: 1fr; /* gear items stacked */
+      }
 
-  .combat {
-    grid-template-columns: 1fr; /* stack HP and AC vertically */
-  }
-}
+      .currency-box {
+        flex-direction: column; /* stack GP/SP/CP */
+        gap: 4px;
+      }
 
+      .combat {
+        grid-template-columns: 1fr; /* stack HP and AC */
+      }
+    }
   </style>
 </head>
 
