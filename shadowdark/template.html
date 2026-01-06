@@ -51,6 +51,7 @@
     .title {
       font-weight: bold;
       margin-bottom: 4px;
+      text-align: center; /* Center headers by default */
     }
 
     input, textarea {
@@ -90,7 +91,13 @@
     .stat-value input { width: 40px; text-align: center; font-weight: normal; }
     .stat-value span { font-weight: bold; }
 
-    .combat { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+    .combat {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
     .combat-line {
       display: flex;
       justify-content: center;
@@ -107,15 +114,14 @@
 
     /* MIDDLE COLUMN */
 
-    .middle { display: grid; gap: 8px; }
+    .middle { display: grid; gap: 4px; } /* restored smaller gap */
 
     .middle input { text-align: right; font-size: 16px; }
-    .middle .box .title { border-bottom: none; }
+    .middle .box .title { border-bottom: none; text-align: left; }
 
     .xp-line { display: flex; align-items: center; gap: 6px; }
     .xp-line input { width: 70px; text-align: center; }
     .xp-line input:last-child { font-weight: bold; }
-    .xp-line .title { border-bottom: none; }
 
     /* RIGHT COLUMN */
 
@@ -168,8 +174,9 @@ function saveDebounced(id, field, value) {
 google.script.run.withSuccessHandler(chars => {
   const sel = document.getElementById('characterSelect');
   sel.innerHTML = '<option>Select character…</option>';
+
   chars.forEach(c => {
-    const label = c.STATUS === 'deceased' ? `💀 ${c.name}` : c.name;
+    const label = (c.STATUS || '').toLowerCase() === 'deceased' ? `💀 ${c.name}` : c.name;
     const o = document.createElement('option');
     o.value = c.id;
     o.textContent = label;
@@ -218,7 +225,7 @@ function render(c) {
             <input value="${c.HP_CURRENT}" 
                    oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
             /
-            <input value="${c.HP_MAX}" 
+            <input value="${c.HP_MAX}" style="font-weight:bold;"
                    oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
           </div>
         </div>
