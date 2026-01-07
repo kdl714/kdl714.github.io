@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.4 -->
+  <!-- v2.2 -->
   <base target="_top">
 
   <style>
@@ -27,9 +27,13 @@
     .status.saving { color: blue; }
     .status.saved { color: green; }
 
-    select { padding: 4px; }
+    select {
+      padding: 4px;
+    }
 
-    #sheet { margin-top: 20px; }
+    #sheet {
+      margin-top: 20px;
+    }
 
     .sheet {
       display: grid;
@@ -58,11 +62,19 @@
       font-family: inherit;
       background: transparent;
       font-size: 14px;
+      transition: background 0.2s, border-color 0.2s;
     }
 
     textarea { resize: none; }
 
-    /* LEFT COLUMN */
+    input:hover, textarea:hover,
+    input:focus, textarea:focus {
+      background: #f0f8ff;
+      border-color: #0077cc;
+      outline: none;
+      border-radius: 3px;
+    }
+
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -115,12 +127,19 @@
 
     .attacks textarea { height: 120px; }
 
-    /* MIDDLE COLUMN */
-    .middle { display: grid; gap: 4px; }
+    .middle {
+      display: grid;
+      gap: 4px;
+    }
 
     .middle input {
       text-align: right;
       font-size: 16px;
+    }
+
+    .middle .box .title {
+      border-bottom: none;
+      text-align: left;
     }
 
     .xp-line {
@@ -129,10 +148,15 @@
       gap: 6px;
     }
 
-    .xp-line input { width: 70px; text-align: center; }
-    .xp-line input:last-child { font-weight: bold; }
+    .xp-line input {
+      width: 70px;
+      text-align: center;
+    }
 
-    /* RIGHT COLUMN */
+    .xp-line input:last-child {
+      font-weight: bold;
+    }
+
     .talents textarea { height: 210px; }
 
     .currency-box {
@@ -177,56 +201,9 @@
       margin-top: 6px;
     }
 
-    /* ===========================
-       ATTACKS STATE INDICATORS
-       =========================== */
-
-    .field-wrap {
-      position: relative;
-    }
-
-    .field-wrap::before {
-      content: '';
-      position: absolute;
-      left: -10px;
-      top: 10px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: red;
-      display: none;
-    }
-
-    .field-error::before { display: block; }
-
-    .field-focus textarea,
-    .field-saving textarea {
-      border: 1px solid transparent;
-      background-size: 200% 200%;
-    }
-
-    .field-focus textarea {
-      background:
-        linear-gradient(#fff, #fff) padding-box,
-        linear-gradient(90deg, #0077cc, #66ccff, #0077cc) border-box;
-      animation: borderMove 2s linear infinite;
-    }
-
-    .field-saving textarea {
-      background:
-        linear-gradient(#fff, #fff) padding-box,
-        linear-gradient(90deg, #f5c400, #ffe680, #f5c400) border-box;
-      animation: borderMove 1.5s linear infinite;
-    }
-
-    .field-error textarea {
-      border: 1px solid red;
-      background: #fff5f5;
-    }
-
-    @keyframes borderMove {
-      from { background-position: 0% 50%; }
-      to   { background-position: 200% 50%; }
+    .loading {
+      opacity: 0.6;
+      font-style: italic;
     }
   </style>
 </head>
@@ -236,96 +213,233 @@
 <div>
   <select id="characterSelect"></select>
   <span id="loadStatus" class="status loading">Loading…</span>
+  <span id="saveStatus" class="status"></span>
 </div>
 
-<div id="sheet" class="sheet"></div>
+<div id="sheet" class="sheet loading"></div>
 
 <script>
+let saveTimer;
 let currentChar;
-let attacksTimer;
-let attacksState = { dirty:false, saving:false, error:false };
+let saveLock = false;
 
-function mod(v){ return Math.floor((v-10)/2); }
+/* ===== Existing small-field debounce (unchanged) ===== */
+function saveDebounced(id, field, value) {
+  if (saveLock) return;
 
-function attacksInput(el){
-  attacksState.dirty = true;
-  attacksState.error = false;
-  updateAttackClass(el);
+  const statusEl = document.getElementById('saveStatus');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'status saving';
 
-  clearTimeout(attacksTimer);
-  attacksTimer = setTimeout(() => saveAttacks(el), 800);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveLock = true;
+
+    google.script.run.withSuccessHandler(() => {
+      saveLock = false;
+      statusEl.textContent = 'Saved';
+      statusEl.className = 'status saved';
+    }).updateCharacterField(id, field, value);
+  }, 600);
 }
 
-function saveAttacks(el){
-  if(!attacksState.dirty) return;
-  attacksState.saving = true;
-  updateAttackClass(el);
+/* ===== Hybrid debounce for large text fields ===== */
+const textSaveTimers = {};
+const textLastSaved = {};
+let activeTextSaves = 0;
 
-  google.script.run
-    .withSuccessHandler(() => {
-      attacksState = { dirty:false, saving:false, error:false };
-      updateAttackClass(el);
-    })
-    .withFailureHandler(() => {
-      attacksState.saving = false;
-      attacksState.error = true;
-      updateAttackClass(el);
-    })
-    .updateCharacterField(currentChar.ID,'ATTACKS',el.value);
+function updateSaveStatus() {
+  const statusEl = document.getElementById('saveStatus');
+  if (activeTextSaves > 0) {
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'status saving';
+  } else {
+    statusEl.textContent = 'Saved';
+    statusEl.className = 'status saved';
+  }
 }
 
-function updateAttackClass(el){
-  const w = el.closest('.field-wrap');
-  w.classList.remove('field-focus','field-saving','field-error');
-  if(attacksState.error) w.classList.add('field-error');
-  else if(attacksState.saving) w.classList.add('field-saving');
+function saveTextFieldDebounced(id, field, value) {
+  clearTimeout(textSaveTimers[field]);
+  textSaveTimers[field] = setTimeout(() => {
+    forceSaveTextField(id, field, value);
+  }, 1000);
 }
 
-function attacksFocus(el){
-  if(!attacksState.error) el.closest('.field-wrap').classList.add('field-focus');
+function forceSaveTextField(id, field, value) {
+  if (textLastSaved[field] === value) return;
+
+  clearTimeout(textSaveTimers[field]);
+  activeTextSaves++;
+  updateSaveStatus();
+
+  google.script.run.withSuccessHandler(() => {
+    textLastSaved[field] = value;
+    activeTextSaves--;
+    updateSaveStatus();
+  }).updateCharacterField(id, field, value);
 }
 
-function attacksBlur(el){
-  el.closest('.field-wrap').classList.remove('field-focus');
-  if(attacksState.dirty) saveAttacks(el);
-}
+function mod(v) { return Math.floor((v - 10)/2); }
 
-/* LOAD CHARACTERS */
-google.script.run.withSuccessHandler(chars=>{
-  const sel=document.getElementById('characterSelect');
-  sel.innerHTML='<option>Select character…</option>';
-  chars.forEach(c=>{
-    const o=document.createElement('option');
-    o.value=c.id;
-    o.textContent=c.name;
+/* ===== Load characters ===== */
+google.script.run.withSuccessHandler(chars => {
+  const sel = document.getElementById('characterSelect');
+  sel.innerHTML = '<option>Select character…</option>';
+
+  chars.forEach(c => {
+    const label =
+      (c.STATUS || '').toLowerCase() === 'deceased'
+        ? `💀 ${c.name}`
+        : c.name;
+
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = label;
     sel.appendChild(o);
   });
-  document.getElementById('loadStatus').textContent='';
-  sel.onchange=()=>google.script.run.withSuccessHandler(render).getCharacterById(sel.value);
+
+  document.getElementById('loadStatus').textContent = '';
+
+  sel.onchange = () => {
+    document.getElementById('sheet').classList.add('loading');
+    google.script.run.withSuccessHandler(render).getCharacterById(sel.value);
+  };
 }).getAllCharacters();
 
-/* RENDER */
-function render(c){
-  currentChar=c;
-  document.getElementById('sheet').innerHTML=`
+/* ===== Render ===== */
+function render(c) {
+  currentChar = c;
+
+  textLastSaved.ATTACKS = c.ATTACKS || '';
+  textLastSaved.TALENTS_SPELLS = c.TALENTS_SPELLS || '';
+
+  document.getElementById('sheet').classList.remove('loading');
+
+  document.getElementById('sheet').innerHTML = `
     <div>
-      <h1>${c.NAME||''}</h1>
+      <h1>${c.NAME || ''}</h1>
+
+      <div class="stats">
+        ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
+          <div class="stat">
+            <div class="stat-label">${s}</div>
+            <div class="stat-value">
+              <input value="${c[s]}"
+                oninput="
+                  this.nextElementSibling.textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
+                  saveDebounced('${c.ID}','${s}',this.value);
+                ">
+              /
+              <span>${mod(c[s])>=0?'+':''}${mod(c[s])}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="combat">
+        <div class="box">
+          <div class="title">HP</div>
+          <div class="combat-line">
+            <input value="${c.HP_CURRENT}"
+              oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
+            /
+            <input value="${c.HP_MAX}" style="font-weight:bold;"
+              oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="title">AC</div>
+          <div style="display:flex; justify-content:center;">
+            <input value="${c.AC}" maxlength="2"
+              style="width:40px; font-weight:bold; text-align:center;"
+              oninput="saveDebounced('${c.ID}','AC',this.value)">
+          </div>
+        </div>
+      </div>
 
       <div class="box attacks">
         <div class="title">ATTACKS</div>
-        <div class="field-wrap">
-          <textarea
-            oninput="attacksInput(this)"
-            onfocus="attacksFocus(this)"
-            onblur="attacksBlur(this)"
-          >${c.ATTACKS||''}</textarea>
+        <textarea
+          oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value)"
+          onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value)"
+        >${c.ATTACKS || ''}</textarea>
+      </div>
+    </div>
+
+    <div class="middle">
+      ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY'].map(f => `
+        <div class="box">
+          <div class="title">${f.replace(/_/g,' ')}</div>
+          <input value="${c[f] || ''}"
+            oninput="saveDebounced('${c.ID}','${f}',this.value)">
+        </div>
+      `).join('')}
+
+      <div class="box">
+        <div class="title">XP</div>
+        <div class="xp-line">
+          <input value="${c.XP_CURRENT}"
+            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
+          /
+          <input value="${c.XP_TO_NEXT_LEVEL}"
+            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
         </div>
       </div>
     </div>
 
-    <div class="middle"></div>
-    <div></div>
+    <div>
+      <div class="box talents">
+        <div class="title">TALENTS / SPELLS</div>
+        <textarea
+          oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
+          onblur="forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value)"
+        >${c.TALENTS_SPELLS || ''}</textarea>
+      </div>
+
+      <div class="box">
+        <div class="title">CURRENCY</div>
+        <div class="currency-box">
+          ${['GP','SP','CP'].map(f => `
+            <div>${f}
+              <input value="${c[f]}"
+                oninput="saveDebounced('${c.ID}','${f}',this.value)">
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="title">GEAR</div>
+        <div class="gear-list">
+          <div>${gearColumn(1,10)}</div>
+          <div>${gearColumn(11,20)}</div>
+        </div>
+
+        <div class="free">
+          <div class="title">FREE TO CARRY</div>
+          <input value="${c.FREE_TO_CARRY || ''}"
+            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
+        </div>
+      </div>
+    </div>
   `;
+}
+
+function gearColumn(start, end) {
+  let out = '';
+  for (let i = start; i <= end; i++) {
+    const val = currentChar['GEAR_' + i] || '';
+    const grey = val === '-' ? 'greyed' : '';
+    out += `
+      <div class="gear-item">
+        <span>${i}.</span>
+        <input class="${grey}" value="${val}"
+          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
+      </div>`;
+  }
+  return out;
 }
 </script>
 
