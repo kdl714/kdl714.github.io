@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.2 -->
+  <!-- v2.3 -->
   <base target="_top">
 
   <style>
@@ -62,7 +62,6 @@
       font-family: inherit;
       background: transparent;
       font-size: 14px;
-      transition: background 0.2s, border-color 0.2s;
     }
 
     textarea { resize: none; }
@@ -70,11 +69,11 @@
     input:hover, textarea:hover,
     input:focus, textarea:focus {
       background: #f0f8ff;
-      border-color: #0077cc;
       outline: none;
       border-radius: 3px;
     }
 
+    /* LEFT COLUMN */
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -127,19 +126,12 @@
 
     .attacks textarea { height: 120px; }
 
-    .middle {
-      display: grid;
-      gap: 4px;
-    }
+    /* MIDDLE COLUMN */
+    .middle { display: grid; gap: 4px; }
 
     .middle input {
       text-align: right;
       font-size: 16px;
-    }
-
-    .middle .box .title {
-      border-bottom: none;
-      text-align: left;
     }
 
     .xp-line {
@@ -148,15 +140,10 @@
       gap: 6px;
     }
 
-    .xp-line input {
-      width: 70px;
-      text-align: center;
-    }
+    .xp-line input { width: 70px; text-align: center; }
+    .xp-line input:last-child { font-weight: bold; }
 
-    .xp-line input:last-child {
-      font-weight: bold;
-    }
-
+    /* RIGHT COLUMN */
     .talents textarea { height: 210px; }
 
     .currency-box {
@@ -201,9 +188,61 @@
       margin-top: 6px;
     }
 
-    .loading {
-      opacity: 0.6;
-      font-style: italic;
+    .loading { opacity: 0.6; font-style: italic; }
+
+    /* ======================================================
+       ATTACKS FIELD STATE INDICATORS (NEW, ISOLATED)
+       ====================================================== */
+
+    .field-wrap {
+      position: relative;
+    }
+
+    .field-wrap::before {
+      content: '';
+      position: absolute;
+      left: -10px;
+      top: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: red;
+      display: none;
+    }
+
+    .field-error::before {
+      display: block;
+    }
+
+    .field-focus textarea {
+      border: 1px solid transparent;
+      background:
+        linear-gradient(#fff, #fff) padding-box,
+        linear-gradient(90deg, #0077cc, #66ccff, #0077cc) border-box;
+      border: 1px solid transparent;
+      animation: focusBorder 2s linear infinite;
+    }
+
+    .field-saving textarea {
+      border: 1px solid transparent;
+      background:
+        linear-gradient(#fff, #fff) padding-box,
+        linear-gradient(90deg, #f5c400, #ffe680, #f5c400) border-box;
+      border: 1px solid transparent;
+      animation: savingBorder 1.5s linear infinite;
+    }
+
+    .field-error textarea {
+      border: 1px solid red;
+      background: #fff5f5;
+    }
+
+    @keyframes focusBorder {
+      to { background-position: 200% 0; }
+    }
+
+    @keyframes savingBorder {
+      to { background-position: 200% 0; }
     }
   </style>
 </head>
@@ -223,76 +262,98 @@ let saveTimer;
 let currentChar;
 let saveLock = false;
 
-/* ===== Existing small-field debounce (unchanged) ===== */
+function mod(v) { return Math.floor((v - 10)/2); }
+
+/* ===============================
+   EXISTING GENERIC SAVE
+   =============================== */
 function saveDebounced(id, field, value) {
   if (saveLock) return;
-
-  const statusEl = document.getElementById('saveStatus');
-  statusEl.textContent = 'Saving…';
-  statusEl.className = 'status saving';
 
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveLock = true;
-
     google.script.run.withSuccessHandler(() => {
       saveLock = false;
-      statusEl.textContent = 'Saved';
-      statusEl.className = 'status saved';
     }).updateCharacterField(id, field, value);
   }, 600);
 }
 
-/* ===== Hybrid debounce for large text fields ===== */
-const textSaveTimers = {};
-const textLastSaved = {};
-let activeTextSaves = 0;
+/* ===============================
+   ATTACKS FIELD STATE LOGIC
+   =============================== */
 
-function updateSaveStatus() {
-  const statusEl = document.getElementById('saveStatus');
-  if (activeTextSaves > 0) {
-    statusEl.textContent = 'Saving…';
-    statusEl.className = 'status saving';
-  } else {
-    statusEl.textContent = 'Saved';
-    statusEl.className = 'status saved';
+let attacksState = {
+  dirty: false,
+  saving: false,
+  error: false,
+  lastSaved: ''
+};
+
+let attacksTimer;
+
+function attacksInput(el) {
+  attacksState.dirty = true;
+  attacksState.error = false;
+  updateAttacksClass(el);
+
+  clearTimeout(attacksTimer);
+  attacksTimer = setTimeout(() => saveAttacks(el), 800);
+}
+
+function saveAttacks(el) {
+  if (!attacksState.dirty) return;
+
+  attacksState.saving = true;
+  updateAttacksClass(el);
+
+  google.script.run
+    .withSuccessHandler(() => {
+      attacksState = {
+        dirty: false,
+        saving: false,
+        error: false,
+        lastSaved: el.value
+      };
+      updateAttacksClass(el);
+    })
+    .withFailureHandler(() => {
+      attacksState.saving = false;
+      attacksState.error = true;
+      updateAttacksClass(el);
+    })
+    .updateCharacterField(currentChar.ID, 'ATTACKS', el.value);
+}
+
+function updateAttacksClass(el) {
+  const wrap = el.closest('.field-wrap');
+  wrap.classList.remove('field-focus','field-saving','field-error');
+
+  if (attacksState.error) wrap.classList.add('field-error');
+  else if (attacksState.saving) wrap.classList.add('field-saving');
+}
+
+function attacksFocus(el) {
+  if (!attacksState.error) {
+    el.closest('.field-wrap').classList.add('field-focus');
   }
 }
 
-function saveTextFieldDebounced(id, field, value) {
-  clearTimeout(textSaveTimers[field]);
-  textSaveTimers[field] = setTimeout(() => {
-    forceSaveTextField(id, field, value);
-  }, 1000);
+function attacksBlur(el) {
+  el.closest('.field-wrap').classList.remove('field-focus');
+  if (attacksState.dirty && !attacksState.saving) saveAttacks(el);
 }
 
-function forceSaveTextField(id, field, value) {
-  if (textLastSaved[field] === value) return;
+/* ===============================
+   LOAD CHARACTERS
+   =============================== */
 
-  clearTimeout(textSaveTimers[field]);
-  activeTextSaves++;
-  updateSaveStatus();
-
-  google.script.run.withSuccessHandler(() => {
-    textLastSaved[field] = value;
-    activeTextSaves--;
-    updateSaveStatus();
-  }).updateCharacterField(id, field, value);
-}
-
-function mod(v) { return Math.floor((v - 10)/2); }
-
-/* ===== Load characters ===== */
 google.script.run.withSuccessHandler(chars => {
   const sel = document.getElementById('characterSelect');
   sel.innerHTML = '<option>Select character…</option>';
 
   chars.forEach(c => {
-    const label =
-      (c.STATUS || '').toLowerCase() === 'deceased'
-        ? `💀 ${c.name}`
-        : c.name;
-
+    const label = (c.STATUS || '').toLowerCase() === 'deceased' ? `💀 ${c.name}` : c.name;
     const o = document.createElement('option');
     o.value = c.id;
     o.textContent = label;
@@ -307,12 +368,13 @@ google.script.run.withSuccessHandler(chars => {
   };
 }).getAllCharacters();
 
-/* ===== Render ===== */
+/* ===============================
+   RENDER
+   =============================== */
+
 function render(c) {
   currentChar = c;
-
-  textLastSaved.ATTACKS = c.ATTACKS || '';
-  textLastSaved.TALENTS_SPELLS = c.TALENTS_SPELLS || '';
+  attacksState.lastSaved = c.ATTACKS || '';
 
   document.getElementById('sheet').classList.remove('loading');
 
@@ -341,19 +403,16 @@ function render(c) {
         <div class="box">
           <div class="title">HP</div>
           <div class="combat-line">
-            <input value="${c.HP_CURRENT}"
-              oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
+            <input value="${c.HP_CURRENT}" oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
             /
-            <input value="${c.HP_MAX}" style="font-weight:bold;"
-              oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
+            <input value="${c.HP_MAX}" style="font-weight:bold;" oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
           </div>
         </div>
 
         <div class="box">
           <div class="title">AC</div>
           <div style="display:flex; justify-content:center;">
-            <input value="${c.AC}" maxlength="2"
-              style="width:40px; font-weight:bold; text-align:center;"
+            <input value="${c.AC}" maxlength="2" style="width:40px; font-weight:bold; text-align:center;"
               oninput="saveDebounced('${c.ID}','AC',this.value)">
           </div>
         </div>
@@ -361,85 +420,16 @@ function render(c) {
 
       <div class="box attacks">
         <div class="title">ATTACKS</div>
-        <textarea
-          oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value)"
-          onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value)"
-        >${c.ATTACKS || ''}</textarea>
-      </div>
-    </div>
-
-    <div class="middle">
-      ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY'].map(f => `
-        <div class="box">
-          <div class="title">${f.replace(/_/g,' ')}</div>
-          <input value="${c[f] || ''}"
-            oninput="saveDebounced('${c.ID}','${f}',this.value)">
-        </div>
-      `).join('')}
-
-      <div class="box">
-        <div class="title">XP</div>
-        <div class="xp-line">
-          <input value="${c.XP_CURRENT}"
-            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
-          /
-          <input value="${c.XP_TO_NEXT_LEVEL}"
-            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
-        </div>
-      </div>
-    </div>
-
-    <div>
-      <div class="box talents">
-        <div class="title">TALENTS / SPELLS</div>
-        <textarea
-          oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
-          onblur="forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value)"
-        >${c.TALENTS_SPELLS || ''}</textarea>
-      </div>
-
-      <div class="box">
-        <div class="title">CURRENCY</div>
-        <div class="currency-box">
-          ${['GP','SP','CP'].map(f => `
-            <div>${f}
-              <input value="${c[f]}"
-                oninput="saveDebounced('${c.ID}','${f}',this.value)">
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <div class="box">
-        <div class="title">GEAR</div>
-        <div class="gear-list">
-          <div>${gearColumn(1,10)}</div>
-          <div>${gearColumn(11,20)}</div>
-        </div>
-
-        <div class="free">
-          <div class="title">FREE TO CARRY</div>
-          <input value="${c.FREE_TO_CARRY || ''}"
-            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
+        <div class="field-wrap">
+          <textarea
+            oninput="attacksInput(this)"
+            onfocus="attacksFocus(this)"
+            onblur="attacksBlur(this)"
+          >${c.ATTACKS || ''}</textarea>
         </div>
       </div>
     </div>
   `;
-}
-
-function gearColumn(start, end) {
-  let out = '';
-  for (let i = start; i <= end; i++) {
-    const val = currentChar['GEAR_' + i] || '';
-    const grey = val === '-' ? 'greyed' : '';
-    out += `
-      <div class="gear-item">
-        <span>${i}.</span>
-        <input class="${grey}" value="${val}"
-          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
-      </div>`;
-  }
-  return out;
 }
 </script>
 
