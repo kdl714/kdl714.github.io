@@ -1,20 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.3 - Enhanced input feedback + mobile responsive -->
+  <!-- v2.2 -->
   <base target="_top">
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
       font-family: serif;
       background: #fff;
       padding: 24px;
       color: #000;
-      margin: 0;
     }
 
     h1 {
@@ -60,78 +55,22 @@
       text-align: center;
     }
 
-    /* === Enhanced Input Styling with Animation === */
-    .input-wrapper {
-      position: relative;
-      width: 100%;
-    }
-
     input, textarea {
-      border: 2px solid transparent;
+      border: 1px solid transparent;
       box-sizing: border-box;
       width: 100%;
       font-family: inherit;
       background: transparent;
       font-size: 14px;
-      transition: background 0.2s;
-      position: relative;
-      z-index: 1;
+      transition: background 0.2s, border-color 0.2s;
     }
 
-    textarea { 
-      resize: none;
-    }
-
-    /* Animated border container */
-    .input-wrapper::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border-radius: 3px;
-      padding: 2px;
-      background: transparent;
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    /* Focus state - spinning blue border */
-    .input-wrapper.focused::before {
-      opacity: 1;
-      background: linear-gradient(90deg, #0077cc, #00aaff, #0077cc, #00aaff);
-      background-size: 300% 100%;
-      animation: borderSpin 1.5s linear infinite;
-    }
-
-    /* Saving state - spinning yellow border */
-    .input-wrapper.saving::before {
-      opacity: 1;
-      background: linear-gradient(90deg, #ffa500, #ffcc00, #ffa500, #ffcc00);
-      background-size: 300% 100%;
-      animation: borderSpin 1s linear infinite;
-    }
-
-    /* Error state - solid red border */
-    .input-wrapper.error::before {
-      opacity: 1;
-      background: #dc3545;
-      animation: none;
-    }
-
-    @keyframes borderSpin {
-      0% { background-position: 0% 50%; }
-      100% { background-position: 300% 50%; }
-    }
+    textarea { resize: none; }
 
     input:hover, textarea:hover,
     input:focus, textarea:focus {
       background: #f0f8ff;
+      border-color: #0077cc;
       outline: none;
       border-radius: 3px;
     }
@@ -159,11 +98,8 @@
       margin-top: 4px;
     }
 
-    .stat-value .input-wrapper {
-      width: 40px;
-    }
-
     .stat-value input {
+      width: 40px;
       text-align: center;
       font-weight: normal;
     }
@@ -184,11 +120,8 @@
       gap: 6px;
     }
 
-    .combat-line .input-wrapper {
-      width: 40px;
-    }
-
     .combat-line input {
+      width: 40px;
       text-align: center;
     }
 
@@ -215,15 +148,12 @@
       gap: 6px;
     }
 
-    .xp-line .input-wrapper {
-      width: 70px;
-    }
-
     .xp-line input {
+      width: 70px;
       text-align: center;
     }
 
-    .xp-line .input-wrapper:last-of-type input {
+    .xp-line input:last-child {
       font-weight: bold;
     }
 
@@ -241,11 +171,8 @@
       align-items: center;
     }
 
-    .currency-box .input-wrapper {
-      width: 50px;
-    }
-
     .currency-box input {
+      width: 50px;
       text-align: center;
       border-bottom: 1px solid #000;
     }
@@ -260,7 +187,6 @@
     .gear-item {
       display: flex;
       gap: 6px;
-      align-items: center;
     }
 
     .gear-item input.greyed {
@@ -278,66 +204,6 @@
     .loading {
       opacity: 0.6;
       font-style: italic;
-    }
-
-    /* === Mobile Responsive Styles === */
-    @media (max-width: 768px) {
-      body {
-        padding: 12px;
-      }
-
-      h1 {
-        font-size: 28px;
-      }
-
-      .sheet {
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-
-      .stats {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
-      }
-
-      .stat {
-        padding: 6px;
-      }
-
-      .stat-label {
-        font-size: 12px;
-      }
-
-      .gear-list {
-        grid-template-columns: 1fr;
-      }
-
-      select {
-        width: 100%;
-        max-width: 300px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      body {
-        padding: 8px;
-      }
-
-      h1 {
-        font-size: 24px;
-      }
-
-      .stats {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .box {
-        padding: 8px;
-      }
-
-      input, textarea {
-        font-size: 16px; /* Prevents zoom on iOS */
-      }
     }
   </style>
 </head>
@@ -357,29 +223,9 @@ let saveTimer;
 let currentChar;
 let saveLock = false;
 
-/* Track input wrappers for state management */
-const inputStates = new Map();
-
-function setInputState(wrapper, state) {
-  if (!wrapper) return;
-  
-  wrapper.classList.remove('focused', 'saving', 'error');
-  if (state) {
-    wrapper.classList.add(state);
-  }
-  
-  const key = wrapper.dataset.fieldKey;
-  if (key) {
-    inputStates.set(key, state);
-  }
-}
-
-/* ===== Existing small-field debounce with animation ===== */
-function saveDebounced(id, field, value, wrapperElement) {
+/* ===== Existing small-field debounce (unchanged) ===== */
+function saveDebounced(id, field, value) {
   if (saveLock) return;
-
-  const wrapper = wrapperElement || document.querySelector(`[data-field-key="${id}-${field}"]`);
-  setInputState(wrapper, 'saving');
 
   const statusEl = document.getElementById('saveStatus');
   statusEl.textContent = 'Saving…';
@@ -389,30 +235,15 @@ function saveDebounced(id, field, value, wrapperElement) {
   saveTimer = setTimeout(() => {
     saveLock = true;
 
-    google.script.run
-      .withSuccessHandler(() => {
-        saveLock = false;
-        setInputState(wrapper, null);
-        statusEl.textContent = 'Saved';
-        statusEl.className = 'status saved';
-      })
-      .withFailureHandler((error) => {
-        saveLock = false;
-        setInputState(wrapper, 'error');
-        statusEl.textContent = 'Save failed';
-        statusEl.className = 'status';
-        console.error('Save error:', error);
-        
-        // Clear error state after 3 seconds
-        setTimeout(() => {
-          setInputState(wrapper, null);
-        }, 3000);
-      })
-      .updateCharacterField(id, field, value);
+    google.script.run.withSuccessHandler(() => {
+      saveLock = false;
+      statusEl.textContent = 'Saved';
+      statusEl.className = 'status saved';
+    }).updateCharacterField(id, field, value);
   }, 600);
 }
 
-/* ===== Hybrid debounce for large text fields with animation ===== */
+/* ===== Hybrid debounce for large text fields ===== */
 const textSaveTimers = {};
 const textLastSaved = {};
 let activeTextSaves = 0;
@@ -428,44 +259,25 @@ function updateSaveStatus() {
   }
 }
 
-function saveTextFieldDebounced(id, field, value, wrapperElement) {
-  const wrapper = wrapperElement || document.querySelector(`[data-field-key="${id}-${field}"]`);
-  
+function saveTextFieldDebounced(id, field, value) {
   clearTimeout(textSaveTimers[field]);
   textSaveTimers[field] = setTimeout(() => {
-    forceSaveTextField(id, field, value, wrapper);
+    forceSaveTextField(id, field, value);
   }, 1000);
 }
 
-function forceSaveTextField(id, field, value, wrapperElement) {
+function forceSaveTextField(id, field, value) {
   if (textLastSaved[field] === value) return;
 
-  const wrapper = wrapperElement || document.querySelector(`[data-field-key="${id}-${field}"]`);
-  
   clearTimeout(textSaveTimers[field]);
   activeTextSaves++;
-  setInputState(wrapper, 'saving');
   updateSaveStatus();
 
-  google.script.run
-    .withSuccessHandler(() => {
-      textLastSaved[field] = value;
-      activeTextSaves--;
-      setInputState(wrapper, null);
-      updateSaveStatus();
-    })
-    .withFailureHandler((error) => {
-      activeTextSaves--;
-      setInputState(wrapper, 'error');
-      updateSaveStatus();
-      console.error('Save error:', error);
-      
-      // Clear error state after 3 seconds
-      setTimeout(() => {
-        setInputState(wrapper, null);
-      }, 3000);
-    })
-    .updateCharacterField(id, field, value);
+  google.script.run.withSuccessHandler(() => {
+    textLastSaved[field] = value;
+    activeTextSaves--;
+    updateSaveStatus();
+  }).updateCharacterField(id, field, value);
 }
 
 function mod(v) { return Math.floor((v - 10)/2); }
@@ -495,11 +307,6 @@ google.script.run.withSuccessHandler(chars => {
   };
 }).getAllCharacters();
 
-/* ===== Helper to wrap inputs ===== */
-function wrapInput(html, id, field) {
-  return `<div class="input-wrapper" data-field-key="${id}-${field}">${html}</div>`;
-}
-
 /* ===== Render ===== */
 function render(c) {
   currentChar = c;
@@ -518,15 +325,11 @@ function render(c) {
           <div class="stat">
             <div class="stat-label">${s}</div>
             <div class="stat-value">
-              ${wrapInput(`
-                <input value="${c[s]}"
-                  onfocus="setInputState(this.parentElement, 'focused')"
-                  onblur="setInputState(this.parentElement, null)"
-                  oninput="
-                    this.parentElement.nextElementSibling.nextElementSibling.textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
-                    saveDebounced('${c.ID}','${s}',this.value, this.parentElement);
-                  ">
-              `, c.ID, s)}
+              <input value="${c[s]}"
+                oninput="
+                  this.nextElementSibling.textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
+                  saveDebounced('${c.ID}','${s}',this.value);
+                ">
               /
               <span>${mod(c[s])>=0?'+':''}${mod(c[s])}</span>
             </div>
@@ -538,45 +341,30 @@ function render(c) {
         <div class="box">
           <div class="title">HP</div>
           <div class="combat-line">
-            ${wrapInput(`
-              <input value="${c.HP_CURRENT}"
-                onfocus="setInputState(this.parentElement, 'focused')"
-                onblur="setInputState(this.parentElement, null)"
-                oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value, this.parentElement)">
-            `, c.ID, 'HP_CURRENT')}
+            <input value="${c.HP_CURRENT}"
+              oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
             /
-            ${wrapInput(`
-              <input value="${c.HP_MAX}" style="font-weight:bold;"
-                onfocus="setInputState(this.parentElement, 'focused')"
-                onblur="setInputState(this.parentElement, null)"
-                oninput="saveDebounced('${c.ID}','HP_MAX',this.value, this.parentElement)">
-            `, c.ID, 'HP_MAX')}
+            <input value="${c.HP_MAX}" style="font-weight:bold;"
+              oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
           </div>
         </div>
 
         <div class="box">
           <div class="title">AC</div>
           <div style="display:flex; justify-content:center;">
-            ${wrapInput(`
-              <input value="${c.AC}" maxlength="2"
-                style="width:40px; font-weight:bold; text-align:center;"
-                onfocus="setInputState(this.parentElement, 'focused')"
-                onblur="setInputState(this.parentElement, null)"
-                oninput="saveDebounced('${c.ID}','AC',this.value, this.parentElement)">
-            `, c.ID, 'AC')}
+            <input value="${c.AC}" maxlength="2"
+              style="width:40px; font-weight:bold; text-align:center;"
+              oninput="saveDebounced('${c.ID}','AC',this.value)">
           </div>
         </div>
       </div>
 
       <div class="box attacks">
         <div class="title">ATTACKS</div>
-        ${wrapInput(`
-          <textarea
-            onfocus="setInputState(this.parentElement, 'focused')"
-            onblur="setInputState(this.parentElement, null); forceSaveTextField('${c.ID}','ATTACKS',this.value, this.parentElement)"
-            oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value, this.parentElement)"
-          >${c.ATTACKS || ''}</textarea>
-        `, c.ID, 'ATTACKS')}
+        <textarea
+          oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value)"
+          onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value)"
+        >${c.ATTACKS || ''}</textarea>
       </div>
     </div>
 
@@ -584,31 +372,19 @@ function render(c) {
       ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY'].map(f => `
         <div class="box">
           <div class="title">${f.replace(/_/g,' ')}</div>
-          ${wrapInput(`
-            <input value="${c[f] || ''}"
-              onfocus="setInputState(this.parentElement, 'focused')"
-              onblur="setInputState(this.parentElement, null)"
-              oninput="saveDebounced('${c.ID}','${f}',this.value, this.parentElement)">
-          `, c.ID, f)}
+          <input value="${c[f] || ''}"
+            oninput="saveDebounced('${c.ID}','${f}',this.value)">
         </div>
       `).join('')}
 
       <div class="box">
         <div class="title">XP</div>
         <div class="xp-line">
-          ${wrapInput(`
-            <input value="${c.XP_CURRENT}"
-              onfocus="setInputState(this.parentElement, 'focused')"
-              onblur="setInputState(this.parentElement, null)"
-              oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value, this.parentElement)">
-          `, c.ID, 'XP_CURRENT')}
+          <input value="${c.XP_CURRENT}"
+            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
           /
-          ${wrapInput(`
-            <input value="${c.XP_TO_NEXT_LEVEL}"
-              onfocus="setInputState(this.parentElement, 'focused')"
-              onblur="setInputState(this.parentElement, null)"
-              oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value, this.parentElement)">
-          `, c.ID, 'XP_TO_NEXT_LEVEL')}
+          <input value="${c.XP_TO_NEXT_LEVEL}"
+            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
         </div>
       </div>
     </div>
@@ -616,13 +392,10 @@ function render(c) {
     <div>
       <div class="box talents">
         <div class="title">TALENTS / SPELLS</div>
-        ${wrapInput(`
-          <textarea
-            onfocus="setInputState(this.parentElement, 'focused')"
-            onblur="setInputState(this.parentElement, null); forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value, this.parentElement)"
-            oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value, this.parentElement)"
-          >${c.TALENTS_SPELLS || ''}</textarea>
-        `, c.ID, 'TALENTS_SPELLS')}
+        <textarea
+          oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
+          onblur="forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value)"
+        >${c.TALENTS_SPELLS || ''}</textarea>
       </div>
 
       <div class="box">
@@ -630,12 +403,8 @@ function render(c) {
         <div class="currency-box">
           ${['GP','SP','CP'].map(f => `
             <div>${f}
-              ${wrapInput(`
-                <input value="${c[f]}"
-                  onfocus="setInputState(this.parentElement, 'focused')"
-                  onblur="setInputState(this.parentElement, null)"
-                  oninput="saveDebounced('${c.ID}','${f}',this.value, this.parentElement)">
-              `, c.ID, f)}
+              <input value="${c[f]}"
+                oninput="saveDebounced('${c.ID}','${f}',this.value)">
             </div>
           `).join('')}
         </div>
@@ -650,12 +419,8 @@ function render(c) {
 
         <div class="free">
           <div class="title">FREE TO CARRY</div>
-          ${wrapInput(`
-            <input value="${c.FREE_TO_CARRY || ''}"
-              onfocus="setInputState(this.parentElement, 'focused')"
-              onblur="setInputState(this.parentElement, null)"
-              oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value, this.parentElement)">
-          `, c.ID, 'FREE_TO_CARRY')}
+          <input value="${c.FREE_TO_CARRY || ''}"
+            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
         </div>
       </div>
     </div>
@@ -670,12 +435,8 @@ function gearColumn(start, end) {
     out += `
       <div class="gear-item">
         <span>${i}.</span>
-        ${wrapInput(`
-          <input class="${grey}" value="${val}"
-            onfocus="setInputState(this.parentElement, 'focused')"
-            onblur="setInputState(this.parentElement, null)"
-            oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value, this.parentElement)">
-        `, currentChar.ID, `GEAR_${i}`)}
+        <input class="${grey}" value="${val}"
+          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
       </div>`;
   }
   return out;
