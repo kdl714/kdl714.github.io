@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.2 -->
+  <!-- v2.3 - Enhanced input feedback -->
   <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body {
@@ -55,24 +56,55 @@
       text-align: center;
     }
 
+    /* Base input styling */
     input, textarea {
-      border: 1px solid transparent;
+      border: 2px solid transparent;
       box-sizing: border-box;
       width: 100%;
       font-family: inherit;
       background: transparent;
       font-size: 14px;
-      transition: background 0.2s, border-color 0.2s;
+      transition: all 0.2s;
+      border-radius: 3px;
     }
 
     textarea { resize: none; }
 
-    input:hover, textarea:hover,
+    /* Focus state - animated blue border */
     input:focus, textarea:focus {
       background: #f0f8ff;
-      border-color: #0077cc;
       outline: none;
-      border-radius: 3px;
+      border-color: #0077cc;
+      box-shadow: 0 0 0 1px #00aaff;
+      animation: borderPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes borderPulse {
+      0%, 100% { box-shadow: 0 0 0 1px #0077cc; }
+      50% { box-shadow: 0 0 0 2px #00aaff; }
+    }
+
+    /* Saving state - yellow border animation */
+    input.saving, textarea.saving {
+      border-color: #ffa500;
+      box-shadow: 0 0 0 1px #ffcc00;
+      animation: borderSaving 1s ease-in-out infinite;
+    }
+
+    @keyframes borderSaving {
+      0%, 100% { box-shadow: 0 0 0 1px #ffa500; }
+      50% { box-shadow: 0 0 0 2px #ffcc00; }
+    }
+
+    /* Error state - solid red border */
+    input.error, textarea.error {
+      border-color: #dc3545;
+      box-shadow: 0 0 0 1px #dc3545;
+      animation: none;
+    }
+
+    input:hover, textarea:hover {
+      background: #f9f9f9;
     }
 
     .stats {
@@ -223,9 +255,19 @@ let saveTimer;
 let currentChar;
 let saveLock = false;
 
-/* ===== Existing small-field debounce (unchanged) ===== */
-function saveDebounced(id, field, value) {
+function setInputState(input, state) {
+  if (!input) return;
+  input.classList.remove('saving', 'error');
+  if (state) {
+    input.classList.add(state);
+  }
+}
+
+/* ===== Small-field debounce with animation ===== */
+function saveDebounced(id, field, value, inputElement) {
   if (saveLock) return;
+
+  setInputState(inputElement, 'saving');
 
   const statusEl = document.getElementById('saveStatus');
   statusEl.textContent = 'Saving…';
@@ -235,11 +277,25 @@ function saveDebounced(id, field, value) {
   saveTimer = setTimeout(() => {
     saveLock = true;
 
-    google.script.run.withSuccessHandler(() => {
-      saveLock = false;
-      statusEl.textContent = 'Saved';
-      statusEl.className = 'status saved';
-    }).updateCharacterField(id, field, value);
+    google.script.run
+      .withSuccessHandler(() => {
+        saveLock = false;
+        setInputState(inputElement, null);
+        statusEl.textContent = 'Saved';
+        statusEl.className = 'status saved';
+      })
+      .withFailureHandler((error) => {
+        saveLock = false;
+        setInputState(inputElement, 'error');
+        statusEl.textContent = 'Save failed';
+        statusEl.className = 'status';
+        console.error('Save error:', error);
+        
+        setTimeout(() => {
+          setInputState(inputElement, null);
+        }, 3000);
+      })
+      .updateCharacterField(id, field, value);
   }, 600);
 }
 
@@ -259,25 +315,44 @@ function updateSaveStatus() {
   }
 }
 
-function saveTextFieldDebounced(id, field, value) {
+function saveTextFieldDebounced(id, field, value, inputElement) {
+  setInputState(inputElement, 'saving');
+  
   clearTimeout(textSaveTimers[field]);
   textSaveTimers[field] = setTimeout(() => {
-    forceSaveTextField(id, field, value);
+    forceSaveTextField(id, field, value, inputElement);
   }, 1000);
 }
 
-function forceSaveTextField(id, field, value) {
-  if (textLastSaved[field] === value) return;
+function forceSaveTextField(id, field, value, inputElement) {
+  if (textLastSaved[field] === value) {
+    setInputState(inputElement, null);
+    return;
+  }
 
   clearTimeout(textSaveTimers[field]);
   activeTextSaves++;
+  setInputState(inputElement, 'saving');
   updateSaveStatus();
 
-  google.script.run.withSuccessHandler(() => {
-    textLastSaved[field] = value;
-    activeTextSaves--;
-    updateSaveStatus();
-  }).updateCharacterField(id, field, value);
+  google.script.run
+    .withSuccessHandler(() => {
+      textLastSaved[field] = value;
+      activeTextSaves--;
+      setInputState(inputElement, null);
+      updateSaveStatus();
+    })
+    .withFailureHandler((error) => {
+      activeTextSaves--;
+      setInputState(inputElement, 'error');
+      updateSaveStatus();
+      console.error('Save error:', error);
+      
+      setTimeout(() => {
+        setInputState(inputElement, null);
+      }, 3000);
+    })
+    .updateCharacterField(id, field, value);
 }
 
 function mod(v) { return Math.floor((v - 10)/2); }
@@ -325,13 +400,13 @@ function render(c) {
           <div class="stat">
             <div class="stat-label">${s}</div>
             <div class="stat-value">
-              <input value="${c[s]}"
+              <input value="${c[s]}" id="stat-${s}"
                 oninput="
-                  this.nextElementSibling.textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
-                  saveDebounced('${c.ID}','${s}',this.value);
+                  document.getElementById('mod-${s}').textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
+                  saveDebounced('${c.ID}','${s}',this.value, this);
                 ">
               /
-              <span>${mod(c[s])>=0?'+':''}${mod(c[s])}</span>
+              <span id="mod-${s}">${mod(c[s])>=0?'+':''}${mod(c[s])}</span>
             </div>
           </div>
         `).join('')}
@@ -342,10 +417,10 @@ function render(c) {
           <div class="title">HP</div>
           <div class="combat-line">
             <input value="${c.HP_CURRENT}"
-              oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
+              oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value, this)">
             /
             <input value="${c.HP_MAX}" style="font-weight:bold;"
-              oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
+              oninput="saveDebounced('${c.ID}','HP_MAX',this.value, this)">
           </div>
         </div>
 
@@ -354,7 +429,7 @@ function render(c) {
           <div style="display:flex; justify-content:center;">
             <input value="${c.AC}" maxlength="2"
               style="width:40px; font-weight:bold; text-align:center;"
-              oninput="saveDebounced('${c.ID}','AC',this.value)">
+              oninput="saveDebounced('${c.ID}','AC',this.value, this)">
           </div>
         </div>
       </div>
@@ -362,8 +437,8 @@ function render(c) {
       <div class="box attacks">
         <div class="title">ATTACKS</div>
         <textarea
-          oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value)"
-          onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value)"
+          oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value, this)"
+          onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value, this)"
         >${c.ATTACKS || ''}</textarea>
       </div>
     </div>
@@ -373,7 +448,7 @@ function render(c) {
         <div class="box">
           <div class="title">${f.replace(/_/g,' ')}</div>
           <input value="${c[f] || ''}"
-            oninput="saveDebounced('${c.ID}','${f}',this.value)">
+            oninput="saveDebounced('${c.ID}','${f}',this.value, this)">
         </div>
       `).join('')}
 
@@ -381,10 +456,10 @@ function render(c) {
         <div class="title">XP</div>
         <div class="xp-line">
           <input value="${c.XP_CURRENT}"
-            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
+            oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value, this)">
           /
           <input value="${c.XP_TO_NEXT_LEVEL}"
-            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
+            oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value, this)">
         </div>
       </div>
     </div>
@@ -393,8 +468,8 @@ function render(c) {
       <div class="box talents">
         <div class="title">TALENTS / SPELLS</div>
         <textarea
-          oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
-          onblur="forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value)"
+          oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value, this)"
+          onblur="forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value, this)"
         >${c.TALENTS_SPELLS || ''}</textarea>
       </div>
 
@@ -404,7 +479,7 @@ function render(c) {
           ${['GP','SP','CP'].map(f => `
             <div>${f}
               <input value="${c[f]}"
-                oninput="saveDebounced('${c.ID}','${f}',this.value)">
+                oninput="saveDebounced('${c.ID}','${f}',this.value, this)">
             </div>
           `).join('')}
         </div>
@@ -420,7 +495,7 @@ function render(c) {
         <div class="free">
           <div class="title">FREE TO CARRY</div>
           <input value="${c.FREE_TO_CARRY || ''}"
-            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
+            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value, this)">
         </div>
       </div>
     </div>
@@ -436,7 +511,7 @@ function gearColumn(start, end) {
       <div class="gear-item">
         <span>${i}.</span>
         <input class="${grey}" value="${val}"
-          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
+          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value, this)">
       </div>`;
   }
   return out;
