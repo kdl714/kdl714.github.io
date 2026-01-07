@@ -1,205 +1,211 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.1 -->
+  <!-- v2.2 -->
   <base target="_top">
 
   <style>
-body {
-  font-family: serif;
-  background: #fff;
-  padding: 24px;
-  color: #000;
-}
+    body {
+      font-family: serif;
+      background: #fff;
+      padding: 24px;
+      color: #000;
+    }
 
-h1 {
-  font-size: 36px;
-  margin: 0 0 12px 0;
-}
+    h1 {
+      font-size: 36px;
+      margin: 0 0 12px 0;
+    }
 
-.status {
-  font-size: 12px;
-  font-weight: bold;
-  margin-left: 12px;
-}
+    .status {
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 12px;
+    }
 
-.status.loading { color: orange; }
-.status.saving { color: blue; }
-.status.saved { color: green; }
+    .status.loading { color: orange; }
+    .status.saving { color: blue; }
+    .status.saved { color: green; }
 
-select {
-  padding: 4px;
-}
+    select {
+      padding: 4px;
+    }
 
-#sheet {
-  margin-top: 20px;
-}
+    #sheet {
+      margin-top: 20px;
+    }
 
-.sheet {
-  display: grid;
-  grid-template-columns: 320px 260px 1fr;
-  gap: 16px;
-  max-width: 1300px;
-}
+    .sheet {
+      display: grid;
+      grid-template-columns: 320px 260px 1fr;
+      gap: 16px;
+      max-width: 1300px;
+    }
 
-.box {
-  border: 1px solid #000;
-  border-radius: 3px;
-  padding: 10px;
-  margin-bottom: 8px;
-}
+    .box {
+      border: 1px solid #000;
+      border-radius: 3px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
 
-.title {
-  font-weight: bold;
-  margin-bottom: 4px;
-  text-align: center;
-}
+    .title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      text-align: center;
+    }
 
-/* Inputs & Textareas */
-input, textarea {
-  border: 1px solid transparent;
-  box-sizing: border-box;
-  width: 100%;
-  font-family: inherit;
-  background: transparent;
-  font-size: 14px;
-  transition: background 0.2s, border-color 0.2s;
-}
+    input, textarea {
+      border: 1px solid transparent;
+      box-sizing: border-box;
+      width: 100%;
+      font-family: inherit;
+      background: transparent;
+      font-size: 14px;
+      transition: background 0.2s, border-color 0.2s;
+    }
 
-textarea { resize: none; }
+    textarea { resize: none; }
 
-input:hover, textarea:hover,
-input:focus, textarea:focus {
-  background: #f0f8ff;
-  border-color: #0077cc;
-  outline: none;
-  border-radius: 3px;
-}
+    input:hover, textarea:hover,
+    input:focus, textarea:focus {
+      background: #f0f8ff;
+      border-color: #0077cc;
+      outline: none;
+      border-radius: 3px;
+    }
 
-/* LEFT COLUMN */
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 8px;
-}
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
 
-.stat {
-  border: 1px solid #000;
-  border-radius: 3px;
-  padding: 8px;
-  text-align: center;
-}
+    .stat {
+      border: 1px solid #000;
+      border-radius: 3px;
+      padding: 8px;
+      text-align: center;
+    }
 
-.stat-label { font-weight: bold; }
-.stat-value {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 4px;
-}
+    .stat-label { font-weight: bold; }
 
-.stat-value input { width: 40px; text-align: center; font-weight: normal; }
-.stat-value span { font-weight: bold; }
+    .stat-value {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
 
-.combat {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 8px;
-}
+    .stat-value input {
+      width: 40px;
+      text-align: center;
+      font-weight: normal;
+    }
 
-.combat-line {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-}
+    .stat-value span { font-weight: bold; }
 
-.combat-line input {
-  width: 40px;
-  text-align: center;
-}
+    .combat {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
 
-.attacks textarea { height: 120px; }
+    .combat-line {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
 
-/* MIDDLE COLUMN */
-.middle { display: grid; gap: 4px; }
+    .combat-line input {
+      width: 40px;
+      text-align: center;
+    }
 
-.middle input { text-align: right; font-size: 16px; }
-.middle .box .title { border-bottom: none; text-align: left; }
+    .attacks textarea { height: 120px; }
 
-.xp-line { display: flex; align-items: center; gap: 6px; }
-.xp-line input { width: 70px; text-align: center; }
-.xp-line input:last-child { font-weight: bold; }
+    .middle {
+      display: grid;
+      gap: 4px;
+    }
 
-/* RIGHT COLUMN */
-.talents textarea { height: 210px; }
-.currency-box { display: flex; justify-content: space-around; margin-top: 4px; }
-.currency-box div { display: flex; gap: 4px; align-items: center; }
-.currency-box input { width: 50px; text-align: center; border-bottom: 1px solid #000; }
+    .middle input {
+      text-align: right;
+      font-size: 16px;
+    }
 
-.gear-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 6px; }
-.gear-item { display: flex; gap: 6px; }
+    .middle .box .title {
+      border-bottom: none;
+      text-align: left;
+    }
 
-.gear-item input.greyed { background: #eee; font-style: italic; color: #555; }
+    .xp-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-.free { border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
+    .xp-line input {
+      width: 70px;
+      text-align: center;
+    }
 
-.loading { opacity: 0.6; font-style: italic; }
+    .xp-line input:last-child {
+      font-weight: bold;
+    }
 
-/* Hover/focus highlight without jumping */
-input:hover, textarea:hover,
-input:focus, textarea:focus {
-  background: #f0f8ff;
-  border-color: #0077cc;
-  outline: none;
-  border-radius: 3px;
-}
+    .talents textarea { height: 210px; }
 
-/* ================= MOBILE FIX ================= */
-body.mobile .sheet {
-  grid-template-columns: 1fr;
-}
+    .currency-box {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 4px;
+    }
 
-body.mobile #characterSelect {
-  font-size: 20px;
-  padding: 8px;
-}
+    .currency-box div {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
 
-body.mobile input,
-body.mobile textarea {
-  font-size: 18px;
-  padding: 6px;
-}
+    .currency-box input {
+      width: 50px;
+      text-align: center;
+      border-bottom: 1px solid #000;
+    }
 
-body.mobile .title {
-  font-size: 16px;
-}
+    .gear-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 16px;
+      margin-bottom: 6px;
+    }
 
-body.mobile h1 {
-  font-size: 28px;
-}
+    .gear-item {
+      display: flex;
+      gap: 6px;
+    }
 
-body.mobile .gear-item span {
-  font-size: 16px;
-}
+    .gear-item input.greyed {
+      background: #eee;
+      font-style: italic;
+      color: #555;
+    }
 
-body.mobile .currency-box input {
-  font-size: 16px;
-}
+    .free {
+      border-top: 1px solid #000;
+      padding-top: 6px;
+      margin-top: 6px;
+    }
 
-body.mobile .stat-label {
-  font-size: 16px;
-}
-
-body.mobile .stat-value input,
-body.mobile .stat-value span {
-  font-size: 16px;
-}
-</style>
-
-  
+    .loading {
+      opacity: 0.6;
+      font-style: italic;
+    }
+  </style>
 </head>
 
 <body>
@@ -217,8 +223,7 @@ let saveTimer;
 let currentChar;
 let saveLock = false;
 
-function mod(v) { return Math.floor((v - 10)/2); }
-
+/* ===== Existing small-field debounce (unchanged) ===== */
 function saveDebounced(id, field, value) {
   if (saveLock) return;
 
@@ -229,29 +234,65 @@ function saveDebounced(id, field, value) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveLock = true;
-    document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = true);
 
     google.script.run.withSuccessHandler(() => {
       saveLock = false;
-      document.querySelectorAll('#sheet input, #sheet textarea').forEach(el => el.disabled = false);
       statusEl.textContent = 'Saved';
       statusEl.className = 'status saved';
     }).updateCharacterField(id, field, value);
   }, 600);
 }
 
-/* MOBILE DETECTION */
-if (/android|iphone|ipad|ipod/i.test(navigator.userAgent)) {
-  document.body.classList.add('mobile');
+/* ===== Hybrid debounce for large text fields ===== */
+const textSaveTimers = {};
+const textLastSaved = {};
+let activeTextSaves = 0;
+
+function updateSaveStatus() {
+  const statusEl = document.getElementById('saveStatus');
+  if (activeTextSaves > 0) {
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'status saving';
+  } else {
+    statusEl.textContent = 'Saved';
+    statusEl.className = 'status saved';
+  }
 }
 
-/* Load characters */
+function saveTextFieldDebounced(id, field, value) {
+  clearTimeout(textSaveTimers[field]);
+  textSaveTimers[field] = setTimeout(() => {
+    forceSaveTextField(id, field, value);
+  }, 1000);
+}
+
+function forceSaveTextField(id, field, value) {
+  if (textLastSaved[field] === value) return;
+
+  clearTimeout(textSaveTimers[field]);
+  activeTextSaves++;
+  updateSaveStatus();
+
+  google.script.run.withSuccessHandler(() => {
+    textLastSaved[field] = value;
+    activeTextSaves--;
+    updateSaveStatus();
+  }).updateCharacterField(id, field, value);
+}
+
+function mod(v) { return Math.floor((v - 10)/2); }
+
+/* ===== Load characters ===== */
 google.script.run.withSuccessHandler(chars => {
   const sel = document.getElementById('characterSelect');
   sel.innerHTML = '<option>Select character…</option>';
 
   chars.forEach(c => {
-    const label = (c.STATUS || '').toLowerCase() === 'deceased' ? `💀 ${c.name}` : c.name;
+    const label =
+      (c.STATUS || '').toLowerCase() === 'deceased'
+        ? `💀 ${c.name}`
+        : c.name;
+
     const o = document.createElement('option');
     o.value = c.id;
     o.textContent = label;
@@ -266,13 +307,16 @@ google.script.run.withSuccessHandler(chars => {
   };
 }).getAllCharacters();
 
-/* Render sheet */
+/* ===== Render ===== */
 function render(c) {
   currentChar = c;
+
+  textLastSaved.ATTACKS = c.ATTACKS || '';
+  textLastSaved.TALENTS_SPELLS = c.TALENTS_SPELLS || '';
+
   document.getElementById('sheet').classList.remove('loading');
 
   document.getElementById('sheet').innerHTML = `
-    <!-- LEFT -->
     <div>
       <h1>${c.NAME || ''}</h1>
 
@@ -297,18 +341,19 @@ function render(c) {
         <div class="box">
           <div class="title">HP</div>
           <div class="combat-line">
-            <input value="${c.HP_CURRENT}" 
-                   oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
+            <input value="${c.HP_CURRENT}"
+              oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
             /
             <input value="${c.HP_MAX}" style="font-weight:bold;"
-                   oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
+              oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
           </div>
         </div>
 
         <div class="box">
           <div class="title">AC</div>
           <div style="display:flex; justify-content:center;">
-            <input value="${c.AC}" maxlength="2" style="width:40px; font-weight:bold; text-align:center;"
+            <input value="${c.AC}" maxlength="2"
+              style="width:40px; font-weight:bold; text-align:center;"
               oninput="saveDebounced('${c.ID}','AC',this.value)">
           </div>
         </div>
@@ -316,43 +361,51 @@ function render(c) {
 
       <div class="box attacks">
         <div class="title">ATTACKS</div>
-        <textarea oninput="saveDebounced('${c.ID}','ATTACKS',this.value)">${c.ATTACKS || ''}</textarea>
+        <textarea
+          oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value)"
+          onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value)"
+        >${c.ATTACKS || ''}</textarea>
       </div>
     </div>
 
-    <!-- MIDDLE -->
     <div class="middle">
       ${['ANCESTRY','CLASS','LEVEL','TITLE','ALIGNMENT','BACKGROUND','DEITY'].map(f => `
         <div class="box">
           <div class="title">${f.replace(/_/g,' ')}</div>
           <input value="${c[f] || ''}"
             oninput="saveDebounced('${c.ID}','${f}',this.value)">
-        </div>`).join('')}
-      
+        </div>
+      `).join('')}
+
       <div class="box">
         <div class="title">XP</div>
         <div class="xp-line">
-          <input value="${c.XP_CURRENT}" 
+          <input value="${c.XP_CURRENT}"
             oninput="saveDebounced('${c.ID}','XP_CURRENT',this.value)">
           /
-          <input value="${c.XP_TO_NEXT_LEVEL}" 
+          <input value="${c.XP_TO_NEXT_LEVEL}"
             oninput="saveDebounced('${c.ID}','XP_TO_NEXT_LEVEL',this.value)">
         </div>
       </div>
     </div>
 
-    <!-- RIGHT -->
     <div>
       <div class="box talents">
         <div class="title">TALENTS / SPELLS</div>
-        <textarea oninput="saveDebounced('${c.ID}','TALENTS_SPELLS',this.value)">${c.TALENTS_SPELLS || ''}</textarea>
+        <textarea
+          oninput="saveTextFieldDebounced('${c.ID}','TALENTS_SPELLS',this.value)"
+          onblur="forceSaveTextField('${c.ID}','TALENTS_SPELLS',this.value)"
+        >${c.TALENTS_SPELLS || ''}</textarea>
       </div>
 
       <div class="box">
         <div class="title">CURRENCY</div>
         <div class="currency-box">
           ${['GP','SP','CP'].map(f => `
-            <div>${f}<input value="${c[f]}" oninput="saveDebounced('${c.ID}','${f}',this.value)"></div>
+            <div>${f}
+              <input value="${c[f]}"
+                oninput="saveDebounced('${c.ID}','${f}',this.value)">
+            </div>
           `).join('')}
         </div>
       </div>
@@ -366,23 +419,25 @@ function render(c) {
 
         <div class="free">
           <div class="title">FREE TO CARRY</div>
-          <input value="${c.FREE_TO_CARRY || ''}" oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
+          <input value="${c.FREE_TO_CARRY || ''}"
+            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value)">
         </div>
       </div>
     </div>
   `;
 }
 
-function gearColumn(start,end){
-  let out='';
-  for(let i=start;i<=end;i++){
-    const val=currentChar['GEAR_'+i]||'';
-    const greyClass = val==='-' ? 'greyed' : '';
-    out += `<div class="gear-item">
-      <span>${i}.</span>
-      <input class="${greyClass}" value="${val}" 
-        oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
-    </div>`;
+function gearColumn(start, end) {
+  let out = '';
+  for (let i = start; i <= end; i++) {
+    const val = currentChar['GEAR_' + i] || '';
+    const grey = val === '-' ? 'greyed' : '';
+    out += `
+      <div class="gear-item">
+        <span>${i}.</span>
+        <input class="${grey}" value="${val}"
+          oninput="saveDebounced('${currentChar.ID}','GEAR_${i}',this.value)">
+      </div>`;
   }
   return out;
 }
