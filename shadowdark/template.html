@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.3 -->
+  <!-- v2.4 -->
   <base target="_top">
 
   <style>
@@ -27,13 +27,9 @@
     .status.saving { color: blue; }
     .status.saved { color: green; }
 
-    select {
-      padding: 4px;
-    }
+    select { padding: 4px; }
 
-    #sheet {
-      margin-top: 20px;
-    }
+    #sheet { margin-top: 20px; }
 
     .sheet {
       display: grid;
@@ -65,13 +61,6 @@
     }
 
     textarea { resize: none; }
-
-    input:hover, textarea:hover,
-    input:focus, textarea:focus {
-      background: #f0f8ff;
-      outline: none;
-      border-radius: 3px;
-    }
 
     /* LEFT COLUMN */
     .stats {
@@ -188,11 +177,9 @@
       margin-top: 6px;
     }
 
-    .loading { opacity: 0.6; font-style: italic; }
-
-    /* ======================================================
-       ATTACKS FIELD STATE INDICATORS (NEW, ISOLATED)
-       ====================================================== */
+    /* ===========================
+       ATTACKS STATE INDICATORS
+       =========================== */
 
     .field-wrap {
       position: relative;
@@ -202,7 +189,7 @@
       content: '';
       position: absolute;
       left: -10px;
-      top: 8px;
+      top: 10px;
       width: 6px;
       height: 6px;
       border-radius: 50%;
@@ -210,26 +197,26 @@
       display: none;
     }
 
-    .field-error::before {
-      display: block;
+    .field-error::before { display: block; }
+
+    .field-focus textarea,
+    .field-saving textarea {
+      border: 1px solid transparent;
+      background-size: 200% 200%;
     }
 
     .field-focus textarea {
-      border: 1px solid transparent;
       background:
         linear-gradient(#fff, #fff) padding-box,
         linear-gradient(90deg, #0077cc, #66ccff, #0077cc) border-box;
-      border: 1px solid transparent;
-      animation: focusBorder 2s linear infinite;
+      animation: borderMove 2s linear infinite;
     }
 
     .field-saving textarea {
-      border: 1px solid transparent;
       background:
         linear-gradient(#fff, #fff) padding-box,
         linear-gradient(90deg, #f5c400, #ffe680, #f5c400) border-box;
-      border: 1px solid transparent;
-      animation: savingBorder 1.5s linear infinite;
+      animation: borderMove 1.5s linear infinite;
     }
 
     .field-error textarea {
@@ -237,12 +224,9 @@
       background: #fff5f5;
     }
 
-    @keyframes focusBorder {
-      to { background-position: 200% 0; }
-    }
-
-    @keyframes savingBorder {
-      to { background-position: 200% 0; }
+    @keyframes borderMove {
+      from { background-position: 0% 50%; }
+      to   { background-position: 200% 50%; }
     }
   </style>
 </head>
@@ -252,171 +236,80 @@
 <div>
   <select id="characterSelect"></select>
   <span id="loadStatus" class="status loading">Loading…</span>
-  <span id="saveStatus" class="status"></span>
 </div>
 
-<div id="sheet" class="sheet loading"></div>
+<div id="sheet" class="sheet"></div>
 
 <script>
-let saveTimer;
 let currentChar;
-let saveLock = false;
-
-function mod(v) { return Math.floor((v - 10)/2); }
-
-/* ===============================
-   EXISTING GENERIC SAVE
-   =============================== */
-function saveDebounced(id, field, value) {
-  if (saveLock) return;
-
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveLock = true;
-    google.script.run.withSuccessHandler(() => {
-      saveLock = false;
-    }).updateCharacterField(id, field, value);
-  }, 600);
-}
-
-/* ===============================
-   ATTACKS FIELD STATE LOGIC
-   =============================== */
-
-let attacksState = {
-  dirty: false,
-  saving: false,
-  error: false,
-  lastSaved: ''
-};
-
 let attacksTimer;
+let attacksState = { dirty:false, saving:false, error:false };
 
-function attacksInput(el) {
+function mod(v){ return Math.floor((v-10)/2); }
+
+function attacksInput(el){
   attacksState.dirty = true;
   attacksState.error = false;
-  updateAttacksClass(el);
+  updateAttackClass(el);
 
   clearTimeout(attacksTimer);
   attacksTimer = setTimeout(() => saveAttacks(el), 800);
 }
 
-function saveAttacks(el) {
-  if (!attacksState.dirty) return;
-
+function saveAttacks(el){
+  if(!attacksState.dirty) return;
   attacksState.saving = true;
-  updateAttacksClass(el);
+  updateAttackClass(el);
 
   google.script.run
     .withSuccessHandler(() => {
-      attacksState = {
-        dirty: false,
-        saving: false,
-        error: false,
-        lastSaved: el.value
-      };
-      updateAttacksClass(el);
+      attacksState = { dirty:false, saving:false, error:false };
+      updateAttackClass(el);
     })
     .withFailureHandler(() => {
       attacksState.saving = false;
       attacksState.error = true;
-      updateAttacksClass(el);
+      updateAttackClass(el);
     })
-    .updateCharacterField(currentChar.ID, 'ATTACKS', el.value);
+    .updateCharacterField(currentChar.ID,'ATTACKS',el.value);
 }
 
-function updateAttacksClass(el) {
-  const wrap = el.closest('.field-wrap');
-  wrap.classList.remove('field-focus','field-saving','field-error');
-
-  if (attacksState.error) wrap.classList.add('field-error');
-  else if (attacksState.saving) wrap.classList.add('field-saving');
+function updateAttackClass(el){
+  const w = el.closest('.field-wrap');
+  w.classList.remove('field-focus','field-saving','field-error');
+  if(attacksState.error) w.classList.add('field-error');
+  else if(attacksState.saving) w.classList.add('field-saving');
 }
 
-function attacksFocus(el) {
-  if (!attacksState.error) {
-    el.closest('.field-wrap').classList.add('field-focus');
-  }
+function attacksFocus(el){
+  if(!attacksState.error) el.closest('.field-wrap').classList.add('field-focus');
 }
 
-function attacksBlur(el) {
+function attacksBlur(el){
   el.closest('.field-wrap').classList.remove('field-focus');
-  if (attacksState.dirty && !attacksState.saving) saveAttacks(el);
+  if(attacksState.dirty) saveAttacks(el);
 }
 
-/* ===============================
-   LOAD CHARACTERS
-   =============================== */
-
-google.script.run.withSuccessHandler(chars => {
-  const sel = document.getElementById('characterSelect');
-  sel.innerHTML = '<option>Select character…</option>';
-
-  chars.forEach(c => {
-    const label = (c.STATUS || '').toLowerCase() === 'deceased' ? `💀 ${c.name}` : c.name;
-    const o = document.createElement('option');
-    o.value = c.id;
-    o.textContent = label;
+/* LOAD CHARACTERS */
+google.script.run.withSuccessHandler(chars=>{
+  const sel=document.getElementById('characterSelect');
+  sel.innerHTML='<option>Select character…</option>';
+  chars.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id;
+    o.textContent=c.name;
     sel.appendChild(o);
   });
-
-  document.getElementById('loadStatus').textContent = '';
-
-  sel.onchange = () => {
-    document.getElementById('sheet').classList.add('loading');
-    google.script.run.withSuccessHandler(render).getCharacterById(sel.value);
-  };
+  document.getElementById('loadStatus').textContent='';
+  sel.onchange=()=>google.script.run.withSuccessHandler(render).getCharacterById(sel.value);
 }).getAllCharacters();
 
-/* ===============================
-   RENDER
-   =============================== */
-
-function render(c) {
-  currentChar = c;
-  attacksState.lastSaved = c.ATTACKS || '';
-
-  document.getElementById('sheet').classList.remove('loading');
-
-  document.getElementById('sheet').innerHTML = `
+/* RENDER */
+function render(c){
+  currentChar=c;
+  document.getElementById('sheet').innerHTML=`
     <div>
-      <h1>${c.NAME || ''}</h1>
-
-      <div class="stats">
-        ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
-          <div class="stat">
-            <div class="stat-label">${s}</div>
-            <div class="stat-value">
-              <input value="${c[s]}"
-                oninput="
-                  this.nextElementSibling.textContent=(mod(this.value)>=0?'+':'')+mod(this.value);
-                  saveDebounced('${c.ID}','${s}',this.value);
-                ">
-              /
-              <span>${mod(c[s])>=0?'+':''}${mod(c[s])}</span>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-
-      <div class="combat">
-        <div class="box">
-          <div class="title">HP</div>
-          <div class="combat-line">
-            <input value="${c.HP_CURRENT}" oninput="saveDebounced('${c.ID}','HP_CURRENT',this.value)">
-            /
-            <input value="${c.HP_MAX}" style="font-weight:bold;" oninput="saveDebounced('${c.ID}','HP_MAX',this.value)">
-          </div>
-        </div>
-
-        <div class="box">
-          <div class="title">AC</div>
-          <div style="display:flex; justify-content:center;">
-            <input value="${c.AC}" maxlength="2" style="width:40px; font-weight:bold; text-align:center;"
-              oninput="saveDebounced('${c.ID}','AC',this.value)">
-          </div>
-        </div>
-      </div>
+      <h1>${c.NAME||''}</h1>
 
       <div class="box attacks">
         <div class="title">ATTACKS</div>
@@ -425,10 +318,13 @@ function render(c) {
             oninput="attacksInput(this)"
             onfocus="attacksFocus(this)"
             onblur="attacksBlur(this)"
-          >${c.ATTACKS || ''}</textarea>
+          >${c.ATTACKS||''}</textarea>
         </div>
       </div>
     </div>
+
+    <div class="middle"></div>
+    <div></div>
   `;
 }
 </script>
