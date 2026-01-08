@@ -54,8 +54,11 @@
       let total = 0;
       let modAbs = Math.abs(mod);
       let results = "";
-      
-      if ( roll == 1 || roll == 20 ) {
+
+      if ( modValue = "NONE" ) {
+        results = roll;
+      } 
+      else if ( roll == 1 || roll == 20 ) {
         results = "nat " + roll;
       }
       else if ( mod >= 0 ){
