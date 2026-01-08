@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.3 - Enhanced input feedback -->
+  <!-- v2.4 - Enhanced input feedback -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -62,44 +62,72 @@
       box-sizing: border-box;
       width: 100%;
       font-family: inherit;
-      background: transparent;
+      background: #fff;
       font-size: 14px;
-      transition: all 0.2s;
+      transition: background 0.2s;
       border-radius: 3px;
+      position: relative;
     }
 
     textarea { resize: none; }
 
-    /* Focus state - animated blue border */
+    /* Animated border effect */
+    @property --angle {
+      syntax: "<angle>";
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    /* Focus state - rotating blue dashed border */
     input:focus, textarea:focus {
       background: #f0f8ff;
       outline: none;
-      border-color: #0077cc;
-      box-shadow: 0 0 0 1px #00aaff;
-      animation: borderPulse 1.5s ease-in-out infinite;
+      border-image: conic-gradient(
+        from var(--angle),
+        transparent 0deg 90deg,
+        #0077cc 90deg 180deg,
+        transparent 180deg 270deg,
+        #00aaff 270deg 360deg
+      ) 1;
+      animation: rotate-border 2s linear infinite;
     }
 
-    @keyframes borderPulse {
-      0%, 100% { box-shadow: 0 0 0 1px #0077cc; }
-      50% { box-shadow: 0 0 0 2px #00aaff; }
+    @keyframes rotate-border {
+      to {
+        --angle: 360deg;
+      }
     }
 
-    /* Saving state - yellow border animation */
+    /* Fallback for browsers without @property support */
+    @supports not (background: paint(something)) {
+      input:focus, textarea:focus {
+        border: 2px dashed #0077cc;
+        animation: rotate-dashed-blue 2s linear infinite;
+      }
+      
+      @keyframes rotate-dashed-blue {
+        0% { border-image-source: conic-gradient(from 0deg, transparent 0deg 90deg, #0077cc 90deg 180deg, transparent 180deg 270deg, #00aaff 270deg 360deg); }
+        100% { border-image-source: conic-gradient(from 360deg, transparent 0deg 90deg, #0077cc 90deg 180deg, transparent 180deg 270deg, #00aaff 270deg 360deg); }
+      }
+    }
+
+    /* Saving state - rotating yellow dashed border */
     input.saving, textarea.saving {
-      border-color: #ffa500;
-      box-shadow: 0 0 0 1px #ffcc00;
-      animation: borderSaving 1s ease-in-out infinite;
-    }
-
-    @keyframes borderSaving {
-      0%, 100% { box-shadow: 0 0 0 1px #ffa500; }
-      50% { box-shadow: 0 0 0 2px #ffcc00; }
+      background: #fffbf0;
+      border-image: conic-gradient(
+        from var(--angle),
+        transparent 0deg 90deg,
+        #ffa500 90deg 180deg,
+        transparent 180deg 270deg,
+        #ffcc00 270deg 360deg
+      ) 1;
+      animation: rotate-border 1.5s linear infinite;
     }
 
     /* Error state - solid red border */
     input.error, textarea.error {
-      border-color: #dc3545;
-      box-shadow: 0 0 0 1px #dc3545;
+      border: 2px solid #dc3545;
+      background: #fff5f5;
       animation: none;
     }
 
@@ -237,10 +265,34 @@
       opacity: 0.6;
       font-style: italic;
     }
+
+    /* Mobile styles - triggered by JS user-agent detection */
+    body.mobile .sheet {
+      grid-template-columns: 1fr;
+    }
+
+    body.mobile h1 {
+      font-size: 28px;
+    }
+
+    body.mobile .stats {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    body.mobile .gear-list {
+      grid-template-columns: 1fr;
+    }
   </style>
 </head>
 
 <body>
+
+<script>
+// Detect mobile via user-agent since GAS iframe breaks responsive CSS
+if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile');
+}
+</script>
 
 <div>
   <select id="characterSelect"></select>
