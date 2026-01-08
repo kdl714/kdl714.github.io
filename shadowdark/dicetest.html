@@ -5,12 +5,12 @@
 
   <div>
 
-    <input type="radio" id="d4" name="dice"><label for="d4">d4</label>
-    <input type="radio" id="d6" name="dice"><label for="d6">d6</label>
-    <input type="radio" id="d8" name="dice"><label for="d8">d8</label>
-    <input type="radio" id="d10" name="dice"><label for="d10">d10</label>
-    <input type="radio" id="d12" name="dice"><label for="d12">d12</label>
-    <input type="radio" id="d20" name="dice"><label for="d20">d20</label>
+    <input type="radio" id="d4" dice_type="4" name="dice"><label for="d4">d4</label>
+    <input type="radio" id="d6" dice_type="6" name="dice"><label for="d6">d6</label>
+    <input type="radio" id="d8" dice_type="8" name="dice"><label for="d8">d8</label>
+    <input type="radio" id="d10" dice_type="10" name="dice"><label for="d10">d10</label>
+    <input type="radio" id="d12" dice_type="12" name="dice"><label for="d12">d12</label>
+    <input type="radio" id="d20" dice_type="20" name="dice"><label for="d20">d20</label>
 
     <button id="dicebtn">Roll</button>
     
@@ -30,6 +30,7 @@
     function rollDice(){
       let diceSelection = document.querySelector('input[name="dice"]:checked');
       console.log(diceSelection);
+      console.log(diceSelection.attributes.dice_type);
       let selectedDie = diceSelection.toString().replace("d", "");
       console.log(selectedDie);
       
