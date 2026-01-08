@@ -10,7 +10,7 @@
     <input type="radio" id="d8" dice_type="8" name="dice"><label for="d8">d8</label>
     <input type="radio" id="d10" dice_type="10" name="dice"><label for="d10">d10</label>
     <input type="radio" id="d12" dice_type="12" name="dice"><label for="d12">d12</label>
-    <input type="radio" id="d20" dice_type="20" name="dice"><label for="d20">d20</label>
+    <input type="radio" id="d20" dice_type="20" name="dice" checked="checked"><label for="d20">d20</label>
     <br>
     <input type="radio" id="mod-str" mod_type="str" name="mod"><label for="mod">STR</label>
     <input type="radio" id="mod-int" mod_type="int" name="mod"><label for="mod">INT</label>
@@ -55,7 +55,7 @@
       let modAbs = Math.abs(mod);
       let results = "";
 
-      if ( modValue = "NONE" ) {
+      if ( modValue = "NONE" || modValue == null) {
         results = roll;
       } 
       else if ( roll == 1 || roll == 20 ) {
