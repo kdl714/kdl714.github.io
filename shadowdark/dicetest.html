@@ -53,28 +53,21 @@
       let mod = Number(mods[modValue]);
       let total = 0;
       let modAbs = Math.abs(mod);
-      let output = "";
-      console.log("roll:" + roll + " mod:" + mod + " total:" + total + " modAbs:" + modAbs + " output:" + output);
+      let results = "";
       
       if ( roll == 1 || roll == 20 ) {
-        console.log("roll = 1 or 20");
-        output = "nat " + roll;
-        console.log(output);
+        results = "nat " + roll;
       }
       else if ( mod >= 0 ){
-        console.log("mod>=0");
         total = roll + modAbs;
-        output = roll + " + " + modAbs + " = " + total;
-        console.log(output);
+        results = roll + " + " + modAbs + " = " + total;
         } 
       else { 
-        console.log("mod<0");
         total = roll - modAbs;
-        output = roll + " - " + modAbs + " = " + total;
-        console.log(output);
+        results = roll + " - " + modAbs + " = " + total;
       };
       
-      output.innerHTML = output;
+      output.innerHTML = results;
     }
     
   </script>
