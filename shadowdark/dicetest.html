@@ -41,19 +41,22 @@
     function rollDice(){
       let diceValue = document.querySelector('input[name="dice"]:checked').attributes.dice_type.value;
       let modValue = document.querySelector('input[name="mod"]:checked').attributes.mod_type.value;
-      console.log(modValue);
       let mods = {"str":"-1",
                   "int":"+0",
                   "dex":"+2",
                   "wis":"+1",
                   "con":"+0",
                   "cha":"-2"};
-      console.log(mods[modValue]);
+
       
-      
-      var roll = Math.floor((Math.random() * diceValue) + 1);
-      var mod = mods[modValue];
-      output.innerHTML = roll + ` + ` + mod + ` = ` + (roll + mod);
+      let roll = Math.floor((Math.random() * diceValue) + 1);
+      let mod = Number(mods[modValue]);
+      let operator = "";
+      if ( mod >= 0 ){
+        operator = "+" } else { operator = "-" };
+      let mod = Math.abs(mod);
+      let total = roll + Number(mod);
+      output.innerHTML = roll + operator + mod + ` = ` + total;
     }
     
   </script>
