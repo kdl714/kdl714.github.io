@@ -11,6 +11,17 @@
     <input type="radio" id="d10" dice_type="10" name="dice"><label for="d10">d10</label>
     <input type="radio" id="d12" dice_type="12" name="dice"><label for="d12">d12</label>
     <input type="radio" id="d20" dice_type="20" name="dice"><label for="d20">d20</label>
+    <br>
+    <input type="radio" id="mod-str" mod_type="str" name="mod"><label for="mod">STR</label>
+    <input type="radio" id="mod-int" mod_type="int" name="mod"><label for="mod">INT</label>
+    <input type="radio" id="mod-dex" mod_type="dex" name="mod"><label for="mod">DEX</label>
+    <input type="radio" id="mod-wis" mod_type="wis" name="mod"><label for="mod">WIS</label>
+    <input type="radio" id="mod-con" mod_type="con" name="mod"><label for="mod">CON</label>
+    <input type="radio" id="mod-cha" mod_type="cha" name="mod"><label for="mod">CHA</label>
+    <input type="radio" id="mod-clear" mod_type="clear" name="mod"><label for="mod">NONE</label>
+
+
+
 
     <button id="dicebtn">Roll</button>
     
@@ -29,9 +40,17 @@
 
     function rollDice(){
       let diceValue = document.querySelector('input[name="dice"]:checked').attributes.dice_type.value;
+      let modValue = document.querySelector('input[name="mod"]:checked').attributes.stat_type.value;
+      let mods = {"str":"-1",
+                  "int":"+0",
+                  "dex":"+2",
+                  "wis":"+1",
+                  "con":"+0",
+                  "cha":"-2"}
       
       var roll = Math.floor((Math.random() * diceValue) + 1);
-      output.innerHTML = roll;
+      var mod = mods[modValue];
+      output.innerHTML = roll + ` + ` + mod + ` = ` + (roll + mod);
     }
     
   </script>
