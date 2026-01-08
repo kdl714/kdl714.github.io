@@ -54,7 +54,7 @@
       let operator = "";
       if ( mod >= 0 ){
         operator = "+" } else { operator = "-" };
-      let mod = Math.abs(mod);
+      mod = Math.abs(mod);
       let total = roll + Number(mod);
       output.innerHTML = roll + operator + mod + ` = ` + total;
     }
