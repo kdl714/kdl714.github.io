@@ -28,9 +28,12 @@
     button.addEventListener("click", rollDice );
 
     function rollDice(){
-      let diceSelection = document.querySelector('input[name="dice"]:checked')
-      let selectedDie = diceSelection.replace("d", "");
-      var roll = Math.floor((Math.random() * selectedDie) + 1);
+      let diceSelection = document.querySelector('input[name="dice"]:checked');
+      console.log(diceSelection);
+      let selectedDie = diceSelection.toString().replace("d", "");
+      console.log(selectedDie);
+      
+      var roll = Math.floor((Math.random() * Number(selectedDie)) + 1);
       output.innerHTML = roll;
     }
     
