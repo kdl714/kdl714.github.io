@@ -51,12 +51,23 @@
       
       let roll = Math.floor((Math.random() * diceValue) + 1);
       let mod = Number(mods[modValue]);
-      let operator = "";
-      if ( mod >= 0 ){
-        operator = "+" } else { operator = "-" };
-      mod = Math.abs(mod);
-      let total = roll + Number(mod);
-      output.innerHTML = roll + operator + mod + ` = ` + total;
+      let total = 0;
+      let modAbs = Math.abs(mod);
+      let output = "";
+      
+      if ( roll == 1 || 20 ) {
+        output = "nat " + roll;
+      }
+      else if ( mod >= 0 ){
+        total = roll + modAbs;
+        output = roll + " + " modAbs + " = " + total;
+        } 
+      else { 
+        total = roll - modAbs;
+        output = roll + " - " modAbs + " = " + total;
+      };
+      
+      output.innerHTML = output;
     }
     
   </script>
