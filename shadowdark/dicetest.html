@@ -19,7 +19,11 @@
     <input type="radio" id="mod-con" mod_type="con" name="mod"><label for="mod">CON</label>
     <input type="radio" id="mod-cha" mod_type="cha" name="mod"><label for="mod">CHA</label>
     <input type="radio" id="mod-none" mod_type="NONE" name="mod" checked="checked"><label for="mod">NONE</label>
-
+    <br>
+    <input type="radio" id="adv-adv" adv_type="adv" name="adv"><label for="adv">Advantage</label>
+    <input type="radio" id="adv-dis" adv_type="dis" name="adv"><label for="adv">Disadvantage</label>
+    <input type="radio" id="adv-none" adv_type="NONE" name="adv" checked="checked"><label for="adv">NONE</label>
+    
 
 
 
@@ -36,19 +40,43 @@
     const button = document.getElementById("dicebtn");
     const output = document.getElementById("output");
 
-    button.addEventListener("click", rollDice );
+    button.addEventListener("click", roll );
 
-    function rollDice(){
+    function roll(){
       let diceValue = document.querySelector('input[name="dice"]:checked').attributes.dice_type.value;
       let modValue = document.querySelector('input[name="mod"]:checked').attributes.mod_type.value;
+      let advValue = document.querySelector('input[name="adv"]:checked').attributes.adv_type.value;
+      
       let mods = {"str":"-1",
                   "int":"+0",
                   "dex":"+2",
                   "wis":"+1",
                   "con":"+0",
                   "cha":"-2"};
-
       
+      let die1 = rollDie(diceValue, modValue, mods);
+      let die2 = rollDie(diceValue, modValue, mods);
+
+      if ( advValue == "adv" ){
+        console.log(die1);
+        console.log(die2);
+      }
+      else if ( advValue = "dis" ) {
+        console.log(die1);
+        console.log(die2);
+      }
+      else {
+        console.log(die1);
+      }
+      
+      
+      
+      //output.innerHTML = results;
+    }
+
+
+    function rollDie(){
+
       let roll = Math.floor((Math.random() * diceValue) + 1);
       let mod = Number(mods[modValue]);
       let total = 0;
@@ -57,20 +85,23 @@
 
       if ( roll == 1 || roll == 20 ) {
         results = "nat " + roll;
+        return (roll, results);
       }
       else if ( modValue == "NONE" ) {
         results = roll;
+        return (roll, results);
       } 
       else if ( mod >= 0 ){
         total = roll + modAbs;
         results = roll + " + " + modAbs + " = " + total;
+        return (total, results);
         } 
       else { 
         total = roll - modAbs;
         results = roll + " - " + modAbs + " = " + total;
+        return (total, results);
       };
       
-      output.innerHTML = results;
     }
     
   </script>
