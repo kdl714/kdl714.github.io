@@ -31,4 +31,206 @@
   }
 
   .pill:last-child {
-    border-right: no
+    border-right: none;
+  }
+
+  .pill.active {
+    background: black;
+    color: white;
+  }
+
+  /* ---------- Roll button ---------- */
+
+  #dicebtn {
+    margin-top: 16px;
+    padding: 12px 28px;
+    font-size: 18px;
+    border: 2px solid black;
+    background: black;
+    color: white;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+
+  #dicebtn:active {
+    transform: translateY(1px);
+  }
+
+  /* ---------- Output ---------- */
+
+  #output {
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+  }
+
+  .die {
+    width: 80px;
+    height: 80px;
+  }
+
+  .die rect {
+    fill: white;
+    stroke: black;
+    stroke-width: 2;
+    rx: 12;
+  }
+
+  .die text {
+    font-size: 28px;
+    dominant-baseline: middle;
+    text-anchor: middle;
+    fill: black;
+    font-weight: bold;
+  }
+
+  .winner.adv rect {
+    stroke: green;
+    filter: drop-shadow(0 0 6px rgba(0,128,0,.6));
+  }
+
+  .winner.dis rect {
+    stroke: red;
+    filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
+  }
+
+  /* ---------- Roll flash ---------- */
+
+  @keyframes rollFlash {
+    0% { background: transparent; }
+    30% { background: #f0f0f0; }
+    100% { background: transparent; }
+  }
+
+  #output.rolling {
+    animation: rollFlash 300ms ease;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Dice (exclusive, required) -->
+<div class="pill-group" id="dice-group">
+  <button type="button" class="pill" data-dice="4">d4</button>
+  <button type="button" class="pill" data-dice="6">d6</button>
+  <button type="button" class="pill" data-dice="8">d8</button>
+  <button type="button" class="pill" data-dice="10">d10</button>
+  <button type="button" class="pill" data-dice="12">d12</button>
+  <button type="button" class="pill active" data-dice="20">d20</button>
+</div>
+
+<br>
+
+<!-- Modifier (exclusive, optional) -->
+<div class="pill-group" id="mod-group">
+  <button type="button" class="pill" data-mod="str">STR</button>
+  <button type="button" class="pill" data-mod="int">INT</button>
+  <button type="button" class="pill" data-mod="dex">DEX</button>
+  <button type="button" class="pill" data-mod="wis">WIS</button>
+  <button type="button" class="pill" data-mod="con">CON</button>
+  <button type="button" class="pill" data-mod="cha">CHA</button>
+</div>
+
+<br>
+
+<!-- Advantage (exclusive, optional) -->
+<div class="pill-group" id="adv-group">
+  <button type="button" class="pill" data-adv="adv">Advantage</button>
+  <button type="button" class="pill" data-adv="dis">Disadvantage</button>
+</div>
+
+<br>
+
+<button type="button" id="dicebtn">Roll</button>
+
+<div id="output"></div>
+
+<script>
+  const output = document.getElementById("output");
+
+  const mods = {
+    str: -1, int: 0, dex: 2,
+    wis: 1, con: 0, cha: -2
+  };
+
+  /* Dice: exclusive, never deselect */
+  document.querySelectorAll("#dice-group .pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#dice-group .pill")
+        .forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
+
+  /* Toggle groups (exclusive + deselectable) */
+  function setupToggleGroup(groupId) {
+    document.querySelectorAll(`#${groupId} .pill`).forEach(btn => {
+      btn.addEventListener("click", () => {
+        const wasActive = btn.classList.contains("active");
+
+        document.querySelectorAll(`#${groupId} .pill`)
+          .forEach(b => b.classList.remove("active"));
+
+        if (!wasActive) btn.classList.add("active");
+      });
+    });
+  }
+
+  setupToggleGroup("mod-group");
+  setupToggleGroup("adv-group");
+
+  document.getElementById("dicebtn").addEventListener("click", roll);
+
+  function roll() {
+    const diceBtn = document.querySelector("#dice-group .pill.active");
+    if (!diceBtn) return;
+
+    const diceValue = Number(diceBtn.dataset.dice);
+
+    const modBtn = document.querySelector("#mod-group .pill.active");
+    const advBtn = document.querySelector("#adv-group .pill.active");
+
+    const modValue = modBtn ? modBtn.dataset.mod : null;
+    const advValue = advBtn ? advBtn.dataset.adv : "NONE";
+
+    const d1 = rollDie(diceValue, modValue);
+    const d2 = rollDie(diceValue, modValue);
+
+    output.classList.remove("rolling");
+    void output.offsetWidth;
+    output.classList.add("rolling");
+
+    output.innerHTML = renderDice(d1, d2, advValue);
+  }
+
+  function rollDie(dice, modKey) {
+    const roll = Math.floor(Math.random() * dice) + 1;
+    const mod = modKey ? mods[modKey] : 0;
+    return { total: roll + mod, value: roll + mod };
+  }
+
+  function renderDice(d1, d2, adv) {
+    if (adv === "NONE") return svgDie(d1.value);
+
+    const high = d1.total >= d2.total ? d1 : d2;
+    const low  = d1.total >= d2.total ? d2 : d1;
+
+    const winner = adv === "adv" ? high : low;
+    const loser  = adv === "adv" ? low : high;
+
+    return svgDie(loser.value) + svgDie(winner.value, `winner ${adv}`);
+  }
+
+  function svgDie(val, cls = "") {
+    return `
+      <svg class="die ${cls}" viewBox="0 0 100 100">
+        <rect x="10" y="10" width="80" height="80"></rect>
+        <text x="50" y="55">${val}</text>
+      </svg>
+    `;
+  }
+</script>
+
+</body>
+</html>
