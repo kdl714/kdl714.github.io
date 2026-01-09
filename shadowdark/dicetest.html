@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.2.3 -->
+<!-- v1.2.4 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -11,7 +11,6 @@
   }
 
   /* ---------- Pills ---------- */
-
   .pill-group {
     display: inline-flex;
     border: 1px solid black;
@@ -30,9 +29,7 @@
     user-select: none;
   }
 
-  .pill:last-child {
-    border-right: none;
-  }
+  .pill:last-child { border-right: none; }
 
   .pill.active {
     background: black;
@@ -40,7 +37,6 @@
   }
 
   /* ---------- Roll button ---------- */
-
   #dicebtn {
     margin-top: 16px;
     padding: 12px 28px;
@@ -51,13 +47,9 @@
     cursor: pointer;
     border-radius: 6px;
   }
-
-  #dicebtn:active {
-    transform: translateY(1px);
-  }
+  #dicebtn:active { transform: translateY(1px); }
 
   /* ---------- Output ---------- */
-
   #output {
     margin-top: 24px;
     display: flex;
@@ -75,6 +67,14 @@
     rx: 12;
   }
 
+  /* Normal dice fill */
+  .die.normal rect { fill: white; }
+
+  /* Nat 1 / Nat 20 */
+  .die.nat1 rect { fill: #ff4d4d; }
+  .die.nat20 rect { fill: gold; }
+
+  /* Text inside dice */
   .die text {
     font-size: 28px;
     dominant-baseline: middle;
@@ -83,35 +83,24 @@
     font-weight: bold;
   }
 
-  .die.nat1 rect {
-    fill: #ff4d4d;
-  }
-
-  .die.nat20 rect {
-    fill: gold;
-  }
-
+  /* Winner highlight */
   .winner.adv rect {
     stroke: green;
     filter: drop-shadow(0 0 6px rgba(0,128,0,.6));
   }
-
   .winner.dis rect {
     stroke: red;
     filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
   }
 
-  /* ---------- Roll flash ---------- */
-
+  /* Roll flash animation */
   @keyframes rollFlash {
     0% { background: transparent; }
     30% { background: #f0f0f0; }
     100% { background: transparent; }
   }
 
-  #output.rolling {
-    animation: rollFlash 300ms ease;
-  }
+  #output.rolling { animation: rollFlash 300ms ease; }
 </style>
 </head>
 
@@ -154,104 +143,95 @@
 <div id="output"></div>
 
 <script>
-  const output = document.getElementById("output");
+const output = document.getElementById("output");
 
-  const mods = {
-    str: -1, int: 0, dex: 2,
-    wis: 1, con: 0, cha: -2
-  };
+const mods = { str: -1, int: 0, dex: 2, wis: 1, con: 0, cha: -2 };
 
-  /* Dice: exclusive, never deselect */
-  document.querySelectorAll("#dice-group .pill").forEach(btn => {
+/* Dice: exclusive, never deselect */
+document.querySelectorAll("#dice-group .pill").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#dice-group .pill").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+  });
+});
+
+/* Toggle groups (exclusive + deselectable) */
+function setupToggleGroup(groupId) {
+  document.querySelectorAll(`#${groupId} .pill`).forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("#dice-group .pill")
-        .forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
+      const wasActive = btn.classList.contains("active");
+      document.querySelectorAll(`#${groupId} .pill`).forEach(b => b.classList.remove("active"));
+      if (!wasActive) btn.classList.add("active");
     });
   });
+}
 
-  /* Toggle groups (exclusive + deselectable) */
-  function setupToggleGroup(groupId) {
-    document.querySelectorAll(`#${groupId} .pill`).forEach(btn => {
-      btn.addEventListener("click", () => {
-        const wasActive = btn.classList.contains("active");
-        document.querySelectorAll(`#${groupId} .pill`)
-          .forEach(b => b.classList.remove("active"));
-        if (!wasActive) btn.classList.add("active");
-      });
-    });
+setupToggleGroup("mod-group");
+setupToggleGroup("adv-group");
+
+document.getElementById("dicebtn").addEventListener("click", roll);
+
+function roll() {
+  const diceBtn = document.querySelector("#dice-group .pill.active");
+  if (!diceBtn) return;
+
+  const diceValue = Number(diceBtn.dataset.dice);
+  const modBtn = document.querySelector("#mod-group .pill.active");
+  const advBtn = document.querySelector("#adv-group .pill.active");
+
+  const modValue = modBtn ? modBtn.dataset.mod : null;
+  const advValue = advBtn ? advBtn.dataset.adv : "NONE";
+
+  const d1 = rollDie(diceValue, modValue);
+  const d2 = rollDie(diceValue, modValue);
+
+  output.classList.remove("rolling");
+  void output.offsetWidth;
+  output.classList.add("rolling");
+
+  output.innerHTML = renderDice(d1, d2, advValue, diceValue);
+}
+
+function rollDie(dice, modKey) {
+  const roll = Math.floor(Math.random() * dice) + 1;
+  let nat1 = false, nat20 = false, total = roll;
+
+  if (dice === 20) {
+    if (roll === 1) nat1 = true;
+    else if (roll === 20) nat20 = true;
   }
 
-  setupToggleGroup("mod-group");
-  setupToggleGroup("adv-group");
+  if (!nat1 && !nat20 && modKey) total += mods[modKey];
 
-  document.getElementById("dicebtn").addEventListener("click", roll);
+  return { total, value: total, nat1, nat20 };
+}
 
-  function roll() {
-    const diceBtn = document.querySelector("#dice-group .pill.active");
-    if (!diceBtn) return;
+function renderDice(d1, d2, adv, diceValue) {
+  if (adv === "NONE") return svgDie(d1, diceValue);
 
-    const diceValue = Number(diceBtn.dataset.dice);
-    const modBtn = document.querySelector("#mod-group .pill.active");
-    const advBtn = document.querySelector("#adv-group .pill.active");
+  const high = d1.total >= d2.total ? d1 : d2;
+  const low  = d1.total >= d2.total ? d2 : d1;
 
-    const modValue = modBtn ? modBtn.dataset.mod : null;
-    const advValue = advBtn ? advBtn.dataset.adv : "NONE";
+  const winner = adv === "adv" ? high : low;
+  const loser  = adv === "adv" ? low : high;
 
-    const d1 = rollDie(diceValue, modValue);
-    const d2 = rollDie(diceValue, modValue);
+  return svgDie(loser, diceValue) + svgDie(winner, diceValue, `winner ${adv}`);
+}
 
-    output.classList.remove("rolling");
-    void output.offsetWidth;
-    output.classList.add("rolling");
-
-    output.innerHTML = renderDice(d1, d2, advValue, diceValue);
+function svgDie(d, diceValue, cls = "") {
+  let extraClass = cls || "normal";
+  if (diceValue === 20) {
+    if (d.nat1) extraClass += " nat1";
+    if (d.nat20) extraClass += " nat20";
   }
 
-  function rollDie(dice, modKey) {
-    const roll = Math.floor(Math.random() * dice) + 1;
-    let nat1 = false;
-    let nat20 = false;
-    let total = roll;
-
-    // Only d20 has natural 1 / 20 rules
-    if (dice === 20) {
-      if (roll === 1) nat1 = true;
-      else if (roll === 20) nat20 = true;
-    }
-
-    // Apply modifier only if not nat1/nat20
-    if (!nat1 && !nat20 && modKey) total += mods[modKey];
-
-    return { total, value: total, nat1, nat20 };
-  }
-
-  function renderDice(d1, d2, adv, diceValue) {
-    if (adv === "NONE") return svgDie(d1, diceValue);
-
-    const high = d1.total >= d2.total ? d1 : d2;
-    const low  = d1.total >= d2.total ? d2 : d1;
-
-    const winner = adv === "adv" ? high : low;
-    const loser  = adv === "adv" ? low : high;
-
-    return svgDie(loser, diceValue) + svgDie(winner, diceValue, `winner ${adv}`);
-  }
-
-  function svgDie(d, diceValue, cls = "") {
-    let extraClass = cls;
-    if (diceValue === 20) {
-      if (d.nat1) extraClass += " nat1";
-      if (d.nat20) extraClass += " nat20";
-    }
-
-    return `
-      <svg class="die ${extraClass}" viewBox="0 0 100 100">
-        <rect x="10" y="10" width="80" height="80"></rect>
-        <text x="50" y="55">${d.value}</text>
-      </svg>
-    `;
-  }
+  return `
+    <svg class="die ${extraClass}" viewBox="0 0 100 100">
+      <rect x="10" y="10" width="80" height="80"></rect>
+      <text x="50" y="55">${d.value}</text>
+    </svg>
+  `;
+}
 </script>
 
 </body>
