@@ -1,106 +1,101 @@
 <!doctype html>
-<!-- v1.3.0 -->
+<!-- v1.3.1 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 
 <style>
-  body {
-    font-family: serif;
-    padding: 24px;
-  }
+body {
+  font-family: serif;
+  padding: 24px;
+}
 
-  /* ---------- Pills ---------- */
-  .pill-group {
-    display: inline-flex;
-    border: 1px solid black;
-    border-radius: 999px;
-    overflow: hidden;
-    margin: 6px 0;
-  }
+/* ---------- Pills ---------- */
+.pill-group {
+  display: inline-flex;
+  border: 1px solid black;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 6px 0;
+}
 
-  .pill {
-    padding: 6px 14px;
-    background: white;
-    color: black;
-    border: none;
-    border-right: 1px solid black;
-    cursor: pointer;
-    user-select: none;
-  }
+.pill {
+  padding: 6px 14px;
+  background: white;
+  color: black;
+  border: none;
+  border-right: 1px solid black;
+  cursor: pointer;
+  user-select: none;
+}
 
-  .pill:last-child { border-right: none; }
+.pill:last-child { border-right: none; }
+.pill.active { background: black; color: white; }
 
-  .pill.active {
-    background: black;
-    color: white;
-  }
+/* ---------- Roll button ---------- */
+#dicebtn {
+  margin-top: 16px;
+  padding: 12px 28px;
+  font-size: 18px;
+  border: 2px solid black;
+  background: black;
+  color: white;
+  cursor: pointer;
+  border-radius: 6px;
+}
+#dicebtn:active { transform: translateY(1px); }
 
-  /* ---------- Roll button ---------- */
-  #dicebtn {
-    margin-top: 16px;
-    padding: 12px 28px;
-    font-size: 18px;
-    border: 2px solid black;
-    background: black;
-    color: white;
-    cursor: pointer;
-    border-radius: 6px;
-  }
-  #dicebtn:active { transform: translateY(1px); }
+/* ---------- Output ---------- */
+#output {
+  margin-top: 24px;
+  display: flex;
+  gap: 16px;
+}
 
-  /* ---------- Output ---------- */
-  #output {
-    margin-top: 24px;
-    display: flex;
-    gap: 16px;
-  }
+.die {
+  width: 80px;
+  height: 80px;
+}
 
-  .die {
-    width: 80px;
-    height: 80px;
-  }
+.die rect {
+  stroke: black;
+  stroke-width: 2;
+  rx: 12;
+}
 
-  .die rect {
-    stroke: black;
-    stroke-width: 2;
-    rx: 12;
-  }
+/* Normal die fill */
+.die.normal rect { fill: white; }
 
-  /* Normal dice fill */
-  .die.normal rect { fill: white; }
+/* Nat1 / Nat20 */
+.die.nat1 rect { fill: #ff4d4d; }
+.die.nat20 rect { fill: gold; }
 
-  /* Nat 1 / Nat 20 */
-  .die.nat1 rect { fill: #ff4d4d; }
-  .die.nat20 rect { fill: gold; }
+/* Die text */
+.die text {
+  font-size: 28px;
+  dominant-baseline: middle;
+  text-anchor: middle;
+  fill: black;
+  font-weight: bold;
+}
 
-  /* Text inside dice */
-  .die text {
-    font-size: 28px;
-    dominant-baseline: middle;
-    text-anchor: middle;
-    fill: black;
-    font-weight: bold;
-  }
+/* Winner highlight */
+.winner.adv rect {
+  stroke: green;
+  filter: drop-shadow(0 0 6px rgba(0,128,0,.6));
+}
+.winner.dis rect {
+  stroke: red;
+  filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
+}
 
-  /* Winner highlight */
-  .winner.adv rect {
-    stroke: green;
-    filter: drop-shadow(0 0 6px rgba(0,128,0,.6));
-  }
-  .winner.dis rect {
-    stroke: red;
-    filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
-  }
-
-  /* Roll flash animation */
-  @keyframes rollFlash {
-    0% { background: transparent; }
-    30% { background: #f0f0f0; }
-    100% { background: transparent; }
-  }
-
-  #output.rolling { animation: rollFlash 300ms ease; }
+/* Roll flash animation */
+@keyframes rollFlash {
+  0% { background: transparent; }
+  30% { background: #f0f0f0; }
+  100% { background: transparent; }
+}
+#output.rolling { animation: rollFlash 300ms ease; }
 </style>
 </head>
 
@@ -195,21 +190,19 @@ function roll() {
 function rollDie(dice, modKey) {
   const roll = Math.floor(Math.random() * dice) + 1;
   let nat1 = false, nat20 = false, total = roll;
-  let formula = `${roll}`;
+  let modValue = 0;
 
   if (dice === 20) {
     if (roll === 1) nat1 = true;
     else if (roll === 20) nat20 = true;
   }
 
-  // Apply modifier only if not nat1/nat20
   if (!nat1 && !nat20 && modKey) {
-    const mod = mods[modKey];
-    total += mod;
-    formula = `${roll} ${mod >= 0 ? "+" : "-"} ${Math.abs(mod)} = ${total}`;
+    modValue = mods[modKey];
+    total += modValue;
   }
 
-  return { total, value: total, nat1, nat20, formula };
+  return { roll, mod: modValue, total, nat1, nat20 };
 }
 
 function renderDice(d1, d2, adv, diceValue) {
@@ -227,21 +220,32 @@ function renderDice(d1, d2, adv, diceValue) {
 function svgDie(d, diceValue, cls = "") {
   let extraClass = "normal";
   if (cls) extraClass += " " + cls;
-
   if (diceValue === 20) {
     if (d.nat1) extraClass += " nat1";
     if (d.nat20) extraClass += " nat20";
   }
 
+  // Modifier badge top-left
+  const modBadge = d.mod !== 0 ? `
+    <circle cx="20" cy="20" r="12" fill="#eee" stroke="black" stroke-width="1"/>
+    <text x="20" y="24" font-size="12" text-anchor="middle" dominant-baseline="middle">${d.mod > 0 ? "+" : ""}${d.mod}</text>
+  ` : '';
+
+  // Total badge bottom-right
+  const totalBadge = d.mod !== 0 ? `
+    <circle cx="80" cy="80" r="12" fill="#eee" stroke="black" stroke-width="1"/>
+    <text x="80" y="84" font-size="12" text-anchor="middle" dominant-baseline="middle">${d.total}</text>
+  ` : '';
+
   return `
     <svg class="die ${extraClass}" viewBox="0 0 100 100">
       <rect x="10" y="10" width="80" height="80"></rect>
-      <text x="50" y="45" font-size="18">${d.formula}</text>
+      ${modBadge}
+      ${totalBadge}
+      <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
     </svg>
   `;
 }
-
-
 </script>
 
 </body>
