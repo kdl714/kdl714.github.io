@@ -88,9 +88,10 @@
         results = `<div>` + die2[1] + `</div><div>` + die1[1] + `</div>`;
       }
 
-      let lower = document.querySelector("#lower");
-      let higher = document.querySelector("#higher");
-      console.log(lower)
+      let lower = document.querySelector(".lower");
+      let higher = document.getElementByClassName("higher");
+      console.log(lower);
+      console.log(higher);
 
       lower.style.border = "none"
       higher.style.border = "none"
