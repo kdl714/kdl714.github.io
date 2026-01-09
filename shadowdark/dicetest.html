@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.3 -->
+<!-- v1.3.4 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -100,6 +100,14 @@ body {
   font-size: 16px;
   text-align: center;
 }
+
+/* Roll flash animation */
+@keyframes rollFlash {
+  0% { background: transparent; }
+  50% { background: #f0f0f0; }
+  100% { background: transparent; }
+}
+#output.rolling { animation: rollFlash 300ms ease; }
 </style>
 </head>
 
@@ -183,6 +191,11 @@ function roll() {
   let d2 = null;
   if (advValue !== "NONE") d2 = rollDie(diceValue, modKey);
 
+  // Trigger roll animation even if same numbers
+  output.classList.remove("rolling");
+  void output.offsetWidth;
+  output.classList.add("rolling");
+
   output.innerHTML = renderDice(d1, d2, advValue, diceValue);
 }
 
@@ -210,26 +223,16 @@ function renderDice(d1, d2, adv, diceValue) {
     return renderSingleDie(d1, diceValue, true);
   }
 
-  // With adv/dis
-  const high = d1.total >= d2.total ? d1 : d2;
-  const low  = d1.total >= d2.total ? d2 : d1;
-  let winner, loser;
+  // With advantage/disadvantage
+  let winnerIdx;
+  if (adv === "adv") winnerIdx = d1.total >= d2.total ? 0 : 1;
+  else winnerIdx = d1.total <= d2.total ? 0 : 1;
 
-  if (adv === "adv") {
-    winner = high;
-    loser = low;
-  } else {
-    winner = low;
-    loser = high;
-  }
+  // Tie → pick first die as winner
+  if (d1.total === d2.total) winnerIdx = 0;
 
-  // if tie, pick first die as winner
-  if (winner.total === loser.total) winner = d1;
-
-  return `
-    ${renderSingleDie(loser, diceValue, false)}
-    ${renderSingleDie(winner, diceValue, true, adv)}
-  `;
+  const diceArray = [d1, d2];
+  return diceArray.map((d, idx) => renderSingleDie(d, diceValue, idx === winnerIdx, idx === winnerIdx ? adv : "")).join('');
 }
 
 function renderSingleDie(d, diceValue, showModTotal, adv = "") {
@@ -247,7 +250,7 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
         <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
       </svg>
       ${showModTotal && d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
-      ${showModTotal && d.mod !== 0 ? `<div class="mod-total">Total: ${d.total}</div>` : ''}
+      ${showModTotal ? `<div class="mod-total">Total: ${d.total}</div>` : ''}
     </div>
   `;
 }
