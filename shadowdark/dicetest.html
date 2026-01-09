@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.5 -->
+<!-- v1.3.8.6 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -26,7 +26,6 @@ body {
   border: none;
   border-right: 1px solid black;
   cursor: pointer;
-  user-select: none;
 }
 
 .pill:last-child { border-right: none; }
@@ -43,263 +42,230 @@ body {
   cursor: pointer;
   border-radius: 6px;
 }
-#dicebtn:active { transform: translateY(1px); }
 
 /* ---------- Output ---------- */
 #output {
   margin-top: 24px;
   display: flex;
   gap: 32px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .die-container {
   display: flex;
-  flex-direction: row;
   align-items: center;
   gap: 12px;
 }
 
-/* Die SVG */
 .die {
-  width: 80px;
-  height: 88px;
+  width: 90px;
+  height: 90px;
 }
 
-/* Shapes coloring */
-.die rect, .die polygon {
+.die polygon,
+.die rect {
+  fill: white;
   stroke: black;
   stroke-width: 2;
-  fill: white;
 }
 
-/* Nat1 / Nat20 */
-.die.nat1 polygon, .die.nat1 rect { fill: #ff4d4d; }
-.die.nat20 polygon, .die.nat20 rect { fill: gold; }
-
 /* Winner highlight */
-.winner.adv polygon, .winner.adv rect {
+.winner.adv polygon,
+.winner.adv rect {
   stroke: green;
   filter: drop-shadow(0 0 6px rgba(0,128,0,.6));
 }
-.winner.dis polygon, .winner.dis rect {
+
+.winner.dis polygon,
+.winner.dis rect {
   stroke: red;
   filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
 }
 
-/* Text inside die */
-.die text {
-  font-size: 28px;
-  dominant-baseline: middle;
-  text-anchor: middle;
-  fill: black;
-  font-weight: bold;
-}
+/* Nat 1 / 20 */
+.nat1 polygon,
+.nat1 rect { fill: #ffcccc; }
 
-/* Modifier + Total side panel */
-.mod-total-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.nat20 polygon,
+.nat20 rect { fill: gold; }
+
+.die text {
+  font-size: 20px;
+  font-weight: bold;
+  text-anchor: middle;
+  dominant-baseline: middle;
 }
 
 .mod-total {
   font-size: 16px;
 }
 
-/* Roll flash animation */
-@keyframes rollFlash {
+/* Roll flash */
+@keyframes flash {
   0% { background: transparent; }
-  50% { background: #f0f0f0; }
+  50% { background: #f2f2f2; }
   100% { background: transparent; }
 }
-#output.rolling { animation: rollFlash 300ms ease; }
+#output.rolling { animation: flash .3s ease; }
 </style>
 </head>
 
 <body>
 
-<!-- Dice (exclusive, required) -->
 <div class="pill-group" id="dice-group">
-  <button type="button" class="pill" data-dice="4">d4</button>
-  <button type="button" class="pill" data-dice="6">d6</button>
-  <button type="button" class="pill" data-dice="8">d8</button>
-  <button type="button" class="pill" data-dice="10">d10</button>
-  <button type="button" class="pill" data-dice="12">d12</button>
-  <button type="button" class="pill active" data-dice="20">d20</button>
+  <button class="pill" data-dice="4">d4</button>
+  <button class="pill" data-dice="6">d6</button>
+  <button class="pill" data-dice="8">d8</button>
+  <button class="pill" data-dice="10">d10</button>
+  <button class="pill" data-dice="12">d12</button>
+  <button class="pill active" data-dice="20">d20</button>
 </div>
 
 <br>
 
-<!-- Modifier (exclusive, optional) -->
 <div class="pill-group" id="mod-group">
-  <button type="button" class="pill" data-mod="str">STR</button>
-  <button type="button" class="pill" data-mod="int">INT</button>
-  <button type="button" class="pill" data-mod="dex">DEX</button>
-  <button type="button" class="pill" data-mod="wis">WIS</button>
-  <button type="button" class="pill" data-mod="con">CON</button>
-  <button type="button" class="pill" data-mod="cha">CHA</button>
+  <button class="pill" data-mod="str">STR</button>
+  <button class="pill" data-mod="int">INT</button>
+  <button class="pill" data-mod="dex">DEX</button>
+  <button class="pill" data-mod="wis">WIS</button>
+  <button class="pill" data-mod="con">CON</button>
+  <button class="pill" data-mod="cha">CHA</button>
 </div>
 
 <br>
 
-<!-- Advantage (exclusive, optional) -->
 <div class="pill-group" id="adv-group">
-  <button type="button" class="pill" data-adv="adv">Advantage</button>
-  <button type="button" class="pill" data-adv="dis">Disadvantage</button>
+  <button class="pill" data-adv="adv">Advantage</button>
+  <button class="pill" data-adv="dis">Disadvantage</button>
 </div>
 
 <br>
 
-<button type="button" id="dicebtn">Roll</button>
+<button id="dicebtn">Roll</button>
 
 <div id="output"></div>
 
 <script>
+const mods = { str:-1, int:0, dex:2, wis:1, con:0, cha:-2 };
 const output = document.getElementById("output");
-const mods = { str: -1, int: 0, dex: 2, wis: 1, con: 0, cha: -2 };
 
-/* Dice buttons: exclusive */
-document.querySelectorAll("#dice-group .pill").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll("#dice-group .pill").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-  });
-});
-
-/* Toggle groups (exclusive + deselectable) */
-function setupToggleGroup(groupId) {
-  document.querySelectorAll(`#${groupId} .pill`).forEach(btn => {
-    btn.addEventListener("click", () => {
-      const wasActive = btn.classList.contains("active");
-      document.querySelectorAll(`#${groupId} .pill`).forEach(b => b.classList.remove("active"));
-      if (!wasActive) btn.classList.add("active");
-    });
+/* Pill behavior */
+function exclusive(group) {
+  document.querySelectorAll(group + " .pill").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll(group + " .pill").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    };
   });
 }
-setupToggleGroup("mod-group");
-setupToggleGroup("adv-group");
+function toggle(group) {
+  document.querySelectorAll(group + " .pill").forEach(b => {
+    b.onclick = () => {
+      const on = b.classList.contains("active");
+      document.querySelectorAll(group + " .pill").forEach(x => x.classList.remove("active"));
+      if (!on) b.classList.add("active");
+    };
+  });
+}
 
-document.getElementById("dicebtn").addEventListener("click", roll);
+exclusive("#dice-group");
+toggle("#mod-group");
+toggle("#adv-group");
+
+document.getElementById("dicebtn").onclick = roll;
+
+function rollDie(d, modKey) {
+  const roll = Math.floor(Math.random() * d) + 1;
+  let total = roll;
+  let mod = 0;
+  let nat1 = false, nat20 = false;
+
+  if (d === 20) {
+    if (roll === 1) nat1 = true;
+    if (roll === 20) nat20 = true;
+  }
+
+  if (!nat1 && !nat20 && modKey) {
+    mod = mods[modKey];
+    total += mod;
+  }
+
+  return { roll, total, mod, nat1, nat20 };
+}
 
 function roll() {
-  const diceBtn = document.querySelector("#dice-group .pill.active");
-  if (!diceBtn) return;
-
-  const diceValue = Number(diceBtn.dataset.dice);
-  const modBtn = document.querySelector("#mod-group .pill.active");
-  const advBtn = document.querySelector("#adv-group .pill.active");
+  const dice = +document.querySelector("#dice-group .active").dataset.dice;
+  const modBtn = document.querySelector("#mod-group .active");
+  const advBtn = document.querySelector("#adv-group .active");
 
   const modKey = modBtn ? modBtn.dataset.mod : null;
-  const advValue = advBtn ? advBtn.dataset.adv : "NONE";
+  const adv = advBtn ? advBtn.dataset.adv : "NONE";
 
-  const d1 = rollDie(diceValue, modKey);
-  let d2 = null;
-  if (advValue !== "NONE") d2 = rollDie(diceValue, modKey);
+  const d1 = rollDie(dice, modKey);
+  const d2 = adv !== "NONE" ? rollDie(dice, modKey) : null;
 
   output.classList.remove("rolling");
   void output.offsetWidth;
   output.classList.add("rolling");
 
-  output.innerHTML = renderDice(d1, d2, advValue, diceValue);
+  output.innerHTML = render(d1, d2, adv, dice);
 }
 
-function rollDie(dice, modKey) {
-  const roll = Math.floor(Math.random() * dice) + 1;
-  let nat1 = false, nat20 = false, total = roll;
-  let modValue = 0;
+function render(d1, d2, adv, dice) {
+  if (!d2) return dieHTML(d1, dice, true);
 
-  if (dice === 20) {
-    if (roll === 1) nat1 = true;
-    else if (roll === 20) nat20 = true;
-  }
+  let win = d1.total === d2.total ? d1 :
+            adv === "adv" ? (d1.total > d2.total ? d1 : d2)
+                          : (d1.total < d2.total ? d1 : d2);
 
-  if (!nat1 && !nat20 && modKey) {
-    modValue = mods[modKey];
-    total += modValue;
-  }
-
-  return { roll, mod: modValue, total, nat1, nat20 };
+  return dieHTML(d1, dice, d1 === win, adv) +
+         dieHTML(d2, dice, d2 === win, adv);
 }
 
-function renderDice(d1, d2, adv, diceValue) {
-  if (!d2) return renderSingleDie(d1, diceValue, true);
-
-  let winnerIdx;
-  if (adv === "adv") winnerIdx = d1.total >= d2.total ? 0 : 1;
-  else winnerIdx = d1.total <= d2.total ? 0 : 1;
-  if (d1.total === d2.total) winnerIdx = 0;
-
-  return [d1,d2].map((d, idx) => renderSingleDie(d, diceValue, idx === winnerIdx, idx === winnerIdx ? adv : "")).join('');
-}
-
-function renderSingleDie(d, diceValue, showModTotal, adv = "") {
-  let cls = "normal";
-  if (diceValue === 20) {
-    if (d.nat1) cls += " nat1";
-    if (d.nat20) cls += " nat20";
-  }
-  if (adv) cls += ` winner ${adv}`;
-
-  let shapeSvg = '';
-  let numberX = 50, numberY = 55;
-
-  switch(diceValue) {
-    case 4: // triangle
-      shapeSvg = `<polygon points="50,10 90,85 10,85"/>`;
-      numberY = 60;
-      break;
-
-    case 6: // square
-      shapeSvg = `<rect x="10" y="10" width="80" height="80"/>`;
-      numberY = 55;
-      break;
-
-    case 8: // diamond
-      shapeSvg = `<polygon points="50,5 90,50 50,95 10,50"/>
-                  <polygon points="50,5 90,50 10,50" fill="#f0f0f0"/>`;
-      numberY = 35;
-      break;
-
-    case 10: // proper 4 kite diamond layout
-      shapeSvg = `
-        <!-- Top-left kite -->
-        <polygon points="50,5 50,50 0,50 25,25"/>
-        <!-- Top-right kite (rolled number) -->
-        <polygon points="50,5 100,50 50,50 75,25"/>
-        <!-- Bottom-left kite -->
-        <polygon points="50,50 0,50 50,95 25,75"/>
-        <!-- Bottom-right kite -->
-        <polygon points="50,50 100,50 50,95 75,75"/>
-      `;
-      numberX = 75; // inside top-right kite
-      numberY = 30;
-      break;
-
-    case 12: // hexagon with top triangle
-      shapeSvg = `<polygon points="30,10 70,10 90,50 70,90 30,90 10,50"/>
-                  <polygon points="30,10 70,10 50,50 10,50" fill="#f0f0f0"/>`;
-      numberY = 25;
-      break;
-
-    case 20: // previous
-      shapeSvg = `<polygon points="50,10 80,25 90,50 80,75 50,90 20,75 10,50 20,25"/>`;
-      numberY = 55;
-      break;
-  }
+function dieHTML(d, dice, show, adv="") {
+  let cls = "";
+  if (adv && show) cls = `winner ${adv}`;
+  if (d.nat1) cls += " nat1";
+  if (d.nat20) cls += " nat20";
 
   return `
-    <div class="die-container">
-      <svg class="die ${cls}" viewBox="0 0 100 100">${shapeSvg}
-        <text x="${numberX}" y="${numberY}" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
-      </svg>
-      ${showModTotal ? `
-      <div class="mod-total-container">
-        ${d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
+  <div class="die-container">
+    <svg class="die ${cls}" viewBox="0 0 120 100">
+      ${dieShape(dice, d.roll)}
+    </svg>
+    ${show ? `
+      <div>
+        ${d.mod ? `<div class="mod-total">Mod: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ""}
         <div class="mod-total">Total: ${d.total}</div>
-      </div>` : ''}
-    </div>
-  `;
+      </div>` : ""}
+  </div>`;
+}
+
+function dieShape(d, n) {
+  if (d === 10) {
+    return `
+      <!-- top face -->
+      <polygon points="40,10 80,10 100,30 20,30"/>
+      <!-- left face -->
+      <polygon points="20,30 40,10 40,70 20,90"/>
+      <!-- right face -->
+      <polygon points="80,10 100,30 100,90 80,70"/>
+      <!-- bottom face -->
+      <polygon points="40,70 80,70 100,90 20,90"/>
+
+      <!-- top hash -->
+      <line x1="60" y1="14" x2="60" y2="26" stroke="black" stroke-width="1.5"/>
+      <line x1="50" y1="20" x2="70" y2="20" stroke="black" stroke-width="1.5"/>
+
+      <text x="60" y="22">${n}</text>
+    `;
+  }
+
+  if (d === 4) return `<polygon points="60,10 110,90 10,90"/><text x="60" y="65">${n}</text>`;
+  if (d === 6) return `<rect x="20" y="20" width="80" height="80"/><text x="60" y="60">${n}</text>`;
+  if (d === 8) return `<polygon points="60,5 110,50 60,95 10,50"/><text x="60" y="38">${n}</text>`;
+  if (d === 12) return `<polygon points="40,10 80,10 110,50 80,90 40,90 10,50"/><text x="60" y="60">${n}</text>`;
+  return `<polygon points="60,10 95,25 110,50 95,75 60,90 25,75 10,50 25,25"/><text x="60" y="60">${n}</text>`;
 }
 </script>
 
