@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.2 -->
+<!-- v1.3.8.3 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -246,8 +246,8 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
 
   switch(diceValue) {
     case 4: // triangle
-      shapeSvg = `<polygon points="50,5 95,115 5,115"/>`;
-      numberY = 50; // roughly center in triangle
+      shapeSvg = `<polygon points="50,10 90,85 10,85"/>`; // keep original shape
+      numberY = 60; // centered in triangle
       break;
 
     case 6: // square
@@ -256,9 +256,9 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
       break;
 
     case 8: // diamond
-      shapeSvg = `<polygon points="50,0 90,50 50,100 10,50"/>
-                  <polygon points="50,0 90,50 10,50" fill="#f0f0f0"/>`;
-      numberY = 35; // center in top triangle
+      shapeSvg = `<polygon points="50,5 90,50 50,95 10,50"/>
+                  <polygon points="50,5 90,50 10,50" fill="#f0f0f0"/>`;
+      numberY = 35; // top triangle
       break;
 
     case 10: // shield/diamond
@@ -275,7 +275,7 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
 
     case 20: // keep previous styling untouched
       shapeSvg = `<polygon points="50,10 80,25 90,50 80,75 50,90 20,75 10,50 20,25"/>`;
-      numberY = 55; // centered text
+      numberY = 55;
       break;
   }
 
