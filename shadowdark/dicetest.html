@@ -1,228 +1,224 @@
 <!doctype html>
-<!-- v1.1 -->
+<!-- v1.2 -->
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+<meta charset="utf-8">
 
-  <style>
-    body {
-      font-family: serif;
-      padding: 24px;
-    }
+<style>
+  body {
+    font-family: serif;
+    padding: 24px;
+  }
 
-    /* ---------- Pill radio groups ---------- */
+  /* ---------- Pills ---------- */
 
-    .pill-group {
-      display: inline-flex;
-      border: 1px solid black;
-      border-radius: 999px;
-      overflow: hidden;
-      margin: 6px 0;
-    }
+  .pill-group {
+    display: inline-flex;
+    border: 1px solid black;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 6px 0;
+  }
 
-    .pill-group input[type="radio"] {
-      display: none;
-    }
+  .pill {
+    padding: 6px 14px;
+    background: white;
+    color: black;
+    border: none;
+    border-right: 1px solid black;
+    cursor: pointer;
+  }
 
-    .pill-group label {
-      padding: 6px 14px;
-      cursor: pointer;
-      background: white;
-      color: black;
-      border-right: 1px solid black;
-      user-select: none;
-    }
+  .pill:last-child {
+    border-right: none;
+  }
 
-    .pill-group label:last-child {
-      border-right: none;
-    }
+  .pill.active {
+    background: black;
+    color: white;
+  }
 
-    .pill-group input[type="radio"]:checked + label {
-      background: black;
-      color: white;
-    }
+  /* ---------- Roll button ---------- */
 
-    /* ---------- Roll output ---------- */
+  #dicebtn {
+    margin-top: 16px;
+    padding: 10px 24px;
+    font-size: 18px;
+    border: 2px solid black;
+    background: black;
+    color: white;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+  }
 
-    #output {
-      margin-top: 16px;
-      padding: 8px;
-    }
+  #dicebtn:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 0 6px rgba(0,0,0,0.4);
+  }
 
-    .roll {
-      display: inline-block;
-      padding: 6px 12px;
-      margin: 4px;
-    }
+  /* ---------- Output ---------- */
 
-    .winner.adv {
-      border: 2px solid green;
-    }
+  #output {
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+  }
 
-    .winner.dis {
-      border: 2px solid red;
-    }
+  .die {
+    width: 80px;
+    height: 80px;
+  }
 
-    /* ---------- Roll flash animation ---------- */
+  .die rect {
+    fill: white;
+    stroke: black;
+    stroke-width: 2;
+    rx: 12;
+  }
 
-    @keyframes rollFlash {
-      0%   { background-color: transparent; }
-      30%  { background-color: #f0f0f0; }
-      100% { background-color: transparent; }
-    }
+  .die text {
+    font-size: 28px;
+    dominant-baseline: middle;
+    text-anchor: middle;
+    fill: black;
+    font-weight: bold;
+  }
 
-    #output.rolling {
-      animation: rollFlash 300ms ease;
-    }
-  </style>
+  .winner.adv rect {
+    stroke: green;
+    filter: drop-shadow(0 0 6px rgba(0,128,0,0.6));
+  }
+
+  .winner.dis rect {
+    stroke: red;
+    filter: drop-shadow(0 0 6px rgba(128,0,0,0.6));
+  }
+
+  /* ---------- Roll flash ---------- */
+
+  @keyframes rollFlash {
+    0% { background-color: transparent; }
+    30% { background-color: #f0f0f0; }
+    100% { background-color: transparent; }
+  }
+
+  #output.rolling {
+    animation: rollFlash 300ms ease;
+  }
+</style>
 </head>
 
 <body>
 
-  <!-- Dice -->
-  <div class="pill-group">
-    <input type="radio" id="d4" name="dice" data-dice="4">
-    <label for="d4">d4</label>
+<!-- Dice (exclusive) -->
+<div class="pill-group" id="dice-group">
+  <button class="pill active" data-dice="4">d4</button>
+  <button class="pill" data-dice="6">d6</button>
+  <button class="pill" data-dice="8">d8</button>
+  <button class="pill" data-dice="10">d10</button>
+  <button class="pill" data-dice="12">d12</button>
+  <button class="pill" data-dice="20">d20</button>
+</div>
 
-    <input type="radio" id="d6" name="dice" data-dice="6">
-    <label for="d6">d6</label>
+<br>
 
-    <input type="radio" id="d8" name="dice" data-dice="8">
-    <label for="d8">d8</label>
+<!-- Modifier (toggleable) -->
+<div class="pill-group" id="mod-group">
+  <button class="pill" data-mod="str">STR</button>
+  <button class="pill" data-mod="int">INT</button>
+  <button class="pill" data-mod="dex">DEX</button>
+  <button class="pill" data-mod="wis">WIS</button>
+  <button class="pill" data-mod="con">CON</button>
+  <button class="pill" data-mod="cha">CHA</button>
+</div>
 
-    <input type="radio" id="d10" name="dice" data-dice="10">
-    <label for="d10">d10</label>
+<br>
 
-    <input type="radio" id="d12" name="dice" data-dice="12">
-    <label for="d12">d12</label>
+<!-- Advantage (toggleable) -->
+<div class="pill-group" id="adv-group">
+  <button class="pill" data-adv="adv">Advantage</button>
+  <button class="pill" data-adv="dis">Disadvantage</button>
+</div>
 
-    <input type="radio" id="d20" name="dice" data-dice="20" checked>
-    <label for="d20">d20</label>
-  </div>
+<br>
 
-  <br>
+<button id="dicebtn">Roll</button>
 
-  <!-- Modifiers -->
-  <div class="pill-group">
-    <input type="radio" id="mod-str" name="mod" data-mod="str">
-    <label for="mod-str">STR</label>
+<div id="output"></div>
 
-    <input type="radio" id="mod-int" name="mod" data-mod="int">
-    <label for="mod-int">INT</label>
+<script>
+  const output = document.getElementById("output");
 
-    <input type="radio" id="mod-dex" name="mod" data-mod="dex">
-    <label for="mod-dex">DEX</label>
+  const mods = {
+    str: -1, int: 0, dex: 2,
+    wis: 1, con: 0, cha: -2
+  };
 
-    <input type="radio" id="mod-wis" name="mod" data-mod="wis">
-    <label for="mod-wis">WIS</label>
+  // Dice: exclusive
+  document.querySelectorAll("#dice-group .pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#dice-group .pill")
+        .forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
 
-    <input type="radio" id="mod-con" name="mod" data-mod="con">
-    <label for="mod-con">CON</label>
+  // Mod + Adv: toggleable
+  function makeToggle(groupId) {
+    document.querySelectorAll(`#${groupId} .pill`).forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("active");
+        [...btn.parentElement.children]
+          .filter(b => b !== btn)
+          .forEach(b => b.classList.remove("active"));
+      });
+    });
+  }
 
-    <input type="radio" id="mod-cha" name="mod" data-mod="cha">
-    <label for="mod-cha">CHA</label>
+  makeToggle("mod-group");
+  makeToggle("adv-group");
 
-    <input type="radio" id="mod-none" name="mod" data-mod="NONE" checked>
-    <label for="mod-none">NONE</label>
-  </div>
+  document.getElementById("dicebtn").addEventListener("click", roll);
 
-  <br>
+  function roll() {
+    const diceValue = Number(
+      document.querySelector("#dice-group .pill.active").dataset.dice
+    );
 
-  <!-- Advantage -->
-  <div class="pill-group">
-    <input type="radio" id="adv-adv" name="adv" data-adv="adv">
-    <label for="adv-adv">Advantage</label>
+    const modBtn = document.querySelector("#mod-group .pill.active");
+    const advBtn = document.querySelector("#adv-group .pill.active");
 
-    <input type="radio" id="adv-dis" name="adv" data-adv="dis">
-    <label for="adv-dis">Disadvantage</label>
+    const modValue = modBtn ? modBtn.dataset.mod : null;
+    const advValue = advBtn ? advBtn.dataset.adv : "NONE";
 
-    <input type="radio" id="adv-none" name="adv" data-adv="NONE" checked>
-    <label for="adv-none">NONE</label>
-  </div>
+    const die1 = rollDie(diceValue, modValue);
+    const die2 = rollDie(diceValue, modValue);
 
-  <br><br>
+    output.classList.remove("rolling");
+    void output.offsetWidth;
+    output.classList.add("rolling");
 
-  <button id="dicebtn">Roll</button>
+    output.innerHTML = renderDice(die1, die2, advValue);
+  }
 
-  <div id="output"></div>
+  function rollDie(diceValue, modValue) {
+    const roll = Math.floor(Math.random() * diceValue) + 1;
+    const mod = modValue ? mods[modValue] : 0;
+    return { total: roll + mod, display: roll + mod };
+  }
 
-  <script>
-    const button = document.getElementById("dicebtn");
-    const output = document.getElementById("output");
-
-    const mods = {
-      str: -1,
-      int: 0,
-      dex: 2,
-      wis: 1,
-      con: 0,
-      cha: -2
-    };
-
-    button.addEventListener("click", roll);
-
-    function roll() {
-      const diceValue = Number(
-        document.querySelector('input[name="dice"]:checked').dataset.dice
-      );
-      const modValue =
-        document.querySelector('input[name="mod"]:checked').dataset.mod;
-      const advValue =
-        document.querySelector('input[name="adv"]:checked').dataset.adv;
-
-      const die1 = rollDie(diceValue, modValue);
-      const die2 = rollDie(diceValue, modValue);
-
-      // Trigger roll flash every time
-      output.classList.remove("rolling");
-      void output.offsetWidth;
-      output.classList.add("rolling");
-
-      output.innerHTML = renderResults(die1, die2, advValue);
+  function renderDice(d1, d2, adv) {
+    if (adv === "NONE") {
+      return svgDie(d1.display);
     }
 
-    function rollDie(diceValue, modValue) {
-      const roll = Math.floor(Math.random() * diceValue) + 1;
-      const mod = modValue === "NONE" ? 0 : mods[modValue];
-      const total = roll + mod;
+    let high = d1.total >= d2.total ? d1 : d2;
+    let low  = d1.total >= d2.total ? d2 : d1;
 
-      if (roll === 1 || roll === diceValue) {
-        return { total: roll, text: `nat ${roll}` };
-      }
+    const winner = adv === "adv" ? high : low;
+    const loser  = adv === "adv" ? low : high;
 
-      if (mod === 0) {
-        return { total, text: `${roll}` };
-      }
-
-      const sign = mod > 0 ? "+" : "-";
-      return {
-        total,
-        text: `${roll} ${sign} ${Math.abs(mod)} = ${total}`
-      };
-    }
-
-    function renderResults(die1, die2, advValue) {
-      if (advValue === "NONE") {
-        return `<div class="roll">${die1.text}</div>`;
-      }
-
-      let high = die1;
-      let low = die2;
-
-      if (die2.total > die1.total) {
-        high = die2;
-        low = die1;
-      }
-
-      const winner = advValue === "adv" ? high : low;
-      const loser  = advValue === "adv" ? low  : high;
-
-      return `
-        <div class="roll">${loser.text}</div>
-        <div class="roll winner ${advValue}">${winner.text}</div>
-      `;
-    }
-  </script>
-
-</body>
-</html>
+    return (
+      svgDie(loser.display) +
+      svgDie(winner.display, `winner ${adv}`)
