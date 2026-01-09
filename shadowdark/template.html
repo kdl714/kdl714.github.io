@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.7 - Simplified borders + mobile optimization + save locking -->
+  <!-- v2.8 - Simplified borders + mobile optimization + save locking -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -58,11 +58,11 @@
 
     /* Base input styling */
     input, textarea {
-      border: 2px solid #ddd;
+      border: 2px solid transparent;
       box-sizing: border-box;
       width: 100%;
       font-family: inherit;
-      background: #fff;
+      background: transparent;
       font-size: 14px;
       transition: all 0.2s;
       border-radius: 3px;
@@ -77,10 +77,12 @@
       border-color: #0077cc;
     }
 
-    /* Saving state - solid yellow border */
+    /* Saving state - solid yellow border with lock */
     input.saving, textarea.saving {
       background: #fffbf0;
       border-color: #ffa500;
+      pointer-events: none;
+      opacity: 0.7;
     }
 
     /* Error state - solid red border */
@@ -89,7 +91,7 @@
       border-color: #dc3545;
     }
 
-    input:hover, textarea:hover {
+    input:hover:not(.saving), textarea:hover:not(.saving) {
       background: #f9f9f9;
     }
 
@@ -237,8 +239,74 @@
       grid-template-columns: repeat(3, 1fr);
     }
 
+    body.mobile .stat {
+      padding: 12px 6px;
+    }
+
+    body.mobile .stat-label {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    body.mobile .stat-value input {
+      width: 50px;
+      font-size: 16px;
+    }
+
+    body.mobile .stat-value span {
+      font-size: 16px;
+    }
+
+    body.mobile .box {
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    body.mobile .title {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    body.mobile input,
+    body.mobile textarea {
+      font-size: 16px;
+      padding: 6px;
+    }
+
+    body.mobile .combat-line input {
+      width: 60px;
+      font-size: 18px;
+    }
+
+    body.mobile .attacks textarea {
+      height: 150px;
+    }
+
+    body.mobile .talents textarea {
+      height: 250px;
+    }
+
     body.mobile .gear-list {
       grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    body.mobile .gear-item {
+      font-size: 16px;
+    }
+
+    body.mobile .gear-item span {
+      min-width: 30px;
+    }
+
+    body.mobile .currency-box input {
+      width: 70px;
+      font-size: 18px;
+    }
+
+    body.mobile select {
+      font-size: 16px;
+      padding: 8px;
     }
   </style>
 </head>
@@ -264,6 +332,8 @@ if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(naviga
 let saveTimer;
 let currentChar;
 let saveLock = false;
+let saveQueue = [];
+let currentlySavingInputs = new Set();
 
 function setInputState(input, state) {
   if (!input) return;
@@ -273,11 +343,50 @@ function setInputState(input, state) {
   }
 }
 
-/* ===== Small-field debounce with animation ===== */
-function saveDebounced(id, field, value, inputElement) {
-  if (saveLock) return;
+function executeNextSave() {
+  if (saveQueue.length === 0 || saveLock) return;
+  
+  const nextSave = saveQueue.shift();
+  saveLock = true;
+  currentlySavingInputs.add(nextSave.input);
+  setInputState(nextSave.input, 'saving');
+  
+  const statusEl = document.getElementById('saveStatus');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'status saving';
 
-  setInputState(inputElement, 'saving');
+  google.script.run
+    .withSuccessHandler(() => {
+      saveLock = false;
+      currentlySavingInputs.delete(nextSave.input);
+      setInputState(nextSave.input, null);
+      statusEl.textContent = 'Saved';
+      statusEl.className = 'status saved';
+      executeNextSave();
+    })
+    .withFailureHandler((error) => {
+      saveLock = false;
+      currentlySavingInputs.delete(nextSave.input);
+      setInputState(nextSave.input, 'error');
+      statusEl.textContent = 'Save failed';
+      statusEl.className = 'status';
+      console.error('Save error:', error);
+      
+      setTimeout(() => {
+        setInputState(nextSave.input, null);
+      }, 3000);
+      
+      executeNextSave();
+    })
+    .updateCharacterField(nextSave.id, nextSave.field, nextSave.value);
+}
+
+/* ===== Small-field debounce with save queue ===== */
+function saveDebounced(id, field, value, inputElement) {
+  // Don't allow new edits to inputs that are currently saving
+  if (currentlySavingInputs.has(inputElement)) {
+    return;
+  }
 
   const statusEl = document.getElementById('saveStatus');
   statusEl.textContent = 'Saving…';
@@ -285,48 +394,25 @@ function saveDebounced(id, field, value, inputElement) {
 
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    saveLock = true;
-
-    google.script.run
-      .withSuccessHandler(() => {
-        saveLock = false;
-        setInputState(inputElement, null);
-        statusEl.textContent = 'Saved';
-        statusEl.className = 'status saved';
-      })
-      .withFailureHandler((error) => {
-        saveLock = false;
-        setInputState(inputElement, 'error');
-        statusEl.textContent = 'Save failed';
-        statusEl.className = 'status';
-        console.error('Save error:', error);
-        
-        setTimeout(() => {
-          setInputState(inputElement, null);
-        }, 3000);
-      })
-      .updateCharacterField(id, field, value);
+    // Remove any existing queued saves for this input
+    saveQueue = saveQueue.filter(item => item.input !== inputElement);
+    
+    // Add to queue
+    saveQueue.push({ id, field, value, input: inputElement });
+    
+    executeNextSave();
   }, 600);
 }
 
-/* ===== Hybrid debounce for large text fields ===== */
+/* ===== Text field debounce with save queue ===== */
 const textSaveTimers = {};
 const textLastSaved = {};
-let activeTextSaves = 0;
-
-function updateSaveStatus() {
-  const statusEl = document.getElementById('saveStatus');
-  if (activeTextSaves > 0) {
-    statusEl.textContent = 'Saving…';
-    statusEl.className = 'status saving';
-  } else {
-    statusEl.textContent = 'Saved';
-    statusEl.className = 'status saved';
-  }
-}
 
 function saveTextFieldDebounced(id, field, value, inputElement) {
-  setInputState(inputElement, 'saving');
+  // Don't queue new saves for inputs currently saving
+  if (currentlySavingInputs.has(inputElement)) {
+    return;
+  }
   
   clearTimeout(textSaveTimers[field]);
   textSaveTimers[field] = setTimeout(() => {
@@ -336,33 +422,29 @@ function saveTextFieldDebounced(id, field, value, inputElement) {
 
 function forceSaveTextField(id, field, value, inputElement) {
   if (textLastSaved[field] === value) {
-    setInputState(inputElement, null);
+    return;
+  }
+  
+  // Don't queue new saves for inputs currently saving
+  if (currentlySavingInputs.has(inputElement)) {
     return;
   }
 
   clearTimeout(textSaveTimers[field]);
-  activeTextSaves++;
-  setInputState(inputElement, 'saving');
-  updateSaveStatus();
-
-  google.script.run
-    .withSuccessHandler(() => {
-      textLastSaved[field] = value;
-      activeTextSaves--;
-      setInputState(inputElement, null);
-      updateSaveStatus();
-    })
-    .withFailureHandler((error) => {
-      activeTextSaves--;
-      setInputState(inputElement, 'error');
-      updateSaveStatus();
-      console.error('Save error:', error);
-      
-      setTimeout(() => {
-        setInputState(inputElement, null);
-      }, 3000);
-    })
-    .updateCharacterField(id, field, value);
+  
+  // Remove any existing queued saves for this input
+  saveQueue = saveQueue.filter(item => item.input !== inputElement);
+  
+  // Add to queue with text field flag
+  saveQueue.push({ 
+    id, 
+    field, 
+    value, 
+    input: inputElement,
+    isTextField: true
+  });
+  
+  executeNextSave();
 }
 
 function mod(v) { return Math.floor((v - 10)/2); }
