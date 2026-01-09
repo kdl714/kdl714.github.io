@@ -1,4 +1,5 @@
 <!doctype html>
+<!--v.1.0.2-->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -109,23 +110,28 @@
     }
 
     function renderResults(die1, die2, advValue) {
-      if (advValue === "NONE") {
-        return `<div class="roll">${die1.text}</div>`;
-      }
-
-      let winner = die1;
-      let loser = die2;
-
-      if (die2.total > die1.total) {
-        winner = die2;
-        loser = die1;
-      }
-
-      return `
-        <div class="roll">${loser.text}</div>
-        <div class="roll winner ${advValue}">${winner.text}</div>
-      `;
+    // No advantage/disadvantage
+    if (advValue === "NONE") {
+      return `<div class="roll">${die1.text}</div>`;
     }
+  
+    let high = die1;
+    let low = die2;
+  
+    if (die2.total > die1.total) {
+      high = die2;
+      low = die1;
+    }
+  
+    const winner = advValue === "adv" ? high : low;
+    const loser  = advValue === "adv" ? low  : high;
+  
+    return `
+      <div class="roll">${loser.text}</div>
+      <div class="roll winner ${advValue}">${winner.text}</div>
+    `;
+  }
+
   </script>
 
 </body>
