@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.1 -->
+<!-- v1.3.2 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -49,7 +49,14 @@ body {
 #output {
   margin-top: 24px;
   display: flex;
-  gap: 16px;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.die-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .die {
@@ -61,23 +68,12 @@ body {
   stroke: black;
   stroke-width: 2;
   rx: 12;
+  fill: white;
 }
-
-/* Normal die fill */
-.die.normal rect { fill: white; }
 
 /* Nat1 / Nat20 */
 .die.nat1 rect { fill: #ff4d4d; }
 .die.nat20 rect { fill: gold; }
-
-/* Die text */
-.die text {
-  font-size: 28px;
-  dominant-baseline: middle;
-  text-anchor: middle;
-  fill: black;
-  font-weight: bold;
-}
 
 /* Winner highlight */
 .winner.adv rect {
@@ -89,13 +85,21 @@ body {
   filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
 }
 
-/* Roll flash animation */
-@keyframes rollFlash {
-  0% { background: transparent; }
-  30% { background: #f0f0f0; }
-  100% { background: transparent; }
+/* Text inside die */
+.die text {
+  font-size: 28px;
+  dominant-baseline: middle;
+  text-anchor: middle;
+  fill: black;
+  font-weight: bold;
 }
-#output.rolling { animation: rollFlash 300ms ease; }
+
+/* Mod + Total display */
+.mod-total {
+  margin-top: 4px;
+  font-size: 16px;
+  text-align: center;
+}
 </style>
 </head>
 
@@ -139,10 +143,9 @@ body {
 
 <script>
 const output = document.getElementById("output");
-
 const mods = { str: -1, int: 0, dex: 2, wis: 1, con: 0, cha: -2 };
 
-/* Dice: exclusive, never deselect */
+/* Dice buttons: exclusive */
 document.querySelectorAll("#dice-group .pill").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("#dice-group .pill").forEach(b => b.classList.remove("active"));
@@ -160,7 +163,6 @@ function setupToggleGroup(groupId) {
     });
   });
 }
-
 setupToggleGroup("mod-group");
 setupToggleGroup("adv-group");
 
@@ -174,15 +176,11 @@ function roll() {
   const modBtn = document.querySelector("#mod-group .pill.active");
   const advBtn = document.querySelector("#adv-group .pill.active");
 
-  const modValue = modBtn ? modBtn.dataset.mod : null;
+  const modKey = modBtn ? modBtn.dataset.mod : null;
   const advValue = advBtn ? advBtn.dataset.adv : "NONE";
 
-  const d1 = rollDie(diceValue, modValue);
-  const d2 = rollDie(diceValue, modValue);
-
-  output.classList.remove("rolling");
-  void output.offsetWidth;
-  output.classList.add("rolling");
+  const d1 = rollDie(diceValue, modKey);
+  const d2 = rollDie(diceValue, modKey);
 
   output.innerHTML = renderDice(d1, d2, advValue, diceValue);
 }
@@ -206,45 +204,33 @@ function rollDie(dice, modKey) {
 }
 
 function renderDice(d1, d2, adv, diceValue) {
-  if (adv === "NONE") return svgDie(d1, diceValue);
+  let diceArray = [d1, d2];
+  let winnerIdx = null;
 
-  const high = d1.total >= d2.total ? d1 : d2;
-  const low  = d1.total >= d2.total ? d2 : d1;
-
-  const winner = adv === "adv" ? high : low;
-  const loser  = adv === "adv" ? low : high;
-
-  return svgDie(loser, diceValue) + svgDie(winner, diceValue, `winner ${adv}`);
-}
-
-function svgDie(d, diceValue, cls = "") {
-  let extraClass = "normal";
-  if (cls) extraClass += " " + cls;
-  if (diceValue === 20) {
-    if (d.nat1) extraClass += " nat1";
-    if (d.nat20) extraClass += " nat20";
+  if (adv !== "NONE") {
+    if (adv === "adv") winnerIdx = d1.total >= d2.total ? 0 : 1;
+    else winnerIdx = d1.total <= d2.total ? 0 : 1; // disadvantage picks lower
   }
 
-  // Modifier badge top-left
-  const modBadge = d.mod !== 0 ? `
-    <circle cx="20" cy="20" r="12" fill="#eee" stroke="black" stroke-width="1"/>
-    <text x="20" y="24" font-size="12" text-anchor="middle" dominant-baseline="middle">${d.mod > 0 ? "+" : ""}${d.mod}</text>
-  ` : '';
+  return diceArray.map((d, idx) => {
+    let cls = "normal";
+    if (diceValue === 20) {
+      if (d.nat1) cls += " nat1";
+      if (d.nat20) cls += " nat20";
+    }
+    if (winnerIdx === idx) cls += ` winner ${adv}`;
 
-  // Total badge bottom-right
-  const totalBadge = d.mod !== 0 ? `
-    <circle cx="80" cy="80" r="12" fill="#eee" stroke="black" stroke-width="1"/>
-    <text x="80" y="84" font-size="12" text-anchor="middle" dominant-baseline="middle">${d.total}</text>
-  ` : '';
-
-  return `
-    <svg class="die ${extraClass}" viewBox="0 0 100 100">
-      <rect x="10" y="10" width="80" height="80"></rect>
-      ${modBadge}
-      ${totalBadge}
-      <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
-    </svg>
-  `;
+    return `
+      <div class="die-container">
+        <svg class="die ${cls}" viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80"></rect>
+          <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
+        </svg>
+        ${d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
+        ${d.mod !== 0 ? `<div class="mod-total">Total: ${d.total}</div>` : ''}
+      </div>
+    `;
+  }).join('');
 }
 </script>
 
