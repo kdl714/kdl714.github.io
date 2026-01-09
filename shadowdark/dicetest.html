@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.4 -->
+<!-- v1.3.8.5 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -261,20 +261,19 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
       numberY = 35;
       break;
 
-    case 10: // 4 kite layout
-      // Coordinates of 4 kites
+    case 10: // proper 4 kite diamond layout
       shapeSvg = `
         <!-- Top-left kite -->
-        <polygon points="50,5 25,45 50,65 75,25" />
+        <polygon points="50,5 50,50 0,50 25,25"/>
         <!-- Top-right kite (rolled number) -->
-        <polygon points="50,5 75,25 50,65 25,45" />
+        <polygon points="50,5 100,50 50,50 75,25"/>
         <!-- Bottom-left kite -->
-        <polygon points="50,65 25,85 50,115 75,95" />
+        <polygon points="50,50 0,50 50,95 25,75"/>
         <!-- Bottom-right kite -->
-        <polygon points="50,65 75,95 50,115 25,85" />
+        <polygon points="50,50 100,50 50,95 75,75"/>
       `;
-      numberX = 62; // roughly inside top-right kite
-      numberY = 35;
+      numberX = 75; // inside top-right kite
+      numberY = 30;
       break;
 
     case 12: // hexagon with top triangle
@@ -291,7 +290,7 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
 
   return `
     <div class="die-container">
-      <svg class="die ${cls}" viewBox="0 0 100 120">${shapeSvg}
+      <svg class="die ${cls}" viewBox="0 0 100 100">${shapeSvg}
         <text x="${numberX}" y="${numberY}" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
       </svg>
       ${showModTotal ? `
