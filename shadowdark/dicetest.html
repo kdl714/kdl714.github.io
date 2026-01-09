@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.4 -->
+<!-- v1.3.5 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -49,16 +49,18 @@ body {
 #output {
   margin-top: 24px;
   display: flex;
-  gap: 24px;
+  gap: 32px;
   align-items: flex-start;
 }
 
 .die-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  gap: 12px;
 }
 
+/* Die SVG */
 .die {
   width: 80px;
   height: 80px;
@@ -94,11 +96,15 @@ body {
   font-weight: bold;
 }
 
-/* Mod + Total display */
+/* Modifier + Total side panel */
+.mod-total-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .mod-total {
-  margin-top: 4px;
   font-size: 16px;
-  text-align: center;
 }
 
 /* Roll flash animation */
@@ -191,7 +197,7 @@ function roll() {
   let d2 = null;
   if (advValue !== "NONE") d2 = rollDie(diceValue, modKey);
 
-  // Trigger roll animation even if same numbers
+  // Trigger roll animation even if numbers are same
   output.classList.remove("rolling");
   void output.offsetWidth;
   output.classList.add("rolling");
@@ -249,8 +255,11 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
         <rect x="10" y="10" width="80" height="80"></rect>
         <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
       </svg>
-      ${showModTotal && d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
-      ${showModTotal ? `<div class="mod-total">Total: ${d.total}</div>` : ''}
+      ${showModTotal ? `
+      <div class="mod-total-container">
+        ${d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
+        <div class="mod-total">Total: ${d.total}</div>
+      </div>` : ''}
     </div>
   `;
 }
