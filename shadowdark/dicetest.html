@@ -86,13 +86,17 @@
         results = `<div>` + die2[1] + `</div><div>` + die1[1] + `</div>`;
       }
 
-      //let lower = document.querySelector("#
+      let lower = document.querySelector("#lower");
+      let higher = document.querySelector("#higher");
+
+      lower.style.border = "none"
+      higher.style.border = "none"
 
       if ( advValue == "adv" ){
-        
+        higher.style.border = "1px solid green"
       }
       else if ( advValue = "dis" ) {
-        
+        lower.style.border = "1px solid red"
       }
       
       
