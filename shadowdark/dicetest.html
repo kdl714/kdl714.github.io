@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.7 -->
+<!-- v1.3.8 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -243,26 +243,48 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
   if (adv) cls += ` winner ${adv}`;
 
   let shapeSvg = '';
+  let numberY = 55; // default center
+
   switch(diceValue) {
     case 4: // triangle
-      shapeSvg = `<polygon points="50,10 90,85 10,85"/>`; break;
+      shapeSvg = `<polygon points="50,10 90,85 10,85"/>`;
+      numberY = 50; // center
+      break;
+
     case 6: // square
-      shapeSvg = `<rect x="10" y="10" width="80" height="80"/>`; break;
+      shapeSvg = `<rect x="10" y="10" width="80" height="80"/>`;
+      numberY = 55;
+      break;
+
     case 8: // diamond
       shapeSvg = `<polygon points="50,0 90,50 50,100 10,50"/>
-                  <polygon points="50,0 90,50 10,50" fill="#f0f0f0"/>`; break;
+                  <polygon points="50,0 90,50 10,50" fill="#f0f0f0"/>`;
+      numberY = 25; // top triangle
+      break;
+
     case 10: // pentagon
-      shapeSvg = `<polygon points="50,10 90,40 73,90 27,90 10,40"/>`; break;
+      shapeSvg = `<polygon points="50,10 90,40 73,90 27,90 10,40"/>
+                  <polygon points="50,10 90,40 10,40" fill="#f0f0f0"/>`;
+      numberY = 25; // top triangle
+      break;
+
     case 12: // hexagon
-      shapeSvg = `<polygon points="30,10 70,10 90,50 70,90 30,90 10,50"/>`; break;
+      shapeSvg = `<polygon points="30,10 70,10 90,50 70,90 30,90 10,50"/>
+                  <polygon points="30,10 70,10 50,50 10,50" fill="#f0f0f0"/>`;
+      numberY = 25; // top triangle
+      break;
+
     case 20: // approximated icosahedron
-      shapeSvg = `<polygon points="50,10 80,25 90,50 80,75 50,90 20,75 10,50 20,25"/>`; break;
+      shapeSvg = `<polygon points="50,10 80,25 90,50 80,75 50,90 20,75 10,50 20,25"/>
+                  <polygon points="50,10 80,25 20,25" fill="#f0f0f0"/>`;
+      numberY = 25; // top triangle
+      break;
   }
 
   return `
     <div class="die-container">
       <svg class="die ${cls}" viewBox="0 0 100 100">${shapeSvg}
-        <text x="50" y="55">${d.roll}</text>
+        <text x="50" y="${numberY}" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
       </svg>
       ${showModTotal ? `
       <div class="mod-total-container">
@@ -272,6 +294,7 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
     </div>
   `;
 }
+
 </script>
 
 </body>
