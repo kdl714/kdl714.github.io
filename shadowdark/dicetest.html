@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.2.5 -->
+<!-- v1.3.0 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -195,15 +195,21 @@ function roll() {
 function rollDie(dice, modKey) {
   const roll = Math.floor(Math.random() * dice) + 1;
   let nat1 = false, nat20 = false, total = roll;
+  let formula = `${roll}`;
 
   if (dice === 20) {
     if (roll === 1) nat1 = true;
     else if (roll === 20) nat20 = true;
   }
 
-  if (!nat1 && !nat20 && modKey) total += mods[modKey];
+  // Apply modifier only if not nat1/nat20
+  if (!nat1 && !nat20 && modKey) {
+    const mod = mods[modKey];
+    total += mod;
+    formula = `${roll} ${mod >= 0 ? "+" : "-"} ${Math.abs(mod)} = ${total}`;
+  }
 
-  return { total, value: total, nat1, nat20 };
+  return { total, value: total, nat1, nat20, formula };
 }
 
 function renderDice(d1, d2, adv, diceValue) {
@@ -219,13 +225,9 @@ function renderDice(d1, d2, adv, diceValue) {
 }
 
 function svgDie(d, diceValue, cls = "") {
-  // always start with "normal"
   let extraClass = "normal";
-
-  // Append winner/adv/dis class if passed
   if (cls) extraClass += " " + cls;
 
-  // Append nat1/nat20 if d20
   if (diceValue === 20) {
     if (d.nat1) extraClass += " nat1";
     if (d.nat20) extraClass += " nat20";
@@ -234,10 +236,11 @@ function svgDie(d, diceValue, cls = "") {
   return `
     <svg class="die ${extraClass}" viewBox="0 0 100 100">
       <rect x="10" y="10" width="80" height="80"></rect>
-      <text x="50" y="55">${d.value}</text>
+      <text x="50" y="45" font-size="18">${d.formula}</text>
     </svg>
   `;
 }
+
 
 </script>
 
