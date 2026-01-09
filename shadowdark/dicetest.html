@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.2 -->
+<!-- v1.3.3 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -180,7 +180,8 @@ function roll() {
   const advValue = advBtn ? advBtn.dataset.adv : "NONE";
 
   const d1 = rollDie(diceValue, modKey);
-  const d2 = rollDie(diceValue, modKey);
+  let d2 = null;
+  if (advValue !== "NONE") d2 = rollDie(diceValue, modKey);
 
   output.innerHTML = renderDice(d1, d2, advValue, diceValue);
 }
@@ -204,33 +205,51 @@ function rollDie(dice, modKey) {
 }
 
 function renderDice(d1, d2, adv, diceValue) {
-  let diceArray = [d1, d2];
-  let winnerIdx = null;
-
-  if (adv !== "NONE") {
-    if (adv === "adv") winnerIdx = d1.total >= d2.total ? 0 : 1;
-    else winnerIdx = d1.total <= d2.total ? 0 : 1; // disadvantage picks lower
+  if (!d2) {
+    // No advantage/disadvantage → show only one die
+    return renderSingleDie(d1, diceValue, true);
   }
 
-  return diceArray.map((d, idx) => {
-    let cls = "normal";
-    if (diceValue === 20) {
-      if (d.nat1) cls += " nat1";
-      if (d.nat20) cls += " nat20";
-    }
-    if (winnerIdx === idx) cls += ` winner ${adv}`;
+  // With adv/dis
+  const high = d1.total >= d2.total ? d1 : d2;
+  const low  = d1.total >= d2.total ? d2 : d1;
+  let winner, loser;
 
-    return `
-      <div class="die-container">
-        <svg class="die ${cls}" viewBox="0 0 100 100">
-          <rect x="10" y="10" width="80" height="80"></rect>
-          <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
-        </svg>
-        ${d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
-        ${d.mod !== 0 ? `<div class="mod-total">Total: ${d.total}</div>` : ''}
-      </div>
-    `;
-  }).join('');
+  if (adv === "adv") {
+    winner = high;
+    loser = low;
+  } else {
+    winner = low;
+    loser = high;
+  }
+
+  // if tie, pick first die as winner
+  if (winner.total === loser.total) winner = d1;
+
+  return `
+    ${renderSingleDie(loser, diceValue, false)}
+    ${renderSingleDie(winner, diceValue, true, adv)}
+  `;
+}
+
+function renderSingleDie(d, diceValue, showModTotal, adv = "") {
+  let cls = "normal";
+  if (diceValue === 20) {
+    if (d.nat1) cls += " nat1";
+    if (d.nat20) cls += " nat20";
+  }
+  if (adv) cls += ` winner ${adv}`;
+
+  return `
+    <div class="die-container">
+      <svg class="die ${cls}" viewBox="0 0 100 100">
+        <rect x="10" y="10" width="80" height="80"></rect>
+        <text x="50" y="55" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
+      </svg>
+      ${showModTotal && d.mod !== 0 ? `<div class="mod-total">Modifier: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ''}
+      ${showModTotal && d.mod !== 0 ? `<div class="mod-total">Total: ${d.total}</div>` : ''}
+    </div>
+  `;
 }
 </script>
 
