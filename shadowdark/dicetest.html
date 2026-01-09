@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- 1.3.8.1 -->
+<!-- v1.3.8.2 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -63,7 +63,7 @@ body {
 /* Die SVG */
 .die {
   width: 80px;
-  height: 88px; /* slightly taller to prevent clipping */
+  height: 88px;
 }
 
 /* Shapes coloring */
@@ -125,6 +125,7 @@ body {
   <button type="button" class="pill" data-dice="6">d6</button>
   <button type="button" class="pill" data-dice="8">d8</button>
   <button type="button" class="pill" data-dice="10">d10</button>
+  <button type="button" class="pill" data-dice="12">d12</button>
   <button type="button" class="pill active" data-dice="20">d20</button>
 </div>
 
@@ -245,8 +246,8 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
 
   switch(diceValue) {
     case 4: // triangle
-      shapeSvg = `<polygon points="50,10 90,95 10,95"/>`;
-      numberY = 45; // center in top half
+      shapeSvg = `<polygon points="50,5 95,115 5,115"/>`;
+      numberY = 50; // roughly center in triangle
       break;
 
     case 6: // square
@@ -266,12 +267,21 @@ function renderSingleDie(d, diceValue, showModTotal, adv = "") {
       numberY = 25; // top triangle
       break;
 
-    // d12 & d20 will be handled in next refinement
+    case 12: // hexagon with top triangle
+      shapeSvg = `<polygon points="30,10 70,10 90,50 70,90 30,90 10,50"/>
+                  <polygon points="30,10 70,10 50,50 10,50" fill="#f0f0f0"/>`;
+      numberY = 25; // top triangle
+      break;
+
+    case 20: // keep previous styling untouched
+      shapeSvg = `<polygon points="50,10 80,25 90,50 80,75 50,90 20,75 10,50 20,25"/>`;
+      numberY = 55; // centered text
+      break;
   }
 
   return `
     <div class="die-container">
-      <svg class="die ${cls}" viewBox="0 0 100 110">${shapeSvg}
+      <svg class="die ${cls}" viewBox="0 0 100 120">${shapeSvg}
         <text x="50" y="${numberY}" font-size="28" text-anchor="middle" dominant-baseline="middle">${d.roll}</text>
       </svg>
       ${showModTotal ? `
