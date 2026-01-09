@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v2.8 - Simplified borders + mobile optimization + save locking -->
+  <!-- v2.9 - Global input locking during saves -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -81,8 +81,13 @@
     input.saving, textarea.saving {
       background: #fffbf0;
       border-color: #ffa500;
+    }
+
+    /* Global lock when any save is in progress */
+    body.save-in-progress input:not(.saving),
+    body.save-in-progress textarea:not(.saving) {
       pointer-events: none;
-      opacity: 0.7;
+      opacity: 0.5;
     }
 
     /* Error state - solid red border */
