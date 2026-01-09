@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.2.4 -->
+<!-- v1.2.5 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -219,7 +219,13 @@ function renderDice(d1, d2, adv, diceValue) {
 }
 
 function svgDie(d, diceValue, cls = "") {
-  let extraClass = cls || "normal";
+  // always start with "normal"
+  let extraClass = "normal";
+
+  // Append winner/adv/dis class if passed
+  if (cls) extraClass += " " + cls;
+
+  // Append nat1/nat20 if d20
   if (diceValue === 20) {
     if (d.nat1) extraClass += " nat1";
     if (d.nat20) extraClass += " nat20";
@@ -232,6 +238,7 @@ function svgDie(d, diceValue, cls = "") {
     </svg>
   `;
 }
+
 </script>
 
 </body>
