@@ -1,5 +1,5 @@
 <!doctype html>
-<!--v.1.0.2-->
+<!-- v1.1 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -10,10 +10,49 @@
       padding: 24px;
     }
 
-    .roll {
+    /* ---------- Pill radio groups ---------- */
+
+    .pill-group {
+      display: inline-flex;
+      border: 1px solid black;
+      border-radius: 999px;
+      overflow: hidden;
       margin: 6px 0;
-      padding: 6px 10px;
+    }
+
+    .pill-group input[type="radio"] {
+      display: none;
+    }
+
+    .pill-group label {
+      padding: 6px 14px;
+      cursor: pointer;
+      background: white;
+      color: black;
+      border-right: 1px solid black;
+      user-select: none;
+    }
+
+    .pill-group label:last-child {
+      border-right: none;
+    }
+
+    .pill-group input[type="radio"]:checked + label {
+      background: black;
+      color: white;
+    }
+
+    /* ---------- Roll output ---------- */
+
+    #output {
+      margin-top: 16px;
+      padding: 8px;
+    }
+
+    .roll {
       display: inline-block;
+      padding: 6px 12px;
+      margin: 4px;
     }
 
     .winner.adv {
@@ -23,39 +62,87 @@
     .winner.dis {
       border: 2px solid red;
     }
+
+    /* ---------- Roll flash animation ---------- */
+
+    @keyframes rollFlash {
+      0%   { background-color: transparent; }
+      30%  { background-color: #f0f0f0; }
+      100% { background-color: transparent; }
+    }
+
+    #output.rolling {
+      animation: rollFlash 300ms ease;
+    }
   </style>
 </head>
 
 <body>
 
-  <div>
-    <!-- Dice -->
-    <input type="radio" name="dice" data-dice="4"> d4
-    <input type="radio" name="dice" data-dice="6"> d6
-    <input type="radio" name="dice" data-dice="8"> d8
-    <input type="radio" name="dice" data-dice="10"> d10
-    <input type="radio" name="dice" data-dice="12"> d12
-    <input type="radio" name="dice" data-dice="20" checked> d20
-    <br>
+  <!-- Dice -->
+  <div class="pill-group">
+    <input type="radio" id="d4" name="dice" data-dice="4">
+    <label for="d4">d4</label>
 
-    <!-- Modifiers -->
-    <input type="radio" name="mod" data-mod="str"> STR
-    <input type="radio" name="mod" data-mod="int"> INT
-    <input type="radio" name="mod" data-mod="dex"> DEX
-    <input type="radio" name="mod" data-mod="wis"> WIS
-    <input type="radio" name="mod" data-mod="con"> CON
-    <input type="radio" name="mod" data-mod="cha"> CHA
-    <input type="radio" name="mod" data-mod="NONE" checked> NONE
-    <br>
+    <input type="radio" id="d6" name="dice" data-dice="6">
+    <label for="d6">d6</label>
 
-    <!-- Advantage -->
-    <input type="radio" name="adv" data-adv="adv"> Advantage
-    <input type="radio" name="adv" data-adv="dis"> Disadvantage
-    <input type="radio" name="adv" data-adv="NONE" checked> NONE
-    <br><br>
+    <input type="radio" id="d8" name="dice" data-dice="8">
+    <label for="d8">d8</label>
 
-    <button id="dicebtn">Roll</button>
+    <input type="radio" id="d10" name="dice" data-dice="10">
+    <label for="d10">d10</label>
+
+    <input type="radio" id="d12" name="dice" data-dice="12">
+    <label for="d12">d12</label>
+
+    <input type="radio" id="d20" name="dice" data-dice="20" checked>
+    <label for="d20">d20</label>
   </div>
+
+  <br>
+
+  <!-- Modifiers -->
+  <div class="pill-group">
+    <input type="radio" id="mod-str" name="mod" data-mod="str">
+    <label for="mod-str">STR</label>
+
+    <input type="radio" id="mod-int" name="mod" data-mod="int">
+    <label for="mod-int">INT</label>
+
+    <input type="radio" id="mod-dex" name="mod" data-mod="dex">
+    <label for="mod-dex">DEX</label>
+
+    <input type="radio" id="mod-wis" name="mod" data-mod="wis">
+    <label for="mod-wis">WIS</label>
+
+    <input type="radio" id="mod-con" name="mod" data-mod="con">
+    <label for="mod-con">CON</label>
+
+    <input type="radio" id="mod-cha" name="mod" data-mod="cha">
+    <label for="mod-cha">CHA</label>
+
+    <input type="radio" id="mod-none" name="mod" data-mod="NONE" checked>
+    <label for="mod-none">NONE</label>
+  </div>
+
+  <br>
+
+  <!-- Advantage -->
+  <div class="pill-group">
+    <input type="radio" id="adv-adv" name="adv" data-adv="adv">
+    <label for="adv-adv">Advantage</label>
+
+    <input type="radio" id="adv-dis" name="adv" data-adv="dis">
+    <label for="adv-dis">Disadvantage</label>
+
+    <input type="radio" id="adv-none" name="adv" data-adv="NONE" checked>
+    <label for="adv-none">NONE</label>
+  </div>
+
+  <br><br>
+
+  <button id="dicebtn">Roll</button>
 
   <div id="output"></div>
 
@@ -86,6 +173,11 @@
       const die1 = rollDie(diceValue, modValue);
       const die2 = rollDie(diceValue, modValue);
 
+      // Trigger roll flash every time
+      output.classList.remove("rolling");
+      void output.offsetWidth;
+      output.classList.add("rolling");
+
       output.innerHTML = renderResults(die1, die2, advValue);
     }
 
@@ -110,28 +202,26 @@
     }
 
     function renderResults(die1, die2, advValue) {
-    // No advantage/disadvantage
-    if (advValue === "NONE") {
-      return `<div class="roll">${die1.text}</div>`;
-    }
-  
-    let high = die1;
-    let low = die2;
-  
-    if (die2.total > die1.total) {
-      high = die2;
-      low = die1;
-    }
-  
-    const winner = advValue === "adv" ? high : low;
-    const loser  = advValue === "adv" ? low  : high;
-  
-    return `
-      <div class="roll">${loser.text}</div>
-      <div class="roll winner ${advValue}">${winner.text}</div>
-    `;
-  }
+      if (advValue === "NONE") {
+        return `<div class="roll">${die1.text}</div>`;
+      }
 
+      let high = die1;
+      let low = die2;
+
+      if (die2.total > die1.total) {
+        high = die2;
+        low = die1;
+      }
+
+      const winner = advValue === "adv" ? high : low;
+      const loser  = advValue === "adv" ? low  : high;
+
+      return `
+        <div class="roll">${loser.text}</div>
+        <div class="roll winner ${advValue}">${winner.text}</div>
+      `;
+    }
   </script>
 
 </body>
