@@ -85,21 +85,21 @@
 
       if ( roll == 1 || roll == 20 ) {
         results = "nat " + roll;
-        return (roll, results);
+        return ([roll, results]);
       }
       else if ( modValue == "NONE" ) {
         results = roll;
-        return (roll, results);
+        return ([roll, results]);
       } 
       else if ( mod >= 0 ){
         total = roll + modAbs;
         results = roll + " + " + modAbs + " = " + total;
-        return (total, results);
+        return ([total, results]);
         } 
       else { 
         total = roll - modAbs;
         results = roll + " - " + modAbs + " = " + total;
-        return (total, results);
+        return ([total, results]);
       };
       
     }
