@@ -1,144 +1,132 @@
-<!doctype HTML>
-<html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
 
-  <head>
+  <style>
+    body {
+      font-family: serif;
+      padding: 24px;
+    }
 
-    <style>
+    .roll {
+      margin: 6px 0;
+      padding: 6px 10px;
+      display: inline-block;
+    }
 
-      .lower {
-        border: 1px solid black;
-      }
+    .winner.advantage {
+      border: 2px solid green;
+    }
 
-      .higher {
-        border: 1px solid blue;
-      }
-      
-    </style>
-    
-  </head>
+    .winner.disadvantage {
+      border: 2px solid red;
+    }
+  </style>
+</head>
 
 <body>
 
   <div>
-
-    <input type="radio" id="d4" dice_type="4" name="dice"><label for="d4">d4</label>
-    <input type="radio" id="d6" dice_type="6" name="dice"><label for="d6">d6</label>
-    <input type="radio" id="d8" dice_type="8" name="dice"><label for="d8">d8</label>
-    <input type="radio" id="d10" dice_type="10" name="dice"><label for="d10">d10</label>
-    <input type="radio" id="d12" dice_type="12" name="dice"><label for="d12">d12</label>
-    <input type="radio" id="d20" dice_type="20" name="dice" checked="checked"><label for="d20">d20</label>
+    <!-- Dice -->
+    <input type="radio" name="dice" data-dice="4"> d4
+    <input type="radio" name="dice" data-dice="6"> d6
+    <input type="radio" name="dice" data-dice="8"> d8
+    <input type="radio" name="dice" data-dice="10"> d10
+    <input type="radio" name="dice" data-dice="12"> d12
+    <input type="radio" name="dice" data-dice="20" checked> d20
     <br>
-    <input type="radio" id="mod-str" mod_type="str" name="mod"><label for="mod">STR</label>
-    <input type="radio" id="mod-int" mod_type="int" name="mod"><label for="mod">INT</label>
-    <input type="radio" id="mod-dex" mod_type="dex" name="mod"><label for="mod">DEX</label>
-    <input type="radio" id="mod-wis" mod_type="wis" name="mod"><label for="mod">WIS</label>
-    <input type="radio" id="mod-con" mod_type="con" name="mod"><label for="mod">CON</label>
-    <input type="radio" id="mod-cha" mod_type="cha" name="mod"><label for="mod">CHA</label>
-    <input type="radio" id="mod-none" mod_type="NONE" name="mod" checked="checked"><label for="mod">NONE</label>
+
+    <!-- Modifiers -->
+    <input type="radio" name="mod" data-mod="str"> STR
+    <input type="radio" name="mod" data-mod="int"> INT
+    <input type="radio" name="mod" data-mod="dex"> DEX
+    <input type="radio" name="mod" data-mod="wis"> WIS
+    <input type="radio" name="mod" data-mod="con"> CON
+    <input type="radio" name="mod" data-mod="cha"> CHA
+    <input type="radio" name="mod" data-mod="NONE" checked> NONE
     <br>
-    <input type="radio" id="adv-adv" adv_type="adv" name="adv"><label for="adv">Advantage</label>
-    <input type="radio" id="adv-dis" adv_type="dis" name="adv"><label for="adv">Disadvantage</label>
-    <input type="radio" id="adv-none" adv_type="NONE" name="adv" checked="checked"><label for="adv">NONE</label>
-    
 
-
+    <!-- Advantage -->
+    <input type="radio" name="adv" data-adv="adv"> Advantage
+    <input type="radio" name="adv" data-adv="dis"> Disadvantage
+    <input type="radio" name="adv" data-adv="NONE" checked> NONE
+    <br><br>
 
     <button id="dicebtn">Roll</button>
-    
   </div>
 
   <div id="output"></div>
-  
-</body>
 
   <script>
-
     const button = document.getElementById("dicebtn");
     const output = document.getElementById("output");
 
-    button.addEventListener("click", roll );
+    const mods = {
+      str: -1,
+      int: 0,
+      dex: 2,
+      wis: 1,
+      con: 0,
+      cha: -2
+    };
 
-    function roll(){
-      let diceValue = document.querySelector('input[name="dice"]:checked').attributes.dice_type.value;
-      let modValue = document.querySelector('input[name="mod"]:checked').attributes.mod_type.value;
-      let advValue = document.querySelector('input[name="adv"]:checked').attributes.adv_type.value;
-      
-      let mods = {"str":"-1",
-                  "int":"+0",
-                  "dex":"+2",
-                  "wis":"+1",
-                  "con":"+0",
-                  "cha":"-2"};
-      
-      let die1 = rollDie(diceValue, modValue, mods);
-      let die2 = rollDie(diceValue, modValue, mods);
+    button.addEventListener("click", roll);
 
-      let results = "";
+    function roll() {
+      const diceValue = Number(
+        document.querySelector('input[name="dice"]:checked').dataset.dice
+      );
+      const modValue =
+        document.querySelector('input[name="mod"]:checked').dataset.mod;
+      const advValue =
+        document.querySelector('input[name="adv"]:checked').dataset.adv;
 
-      if ( advValue == "NONE" ){
-        results = `<div>` + die1[1] + `</div>`;
-      }
-      else if ( die1[0] > die2[0] ){
-        results = `<div class="lower">` + die2[1] + `</div><div class="higher">` + die1[1] + `</div>`;
-      }
-      else if ( die2[0] > die1[0] ){
-        results = `<div class="lower">` + die1[1] + `</div><div class="higher">` + die2[1] + `</div>`;
-      }
-      else {
-        results = `<div>` + die2[1] + `</div><div>` + die1[1] + `</div>`;
-      }
+      const die1 = rollDie(diceValue, modValue);
+      const die2 = rollDie(diceValue, modValue);
 
-      
-      let lower = document.querySelector(".lower");
-      console.log(lower);
-      let higher = document.getElementsByClassName("higher");
-      console.log(higher);
-
-      lower.style.border = "none"
-      higher.style.border = "none"
-
-      if ( advValue == "adv" ){
-        higher.style.border = "1px solid green"
-      }
-      else if ( advValue = "dis" ) {
-        lower.style.border = "1px solid red"
-      }
-      
-      
-      
-      output.innerHTML = results;
+      output.innerHTML = renderResults(die1, die2, advValue);
     }
 
+    function rollDie(diceValue, modValue) {
+      const roll = Math.floor(Math.random() * diceValue) + 1;
+      const mod = modValue === "NONE" ? 0 : mods[modValue];
+      const total = roll + mod;
 
-    function rollDie(diceValue, modValue, mods){
-
-      let roll = Math.floor((Math.random() * diceValue) + 1);
-      let mod = Number(mods[modValue]);
-      let total = 0;
-      let modAbs = Math.abs(mod);
-      let results = "";
-
-      if ( roll == 1 || roll == 20 ) {
-        results = "nat " + roll;
-        return ([roll, results]);
+      if (roll === 1 || roll === diceValue) {
+        return { total: roll, text: `nat ${roll}` };
       }
-      else if ( modValue == "NONE" ) {
-        results = roll;
-        return ([roll, results]);
-      } 
-      else if ( mod >= 0 ){
-        total = roll + modAbs;
-        results = roll + " + " + modAbs + " = " + total;
-        return ([total, results]);
-        } 
-      else { 
-        total = roll - modAbs;
-        results = roll + " - " + modAbs + " = " + total;
-        return ([total, results]);
+
+      if (mod === 0) {
+        return { total, text: `${roll}` };
+      }
+
+      const sign = mod > 0 ? "+" : "-";
+      return {
+        total,
+        text: `${roll} ${sign} ${Math.abs(mod)} = ${total}`
       };
-      
     }
-    
+
+    function renderResults(die1, die2, advValue) {
+      if (advValue === "NONE") {
+        return `<div class="roll">${die1.text}</div>`;
+      }
+
+      let winner = die1;
+      let loser = die2;
+
+      if (die2.total > die1.total) {
+        winner = die2;
+        loser = die1;
+      }
+
+      return `
+        <div class="roll">${loser.text}</div>
+        <div class="roll winner ${advValue}">${winner.text}</div>
+      `;
+    }
   </script>
-  
+
+</body>
 </html>
