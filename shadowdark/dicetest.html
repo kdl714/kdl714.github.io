@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.7 -->
+<!-- v1.3.8.8 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -245,21 +245,29 @@ function dieShape(d, n) {
   if (d === 10) {
   return `
     <!-- outer diamond -->
-    <polygon points="60,5 115,50 60,95 5,50"/>
+    <polygon points="60,10 110,60 60,110 10,60"/>
 
-    <!-- vertical axis -->
-    <line x1="60" y1="5" x2="60" y2="95"/>
+    <!-- central square -->
+    <polygon points="35,35 85,35 85,85 35,85"/>
 
-    <!-- diagonals from center -->
-    <line x1="60" y1="50" x2="115" y2="50"/>
-    <line x1="60" y1="50" x2="5" y2="50"/>
-    <line x1="60" y1="50" x2="60" y2="5"/>
-    <line x1="60" y1="50" x2="60" y2="95"/>
+    <!-- corner triangles -->
+    <line x1="60" y1="10" x2="35" y2="35"/>
+    <line x1="60" y1="10" x2="85" y2="35"/>
 
-    <!-- number (top face) -->
+    <line x1="110" y1="60" x2="85" y2="35"/>
+    <line x1="110" y1="60" x2="85" y2="85"/>
+
+    <line x1="60" y1="110" x2="85" y2="85"/>
+    <line x1="60" y1="110" x2="35" y2="85"/>
+
+    <line x1="10" y1="60" x2="35" y2="85"/>
+    <line x1="10" y1="60" x2="35" y2="35"/>
+
+    <!-- number (top triangle) -->
     <text x="60" y="28">${n}</text>
   `;
 }
+
 
   if (d === 4) return `<polygon points="60,10 110,90 10,90"/><text x="60" y="65">${n}</text>`;
   if (d === 6) return `<rect x="20" y="20" width="80" height="80"/><text x="60" y="60">${n}</text>`;
