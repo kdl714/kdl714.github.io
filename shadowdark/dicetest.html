@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.8 -->
+<!-- v1.3.8.9 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -245,26 +245,20 @@ function dieShape(d, n) {
   if (d === 10) {
   return `
     <!-- outer diamond -->
-    <polygon points="60,10 110,60 60,110 10,60"/>
-
-    <!-- central square -->
-    <polygon points="35,35 85,35 85,85 35,85"/>
-
-    <!-- corner triangles -->
-    <line x1="60" y1="10" x2="35" y2="35"/>
-    <line x1="60" y1="10" x2="85" y2="35"/>
-
-    <line x1="110" y1="60" x2="85" y2="35"/>
-    <line x1="110" y1="60" x2="85" y2="85"/>
-
-    <line x1="60" y1="110" x2="85" y2="85"/>
-    <line x1="60" y1="110" x2="35" y2="85"/>
-
-    <line x1="10" y1="60" x2="35" y2="85"/>
-    <line x1="10" y1="60" x2="35" y2="35"/>
-
-    <!-- number (top triangle) -->
-    <text x="60" y="28">${n}</text>
+    <g>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" y2="0" id="AB" stroke="#000" x1="100" y1="50" x2="50"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" y2="0" x1="0" id="AD" stroke="#000" y1="50" x2="50"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" x2="0" stroke="#000" id="CD" x1="50" y2="50" y1="100"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" stroke="#000" id="BC" y2="50" y1="100" x1="50" x2="100"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" y2="0" stroke="#000" id="AE" y1="50" x2="50" x1="50"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" stroke="#000" id="EF" x1="50" y2="55" y1="50" x2="75"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" stroke="#000" id="F-AB" y1="45" x1="95" x2="75" y2="55"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" stroke="#000" id="FC" y1="100" x1="50" y2="55" x2="75"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" id="EG" stroke="#000" x1="50" y1="50" y2="55" x2="25"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" stroke="#000" id="G-AD" y2="55" x2="25" x1="5" y1="45"/>
+    <line stroke-linecap="undefined" stroke-linejoin="undefined" fill="none" stroke="#000" id="GC" y1="100" x1="50" y2="55" x2="25"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="69" y="39"> 7 </text>
+    </g>
   `;
 }
 
