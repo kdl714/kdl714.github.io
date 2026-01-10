@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.11 -->
+<!-- v1.3.8.12 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -267,16 +267,17 @@ function dieShape(d, n) {
 
   if (d === 8) return `
   <g>
-  <line y2="0" id="AB" stroke="#000" x2="40" x1="80" y1="60"/>
+  <line y2="0" id="AB" stroke="#000" x2="40" y1="60" x1="78"/>
+  <line stroke="#000" y2="0" x2="40" id="AB-2" y1="25" x1="80"/>
+  <line stroke="#000" id="AB-3" x1="80" y2="60" y1="25" x2="78"/>
+  <line y2="0" id="AD" stroke="#000" x2="40" y1="60" x1="2"/>
   <line stroke="#000" y2="0" x1="0" id="AD-2" x2="40" y1="25"/>
-  <line stroke="#000" y1="60" x1="0" x2="0" id="AD-3" y2="25"/>
-  <line stroke="#000" y2="0" x2="40" x1="80" id="AB-2" y1="25"/>
-  <line stroke="#000" id="AB-3" x2="80" x1="80" y2="60" y1="25"/>
-  <line y2="0" x1="0" id="AD" stroke="#000" x2="40" y1="60"/>
-  <line x2="0" stroke="#000" id="CD" y1="100" x1="40" y2="60"/>
-  <line stroke="#000" id="BC" y1="100" x1="40" x2="80" y2="60"/>
-  <line stroke="#000" x2="0" x1="80" id="BD" y1="60" y2="60"/>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="40" y="40"> ${n} </text>
+  <line stroke="#000" y1="60" x2="0" id="AD-3" y2="25" x1="2"/>
+  <line stroke="#000" id="CD" x1="40" y2="60" y1="90" x2="2"/>
+  <line stroke="#000" id="BC" x1="40" y2="60" y1="90" x2="78"/>
+  <line stroke="#000" id="BD" y1="60" y2="60" x2="2" x1="78"/>
+  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="40" y="40"> 7 </text>
+
   </g>`;
   
   if (d === 12) return `<polygon points="40,10 80,10 110,50 80,90 40,90 10,50"/><text x="60" y="60">${n}</text>`;
