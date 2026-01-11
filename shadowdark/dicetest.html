@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.13 -->
+<!-- v1.3.8.14 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -244,13 +244,13 @@ function dieHTML(d, dice, show, adv="") {
 function dieShape(d, n) {
   if (d === 4) return `
   <g>
-  <line stroke="#000" y2="0" x2="40" y1="25" x1="80" id="AB"/>
-  <line stroke="#000" y2="0" x1="0" x2="40" y1="25" id="AD"/>
-  <line stroke="#000" x2="40" y1="25" x1="80" id="BC" y2="70"/>
-  <line stroke="#000" x2="40" y1="25" y2="70" id="CD" x1="0"/>
-  <line stroke="#000" x2="40" id="AC" x1="40" y1="0" y2="70"/>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" y="20" x="30"> ${n} </text>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" y="20" x="50"> ${n} </text>
+  <line stroke="#000" x1="80" id="AB" y2="0" x2="40" y1="30"/>
+  <line stroke="#000" y2="0" x1="0" x2="40" id="AD" y1="30"/>
+  <line stroke="#000" x2="40" id="BC" x1="80" y2="90" y1="30"/>
+  <line stroke="#000" x2="40" id="CD" x1="0" y1="30" y2="90"/>
+  <line stroke="#000" x2="40" id="AC" x1="40" y1="0" y2="90"/>
+  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="30" y="25"> ${n} </text>
+  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="50" y="25"> ${n} </text>
   </g>
   `;
 
