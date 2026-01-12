@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v3.0 - Clean implementation with global save locking -->
+  <!-- v3.1 - Fixed save locking and mobile fonts -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -66,6 +66,7 @@
       font-size: 14px;
       transition: all 0.2s;
       border-radius: 3px;
+      padding: 2px;
     }
 
     textarea { resize: none; }
@@ -89,6 +90,15 @@
     body.save-in-progress select {
       pointer-events: none;
       opacity: 0.5;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    body.save-in-progress input:not(.saving):focus,
+    body.save-in-progress textarea:not(.saving):focus {
+      outline: none;
+      border-color: transparent;
+      background: transparent;
     }
 
     /* Error state - solid red border */
@@ -357,7 +367,13 @@ function unlockAllInputs() {
 
 /* ===== Small-field debounce with global lock ===== */
 function saveDebounced(id, field, value, inputElement) {
-  if (saveLock) return;
+  if (saveLock) {
+    // Revert the input value if trying to edit during save
+    if (currentChar && currentChar[field] !== undefined) {
+      inputElement.value = currentChar[field];
+    }
+    return;
+  }
 
   setInputState(inputElement, 'saving');
 
@@ -399,7 +415,13 @@ const textSaveTimers = {};
 const textLastSaved = {};
 
 function saveTextFieldDebounced(id, field, value, inputElement) {
-  if (saveLock) return;
+  if (saveLock) {
+    // Revert the textarea value if trying to edit during save
+    if (textLastSaved[field] !== undefined) {
+      inputElement.value = textLastSaved[field];
+    }
+    return;
+  }
   
   setInputState(inputElement, 'saving');
   
@@ -415,7 +437,13 @@ function forceSaveTextField(id, field, value, inputElement) {
     return;
   }
   
-  if (saveLock) return;
+  if (saveLock) {
+    // Revert if locked
+    if (textLastSaved[field] !== undefined) {
+      inputElement.value = textLastSaved[field];
+    }
+    return;
+  }
 
   clearTimeout(textSaveTimers[field]);
   saveLock = true;
