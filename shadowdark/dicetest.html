@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- 1.4 -->
+<!-- 1.4.1 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -321,13 +321,28 @@ function dieShape(d, n) {
   // fallback for d20
   return `
     <g>
-      <line x1="50" y1="5" x2="88.97" y2="27.5"/>
-      <line x1="88.97" y1="27.5" x2="88.97" y2="72.5"/>
-      <line x1="88.97" y1="72.5" x2="50" y2="95"/>
-      <line x1="50" y1="95" x2="11.03" y2="72.5"/>
-      <line x1="11.03" y1="72.5" x2="11.03" y2="27.5"/>
-      <line x1="11.03" y1="27.5" x2="50" y2="5"/>
-      <text x="50" y="50"> ${n} </text>
+    <!-- Outer hexagon (same circumradius as decagon) -->
+    <line x1="50" y1="5" x2="88.97" y2="27.5" id="AB" />
+    <line x1="88.97" y1="27.5" x2="88.97" y2="72.5" id="BC" />
+    <line x1="88.97" y1="72.5" x2="50" y2="95" id="CD" />
+    <line x1="50" y1="95" x2="11.03" y2="72.5" id="DE" />
+    <line x1="11.03" y1="72.5" x2="11.03" y2="27.5" id="EF" />
+    <line x1="11.03" y1="27.5" x2="50" y2="5" id="FG" />
+    <!-- Inner equilateral triangle (same side length as hexagon) -->
+    <line x1="50" y1="24.02" x2="72.5" y2="62.99" id="HI" />
+    <line x1="72.5" y1="62.99" x2="27.5" y2="62.99" id="IJ" />
+    <line x1="27.5" y1="62.99" x2="50" y2="24.02" id="JK" />
+    <!--connections-->
+    <line x2="50" y2="24.02"  id="AH" x1="50" y1="5"/>
+    <line x2="50" y2="24.02"  id="BH" x1="88.97" y1="27.5"/>
+    <line  x1="88.97" y1="27.5" id="BI" x2="72.5" y2="62.99"/>
+    <line  x1="88.97" x2="72.5" y2="62.99" id="CI" y1="72.5"/>
+    <line  id="DI" x2="50" y2="95" x1="72.5" y1="62.99"/>
+    <line  x2="50" y2="95" y1="62.99" id="DJ" x1="27.5"/>
+    <line  y1="62.99" x1="27.5" id="EJ" x2="11.03" y2="72.5"/>
+    <line  y1="62.99" x1="27.5" x2="11.03" id="FJ" y2="27.5"/>
+    <line  x2="11.03" y2="27.5" id="FH" y1="24.02" x1="50"/>
+    <text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-family="serif" font-size="18" fill="#000">${n}</text>
     </g>`;
 }
 </script>
