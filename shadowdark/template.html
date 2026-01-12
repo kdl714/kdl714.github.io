@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v3.1 - Fixed save locking and mobile fonts -->
+  <!-- v3.2 - Properly disable inputs during save, revert mobile changes -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -66,7 +66,6 @@
       font-size: 14px;
       transition: all 0.2s;
       border-radius: 3px;
-      padding: 2px;
     }
 
     textarea { resize: none; }
@@ -84,21 +83,10 @@
       border-color: #ffa500;
     }
 
-    /* Global lock when any save is in progress */
-    body.save-in-progress input:not(.saving),
-    body.save-in-progress textarea:not(.saving),
-    body.save-in-progress select {
-      pointer-events: none;
+    /* Disabled state during save */
+    input:disabled, textarea:disabled, select:disabled {
       opacity: 0.5;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    
-    body.save-in-progress input:not(.saving):focus,
-    body.save-in-progress textarea:not(.saving):focus {
-      outline: none;
-      border-color: transparent;
-      background: transparent;
+      cursor: not-allowed;
     }
 
     /* Error state - solid red border */
@@ -255,74 +243,8 @@
       grid-template-columns: repeat(3, 1fr);
     }
 
-    body.mobile .stat {
-      padding: 12px 6px;
-    }
-
-    body.mobile .stat-label {
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
-
-    body.mobile .stat-value input {
-      width: 50px;
-      font-size: 16px;
-    }
-
-    body.mobile .stat-value span {
-      font-size: 16px;
-    }
-
-    body.mobile .box {
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    body.mobile .title {
-      font-size: 16px;
-      margin-bottom: 8px;
-    }
-
-    body.mobile input,
-    body.mobile textarea {
-      font-size: 16px;
-      padding: 6px;
-    }
-
-    body.mobile .combat-line input {
-      width: 60px;
-      font-size: 18px;
-    }
-
-    body.mobile .attacks textarea {
-      height: 150px;
-    }
-
-    body.mobile .talents textarea {
-      height: 250px;
-    }
-
     body.mobile .gear-list {
       grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
-    body.mobile .gear-item {
-      font-size: 16px;
-    }
-
-    body.mobile .gear-item span {
-      min-width: 30px;
-    }
-
-    body.mobile .currency-box input {
-      width: 70px;
-      font-size: 18px;
-    }
-
-    body.mobile select {
-      font-size: 16px;
-      padding: 8px;
     }
   </style>
 </head>
@@ -358,22 +280,22 @@ function setInputState(input, state) {
 }
 
 function lockAllInputs() {
-  document.body.classList.add('save-in-progress');
+  const inputs = document.querySelectorAll('input, textarea, select');
+  inputs.forEach(el => {
+    if (!el.classList.contains('saving')) {
+      el.disabled = true;
+    }
+  });
 }
 
 function unlockAllInputs() {
-  document.body.classList.remove('save-in-progress');
+  const inputs = document.querySelectorAll('input, textarea, select');
+  inputs.forEach(el => el.disabled = false);
 }
 
 /* ===== Small-field debounce with global lock ===== */
 function saveDebounced(id, field, value, inputElement) {
-  if (saveLock) {
-    // Revert the input value if trying to edit during save
-    if (currentChar && currentChar[field] !== undefined) {
-      inputElement.value = currentChar[field];
-    }
-    return;
-  }
+  if (saveLock) return;
 
   setInputState(inputElement, 'saving');
 
@@ -415,13 +337,7 @@ const textSaveTimers = {};
 const textLastSaved = {};
 
 function saveTextFieldDebounced(id, field, value, inputElement) {
-  if (saveLock) {
-    // Revert the textarea value if trying to edit during save
-    if (textLastSaved[field] !== undefined) {
-      inputElement.value = textLastSaved[field];
-    }
-    return;
-  }
+  if (saveLock) return;
   
   setInputState(inputElement, 'saving');
   
@@ -437,13 +353,7 @@ function forceSaveTextField(id, field, value, inputElement) {
     return;
   }
   
-  if (saveLock) {
-    // Revert if locked
-    if (textLastSaved[field] !== undefined) {
-      inputElement.value = textLastSaved[field];
-    }
-    return;
-  }
+  if (saveLock) return;
 
   clearTimeout(textSaveTimers[field]);
   saveLock = true;
