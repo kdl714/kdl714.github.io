@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.15 -->
+<!-- v1.3.8.16 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -299,9 +299,35 @@ function dieShape(d, n) {
     </g>`;
 }
 
+  if (d === 12) return `
+  <g>
+  <!--outer-->
+  <line stroke="#000" id="AB" x1="50" y1="5" x2="76.45" y2="13.59"/>
+  <line stroke="#000" id="BC" x1="76.45" y1="13.59" x2="92.8" y2="36.1"/>
+  <line stroke="#000" id="CD" x1="92.8" y1="36.1" x2="92.8" y2="63.9"/>
+  <line stroke="#000" x2="92.8" y2="63.9" id="DE" x1="76.45" y1="86.41"/>
+  <line stroke="#000" x1="76.45" y1="86.41" id="EF" x2="50" y2="95"/>
+  <line stroke="#000" y1="86.41" x2="50" y2="95" id="FG" x1="23.55"/>
+  <line stroke="#000" y1="86.41" x1="23.55" id="GH" x2="7.2" y2="63.9"/>
+  <line stroke="#000" x2="7.2" y2="63.9" id="HI" y1="36.1" x1="7.2"/>
+  <line stroke="#000" y1="36.1" x1="7.2" id="IJ" x2="23.55" y2="13.59"/>
+  <line stroke="#000" x2="23.55" y2="13.59" id="JK" y1="5" x1="50"/>
+  <!--inner-->
+  <line fill="none" x1="50" y1="26" x2="72.83" y2="42.59" id="LM" stroke="#000"/>
+  <line fill="none" x1="72.83" y1="42.59" x2="64.09" y2="69.41" id="MN" stroke="#000"/>
+  <line id="NO" stroke="#000" fill="none" x1="64.09" y1="69.41" x2="35.91" y2="69.41"/>
+  <line id="OP" stroke="#000" fill="none" x1="35.91" y1="69.41" x2="27.17" y2="42.59"/>
+  <line id="PQ" stroke="#000" fill="none" x1="27.17" y1="42.59" x2="50" y2="26"/>  
+  <!--connecting-->
+  <line stroke="#000" fill="none" x2="50" y2="26" id="AL" x1="50" y1="5"/>
+  <line stroke="#000" fill="none" x2="92.8" y2="36.1" id="CM" x1="72.83" y1="42.59"/>
+  <line stroke="#000" fill="none" id="EN" x2="64.09" y2="69.41" x1="76.45" y1="86.41"/>
+  <line stroke="#000" fill="none" y2="69.41" y1="86.41" id="GO" x2="35.91" x1="23.55"/>
+  <line stroke="#000" fill="none" id="IP" x1="27.17" x2="7.2" y1="42.59" y2="36.1"/>
+  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="50" y="52"> ${n} </text>
+  </g>`;
 
   
-  if (d === 12) return `<polygon points="40,10 80,10 110,50 80,90 40,90 10,50"/><text x="60" y="60">${n}</text>`;
   return `<polygon points="60,10 95,25 110,50 95,75 60,90 25,75 10,50 25,25"/><text x="60" y="60">${n}</text>`;
 }
 </script>
