@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- 1.4.2 -->
+<!-- 1.4.3 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -60,7 +60,7 @@ body {
 .die {
   width: 90px;
   height: 90px;
-  color: black; /* outline + number inherit color */
+  color: black;
 }
 
 .die line,
@@ -80,29 +80,31 @@ body {
   filter: drop-shadow(0 0 2px rgba(0,0,0,0.2));
 }
 
-/* Winner highlight (outline + number) */
-.winner.adv {
-  color: green;
-  filter: drop-shadow(0 0 6px rgba(0,128,0,.6));
-}
-.winner.adv text {
-  filter: drop-shadow(0 0 4px rgba(0,255,0,0.6));
-}
+/* ---------- Winner (non-nat only) ---------- */
+.winner.adv { color: green; }
+.winner.dis { color: red; }
 
-.winner.dis {
-  color: red;
-  filter: drop-shadow(0 0 6px rgba(128,0,0,.6));
+.winner.adv text {
+  filter: drop-shadow(0 0 4px rgba(0,255,0,.6));
 }
 .winner.dis text {
-  filter: drop-shadow(0 0 4px rgba(255,0,0,0.6));
+  filter: drop-shadow(0 0 4px rgba(255,0,0,.6));
 }
 
-/* Nat 1 / 20 highlight */
-.nat1 { color: #8b0000; }
-.nat1 text { filter: drop-shadow(0 0 4px #8b0000); }
+/* ---------- Nat overrides ---------- */
+.nat20 {
+  color: gold;
+}
+.nat20 text {
+  filter: drop-shadow(0 0 5px gold);
+}
 
-.nat20 { color: gold; }
-.nat20 text { filter: drop-shadow(0 0 4px gold); }
+.nat1 {
+  color: #8b0000;
+}
+.nat1 text {
+  filter: drop-shadow(0 0 5px #8b0000);
+}
 
 .mod-total {
   font-size: 16px;
@@ -157,7 +159,7 @@ body {
 const mods = { str:-1, int:0, dex:2, wis:1, con:0, cha:-2 };
 const output = document.getElementById("output");
 
-/* Pill behavior */
+/* ---------- Pills ---------- */
 function exclusive(group) {
   document.querySelectorAll(group + " .pill").forEach(b => {
     b.onclick = () => {
@@ -182,6 +184,7 @@ toggle("#adv-group");
 
 document.getElementById("dicebtn").onclick = roll;
 
+/* ---------- Rolling ---------- */
 function rollDie(d, modKey) {
   const roll = Math.floor(Math.random() * d) + 1;
   let total = roll;
@@ -189,8 +192,8 @@ function rollDie(d, modKey) {
   let nat1 = false, nat20 = false;
 
   if (d === 20) {
-    if (roll === 1) nat1 = true;
-    if (roll === 20) nat20 = true;
+    nat1 = roll === 1;
+    nat20 = roll === 20;
   }
 
   if (!nat1 && !nat20 && modKey) {
@@ -216,36 +219,52 @@ function roll() {
   void output.offsetWidth;
   output.classList.add("rolling");
 
-  output.innerHTML = render(d1, d2, adv, dice);
+  output.innerHTML = render(d1, d2, adv, dice, !!modKey);
 }
 
-function render(d1, d2, adv, dice) {
-  if (!d2) return dieHTML(d1, dice, true);
+function render(d1, d2, adv, dice, showTotals) {
+  if (!d2) {
+    return dieHTML(d1, dice, true, "", showTotals);
+  }
 
-  let win = d1.total === d2.total ? d1 :
-            adv === "adv" ? (d1.total > d2.total ? d1 : d2)
-                          : (d1.total < d2.total ? d1 : d2);
+  let winner =
+    d1.total === d2.total
+      ? d1
+      : adv === "adv"
+        ? (d1.total > d2.total ? d1 : d2)
+        : (d1.total < d2.total ? d1 : d2);
 
-  return dieHTML(d1, dice, d1 === win, adv) +
-         dieHTML(d2, dice, d2 === win, adv);
+  return (
+    dieHTML(d1, dice, d1 === winner, adv, showTotals, winner) +
+    dieHTML(d2, dice, d2 === winner, adv, showTotals, winner)
+  );
 }
 
-function dieHTML(d, dice, show, adv="") {
+function dieHTML(d, dice, isWinner, adv, showTotals, winner) {
   let cls = "";
-  if (adv && show) cls = `winner ${adv}`;
-  if (d.nat1) cls += " nat1";
-  if (d.nat20) cls += " nat20";
+
+  const isNat = d.nat1 || d.nat20;
+  const highlightNat = isNat && d === winner;
+
+  if (highlightNat) {
+    cls = d.nat20 ? "nat20" : "nat1";
+  } else if (isWinner && adv && !isNat) {
+    cls = `winner ${adv}`;
+  }
 
   return `
   <div class="die-container">
     <svg class="die ${cls}" viewBox="0 0 120 100">
       ${dieShape(dice, d.roll)}
     </svg>
-    ${show ? `
-      <div>
-        ${d.mod ? `<div class="mod-total">Mod: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ""}
-        <div class="mod-total">Total: ${d.total}</div>
-      </div>` : ""}
+    ${
+      showTotals && isWinner
+        ? `<div>
+            ${d.mod ? `<div class="mod-total">Mod: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ""}
+            <div class="mod-total">Total: ${d.total}</div>
+          </div>`
+        : ""
+    }
   </div>`;
 }
 
