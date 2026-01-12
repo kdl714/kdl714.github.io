@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- 1.4.3 -->
+<!-- 1.4.4 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -234,9 +234,12 @@ function render(d1, d2, adv, dice, showTotals) {
         ? (d1.total > d2.total ? d1 : d2)
         : (d1.total < d2.total ? d1 : d2);
 
+  const loser = winner === d1 ? d2 : d1;
+
+  // Loser always rendered first, winner always second
   return (
-    dieHTML(d1, dice, d1 === winner, adv, showTotals, winner) +
-    dieHTML(d2, dice, d2 === winner, adv, showTotals, winner)
+    dieHTML(loser, dice, false, adv, showTotals, winner) +
+    dieHTML(winner, dice, true, adv, showTotals, winner)
   );
 }
 
@@ -244,11 +247,11 @@ function dieHTML(d, dice, isWinner, adv, showTotals, winner) {
   let cls = "";
 
   const isNat = d.nat1 || d.nat20;
-  const highlightNat = isNat && d === winner;
+  const showNat = isNat && (!winner || d === winner);
 
-  if (highlightNat) {
+  if (showNat) {
     cls = d.nat20 ? "nat20" : "nat1";
-  } else if (isWinner && adv && !isNat) {
+  } else if (isWinner && adv) {
     cls = `winner ${adv}`;
   }
 
