@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.16 -->
+<!-- v1.3.8.17 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -328,7 +328,30 @@ function dieShape(d, n) {
   </g>`;
 
   
-  return `<polygon points="60,10 95,25 110,50 95,75 60,90 25,75 10,50 25,25"/><text x="60" y="60">${n}</text>`;
+  return `
+  <g>
+    <!-- Outer hexagon (same circumradius as decagon) -->
+    <line fill="none" x1="50" y1="5" x2="88.97" y2="27.5" id="AB" stroke="#000"/>
+    <line fill="none" x1="88.97" y1="27.5" x2="88.97" y2="72.5" id="BC" stroke="#000"/>
+    <line fill="none" x1="88.97" y1="72.5" x2="50" y2="95" id="CD" stroke="#000"/>
+    <line fill="none" x1="50" y1="95" x2="11.03" y2="72.5" id="DE" stroke="#000"/>
+    <line fill="none" x1="11.03" y1="72.5" x2="11.03" y2="27.5" id="EF" stroke="#000"/>
+    <line fill="none" x1="11.03" y1="27.5" x2="50" y2="5" id="FG" stroke="#000"/>
+    <!-- Inner equilateral triangle (same side length as hexagon) -->
+    <line fill="none" x1="50" y1="24.02" x2="72.5" y2="62.99" id="HI" stroke="#000"/>
+    <line fill="none" x1="72.5" y1="62.99" x2="27.5" y2="62.99" id="IJ" stroke="#000"/>
+    <line fill="none" x1="27.5" y1="62.99" x2="50" y2="24.02" id="JK" stroke="#000"/>
+    <!--connections-->
+    <line fill="none" x2="50" y2="24.02" stroke="#000" id="AH" x1="50" y1="5"/>
+    <line fill="none" x2="50" y2="24.02" stroke="#000" id="BH" x1="88.97" y1="27.5"/>
+    <line fill="none" stroke="#000" x1="88.97" y1="27.5" id="BI" x2="72.5" y2="62.99"/>
+    <line fill="none" stroke="#000" x1="88.97" x2="72.5" y2="62.99" id="CI" y1="72.5"/>
+    <line fill="none" stroke="#000" id="DI" x2="50" y2="95" x1="72.5" y1="62.99"/>
+    <line fill="none" stroke="#000" x2="50" y2="95" y1="62.99" id="DJ" x1="27.5"/>
+    <line fill="none" stroke="#000" y1="62.99" x1="27.5" id="EJ" x2="11.03" y2="72.5"/>
+    <line fill="none" stroke="#000" y1="62.99" x1="27.5" x2="11.03" id="FJ" y2="27.5"/>
+    <line fill="none" stroke="#000" x2="11.03" y2="27.5" id="FH" y1="24.02" x1="50"/>
+    <text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-family="serif" font-size="18" fill="#000"> ${n} </text></g>`;
 }
 </script>
 
