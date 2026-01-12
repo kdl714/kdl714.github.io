@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- 1.4.1 -->
+<!-- 1.4.2 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -252,73 +252,90 @@ function dieHTML(d, dice, show, adv="") {
 function dieShape(d, n) {
   if (d === 4) return `
     <g>
-      <line id="AB" x1="85" y1="5" x2="45" y2="35"/>
-      <line id="AD" y1="5" x1="5" x2="45" y2="35"/>
-      <line id="BC" x1="85" y1="35" x2="45" y2="95"/>
-      <line id="CD" x1="5" y1="35" x2="45" y2="95"/>
-      <line id="AC" x1="45" y1="5" x2="45" y2="95"/>
-      <text x="45" y="40"> ${n} </text>
+    <line id="AB" x1="85" y2="5" x2="45" y1="35"/>
+    <line id="AD" y2="5" x1="5" x2="45" y1="35"/>
+    <line id="BC" x2="45" x1="85" y2="95" y1="35"/>
+    <line id="CD" x2="45" x1="5" y1="35" y2="95"/>
+    <line id="AC" x2="45" x1="45" y1="5" y2="95"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="35" y="30"> ${n} </text>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="55" y="30"> ${n} </text>
     </g>`;
 
   if (d === 6) return `
     <g>
-      <line y1="10" y2="10" x1="20" x2="70"/>
-      <line y1="10" y2="60" x1="70" x2="70"/>
-      <line y1="60" y2="60" x1="70" x2="20"/>
-      <line y1="10" y2="60" x1="20" x2="20"/>
-      <line x1="20" y1="10" x2="10" y2="25"/>
-      <line x1="10" y1="25" x2="10" y2="75"/>
-      <line x1="10" y1="75" x2="20" y2="60"/>
-      <line x1="10" y1="75" x2="55" y2="75"/>
-      <line x1="70" y1="60" x2="55" y2="75"/>
-      <text x="45" y="35"> ${n} </text>
+    <!--box-->
+    <line id="AB" y2="10" y1="10" x1="20" x2="70"/>
+    <line id="BC" y1="10" y2="60" x1="70" x2="70"/>
+    <line id="CD" y1="60" y2="60" x2="20" x1="70"/>
+    <line id="AD" y1="10" y2="60" x1="20" x2="20"/>
+    <!-- 3d element -->
+    <line id="AE" x1="20" y1="10" x2="10" y2="25"/>
+    <line id="EF" x2="10" x1="10" y2="25" y1="75"/>
+    <line id="DF" y2="60" x2="20" x1="10" y1="75"/>
+    <line id="FG" x2="55" x1="10" y1="75" y2="75"/>
+    <line x2="55" id="CG" y1="60" x1="70" y2="75"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" y="35" x="45"> ${n} </text>
     </g>`;
 
   if (d === 8) return `
     <g>
-      <line y1="65" y2="5" x1="83" x2="45"/>
-      <line y1="30" y2="5" x1="85" x2="45"/>
-      <line x1="85" y1="30" x2="83" y2="65"/>
-      <line y1="65" y2="5" x1="7" x2="45"/>
-      <line y1="30" y2="5" x1="5" x2="45"/>
-      <line y1="65" y2="65" x1="83" x2="7"/>
-      <line x1="45" y1="95" x2="7" y2="65"/>
-      <line x1="45" y1="95" x2="83" y2="65"/>
-      <text x="45" y="45"> ${n} </text>
+    <line id="AB" y2="5" y1="65" x2="45" x1="83"/>
+    <line id="AB-2" y2="5" x2="45" y1="30" x1="85"/>
+    <line id="AB-3" x1="85" y2="65" y1="30" x2="83"/>
+    <line id="AD" y2="5" x2="45" y1="65" x1="7"/>
+    <line id="AD-2" y2="5" x1="5" x2="45" y1="30"/>
+    <line id="AD-3" y1="65" x2="5" y2="30" x1="7"/>
+    <line id="CD" x1="45" y2="65" y1="95" x2="7"/>
+    <line id="BC" x1="45" y2="65" y1="95" x2="83"/>
+    <line id="BD" y1="65" y2="65" x2="7" x1="83"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="45" y="45"> ${n} </text>
     </g>`;
-
+  
   if (d === 10) return `
     <g>
-      <line y1="55" y2="5" x1="105" x2="55"/>
-      <line y1="55" y2="5" x1="5" x2="55"/>
-      <line x1="55" y1="105" x2="5" y2="55"/>
-      <line x1="105" y1="105" x2="55" y2="55"/>
-      <line x1="55" y1="55" x2="55" y2="5"/>
-      <line x1="55" y1="55" x2="80" y2="60"/>
-      <line x1="100" y1="50" x2="80" y2="60"/>
-      <line x1="55" y1="105" x2="80" y2="60"/>
-      <line x1="55" y1="55" x2="30" y2="60"/>
-      <line x1="10" y1="50" x2="30" y2="60"/>
-      <line x1="55" y1="105" x2="30" y2="60"/>
-      <text x="69" y="39"> ${n} </text>
+    <line id="AB" y2="5" x1="105" y1="55" x2="55"/>
+    <line id="AD" y2="5" x1="5" y1="55" x2="55"/>
+    <line id="CD" x2="5" x1="55" y2="55" y1="105"/>
+    <line id="BC" y2="55" y1="105" x1="55" x2="105"/>
+    <line id="AE" y2="5" y1="55" x2="55" x1="55"/>
+    <line id="EF" x1="55" y2="60" y1="55" x2="80"/>
+    <line id="F-AB" y1="50" x1="100" x2="80" y2="60"/>
+    <line id="FC" y1="105" x1="55" y2="60" x2="80"/>
+    <line id="EG" x1="55" y1="55" y2="60" x2="30"/>
+    <line id="G-AD" y2="60" x2="30" x1="10" y1="50"/>
+    <line id="GC" y1="105" x1="55" y2="60" x2="30"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="69" y="39"> ${n} </text>
     </g>`;
 
   if (d === 12) return `
     <g>
-      <line x1="50" y1="5" x2="76.45" y2="13.59"/>
-      <line x1="76.45" y1="13.59" x2="92.8" y2="36.1"/>
-      <line x1="92.8" y1="36.1" x2="92.8" y2="63.9"/>
-      <line x1="76.45" y1="86.41" x2="92.8" y2="63.9"/>
-      <line x1="76.45" y1="86.41" x2="50" y2="95"/>
-      <line x1="23.55" y1="86.41" x2="50" y2="95"/>
-      <line x1="7.2" y1="63.9" x2="23.55" y2="86.41"/>
-      <line x1="7.2" y1="36.1" x2="7.2" y2="63.9"/>
-      <line x1="23.55" y1="13.59" x2="7.2" y2="36.1"/>
-      <line x1="50" y1="5" x2="23.55" y2="13.59"/>
-      <text x="50" y="52"> ${n} </text>
+    <!--outer-->
+    <line id="AB" x1="50" y1="5" x2="76.45" y2="13.59"/>
+    <line id="BC" x1="76.45" y1="13.59" x2="92.8" y2="36.1"/>
+    <line id="CD" x1="92.8" y1="36.1" x2="92.8" y2="63.9"/>
+    <line x2="92.8" y2="63.9" id="DE" x1="76.45" y1="86.41"/>
+    <line x1="76.45" y1="86.41" id="EF" x2="50" y2="95"/>
+    <line y1="86.41" x2="50" y2="95" id="FG" x1="23.55"/>
+    <line y1="86.41" x1="23.55" id="GH" x2="7.2" y2="63.9"/>
+    <line x2="7.2" y2="63.9" id="HI" y1="36.1" x1="7.2"/>
+    <line y1="36.1" x1="7.2" id="IJ" x2="23.55" y2="13.59"/>
+    <line x2="23.55" y2="13.59" id="JK" y1="5" x1="50"/>
+    <!--inner-->
+    <line x1="50" y1="26" x2="72.83" y2="42.59" id="LM"/>
+    <line x1="72.83" y1="42.59" x2="64.09" y2="69.41" id="MN" />
+    <line id="NO" x1="64.09" y1="69.41" x2="35.91" y2="69.41"/>
+    <line id="OP" x1="35.91" y1="69.41" x2="27.17" y2="42.59"/>
+    <line id="PQ" x1="27.17" y1="42.59" x2="50" y2="26"/>  
+    <!--connecting-->
+    <line x2="50" y2="26" id="AL" x1="50" y1="5"/>
+    <line x2="92.8" y2="36.1" id="CM" x1="72.83" y1="42.59"/>
+    <line id="EN" x2="64.09" y2="69.41" x1="76.45" y1="86.41"/>
+    <line y2="69.41" y1="86.41" id="GO" x2="35.91" x1="23.55"/>
+    <line id="IP" x1="27.17" x2="7.2" y1="42.59" y2="36.1"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="50" y="52"> ${n} </text>
     </g>`;
 
-  // fallback for d20
+  
   return `
     <g>
     <!-- Outer hexagon (same circumradius as decagon) -->
@@ -333,17 +350,16 @@ function dieShape(d, n) {
     <line x1="72.5" y1="62.99" x2="27.5" y2="62.99" id="IJ" />
     <line x1="27.5" y1="62.99" x2="50" y2="24.02" id="JK" />
     <!--connections-->
-    <line x2="50" y2="24.02"  id="AH" x1="50" y1="5"/>
-    <line x2="50" y2="24.02"  id="BH" x1="88.97" y1="27.5"/>
-    <line  x1="88.97" y1="27.5" id="BI" x2="72.5" y2="62.99"/>
-    <line  x1="88.97" x2="72.5" y2="62.99" id="CI" y1="72.5"/>
-    <line  id="DI" x2="50" y2="95" x1="72.5" y1="62.99"/>
-    <line  x2="50" y2="95" y1="62.99" id="DJ" x1="27.5"/>
-    <line  y1="62.99" x1="27.5" id="EJ" x2="11.03" y2="72.5"/>
-    <line  y1="62.99" x1="27.5" x2="11.03" id="FJ" y2="27.5"/>
-    <line  x2="11.03" y2="27.5" id="FH" y1="24.02" x1="50"/>
-    <text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-family="serif" font-size="18" fill="#000">${n}</text>
-    </g>`;
+    <line x2="50" y2="24.02" id="AH" x1="50" y1="5"/>
+    <line x2="50" y2="24.02" id="BH" x1="88.97" y1="27.5"/>
+    <line x1="88.97" y1="27.5" id="BI" x2="72.5" y2="62.99"/>
+    <line x1="88.97" x2="72.5" y2="62.99" id="CI" y1="72.5"/>
+    <line id="DI" x2="50" y2="95" x1="72.5" y1="62.99"/>
+    <line x2="50" y2="95" y1="62.99" id="DJ" x1="27.5"/>
+    <line y1="62.99" x1="27.5" id="EJ" x2="11.03" y2="72.5"/>
+    <line y1="62.99" x1="27.5" x2="11.03" id="FJ" y2="27.5"/>
+    <line x2="11.03" y2="27.5" id="FH" y1="24.02" x1="50"/>
+    <text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-family="serif" > ${n} </text></g>`;
 }
 </script>
 
