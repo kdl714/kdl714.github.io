@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- v1.3.8.18 -->
+<!-- v1.3.8.19 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -243,46 +243,45 @@ function dieHTML(d, dice, show, adv="") {
 
 function dieShape(d, n) {
   if (d === 4) return `
-  <g>
-  <line stroke="#000" x1="80" id="AB" y2="0" x2="40" y1="30"/>
-  <line stroke="#000" y2="0" x1="0" x2="40" id="AD" y1="30"/>
-  <line stroke="#000" x2="40" id="BC" x1="80" y2="90" y1="30"/>
-  <line stroke="#000" x2="40" id="CD" x1="0" y1="30" y2="90"/>
-  <line stroke="#000" x2="40" id="AC" x1="40" y1="0" y2="90"/>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="30" y="25"> ${n} </text>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="50" y="25"> ${n} </text>
-  </g>`;
+    <g>
+    <line stroke="#000" x1="80" id="AB" y2="0" x2="40" y1="30"/>
+    <line stroke="#000" y2="0" x1="0" x2="40" id="AD" y1="30"/>
+    <line stroke="#000" x2="40" id="BC" x1="80" y2="90" y1="30"/>
+    <line stroke="#000" x2="40" id="CD" x1="0" y1="30" y2="90"/>
+    <line stroke="#000" x2="40" id="AC" x1="40" y1="0" y2="90"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="30" y="25"> ${n} </text>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="50" y="25"> ${n} </text>
+    </g>`;
 
   if (d === 6) return `
-  <g>
-  <line stroke="#000" id="AB" x1="10" y2="10" x2="60" y1="10"/>
-  <line stroke="#000" id="BC" x1="60" y1="10" y2="60" x2="60"/>
-  <line stroke="#000" id="CD" x1="60" y1="60" y2="60" x2="10"/>
-  <line stroke="#000" id="AD" x1="10" y1="10" y2="60" x2="10"/>
-  <line stroke="#000" id="AE" x1="10" y1="10" x2="5" y2="35"/>
-  <line stroke="#000" x2="5" id="EF" x1="5" y2="35" y1="85"/>
-  <line stroke="#000" x1="5" id="DF" x2="10" y2="60" y1="85"/>
-  <line stroke="#000" x1="5" id="FG" x2="55" y1="85" y2="85"/>
-  <line stroke="#000" x2="55" id="CG" x1="60" y1="60" y2="85"/>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="35" y="35"> ${n} </text>
-  </g>`;
+    <g>
+    <line stroke="#000" id="AB" x1="10" y2="10" x2="60" y1="10"/>
+    <line stroke="#000" id="BC" x1="60" y1="10" y2="60" x2="60"/>
+    <line stroke="#000" id="CD" x1="60" y1="60" y2="60" x2="10"/>
+    <line stroke="#000" id="AD" x1="10" y1="10" y2="60" x2="10"/>
+    <line stroke="#000" id="AE" x1="10" y1="10" x2="5" y2="35"/>
+    <line stroke="#000" x2="5" id="EF" x1="5" y2="35" y1="85"/>
+    <line stroke="#000" x1="5" id="DF" x2="10" y2="60" y1="85"/>
+    <line stroke="#000" x1="5" id="FG" x2="55" y1="85" y2="85"/>
+    <line stroke="#000" x2="55" id="CG" x1="60" y1="60" y2="85"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="35" y="35"> ${n} </text>
+    </g>`;
 
-    if (d === 8) return `
-  <g transform="translate(5 5)>
-  <line y2="0" id="AB" stroke="#000" x2="40" y1="60" x1="78"/>
-  <line stroke="#000" y2="0" x2="40" id="AB-2" y1="25" x1="80"/>
-  <line stroke="#000" id="AB-3" x1="80" y2="60" y1="25" x2="78"/>
-  <line y2="0" id="AD" stroke="#000" x2="40" y1="60" x1="2"/>
-  <line stroke="#000" y2="0" x1="0" id="AD-2" x2="40" y1="25"/>
-  <line stroke="#000" y1="60" x2="0" id="AD-3" y2="25" x1="2"/>
-  <line stroke="#000" id="CD" x1="40" y2="60" y1="90" x2="2"/>
-  <line stroke="#000" id="BC" x1="40" y2="60" y1="90" x2="78"/>
-  <line stroke="#000" id="BD" y1="60" y2="60" x2="2" x1="78"/>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="40" y="40"> 7 </text>
-  </g>`;
+  if (d === 8) return `
+    <g>
+    <line id="AB" stroke="#000" y2="5" y1="65" x2="45" x1="83"/>
+    <line stroke="#000" id="AB-2" y2="5" x2="45" y1="30" x1="85"/>
+    <line stroke="#000" id="AB-3" x1="85" y2="65" y1="30" x2="83"/>
+    <line id="AD" stroke="#000" y2="5" x2="45" y1="65" x1="7"/>
+    <line stroke="#000" id="AD-2" y2="5" x1="5" x2="45" y1="30"/>
+    <line stroke="#000" id="AD-3" y1="65" x2="5" y2="30" x1="7"/>
+    <line stroke="#000" id="CD" x1="45" y2="65" y1="95" x2="7"/>
+    <line stroke="#000" id="BC" x1="45" y2="65" y1="95" x2="83"/>
+    <line stroke="#000" id="BD" y1="65" y2="65" x2="7" x1="83"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="45" y="45"> 7 </text>
+    </g>`;
   
-  if (d === 10) {
-  return `
+  if (d === 10) return `
     <g>
     <line y2="0" id="AB" stroke="#000" x1="100" y1="50" x2="50"/>
     <line y2="0" x1="0" id="AD" stroke="#000" y1="50" x2="50"/>
@@ -297,39 +296,38 @@ function dieShape(d, n) {
     <line stroke="#000" id="GC" y1="100" x1="50" y2="55" x2="25"/>
     <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="69" y="39"> ${n} </text>
     </g>`;
-}
 
   if (d === 12) return `
-  <g>
-  <!--outer-->
-  <line stroke="#000" id="AB" x1="50" y1="5" x2="76.45" y2="13.59"/>
-  <line stroke="#000" id="BC" x1="76.45" y1="13.59" x2="92.8" y2="36.1"/>
-  <line stroke="#000" id="CD" x1="92.8" y1="36.1" x2="92.8" y2="63.9"/>
-  <line stroke="#000" x2="92.8" y2="63.9" id="DE" x1="76.45" y1="86.41"/>
-  <line stroke="#000" x1="76.45" y1="86.41" id="EF" x2="50" y2="95"/>
-  <line stroke="#000" y1="86.41" x2="50" y2="95" id="FG" x1="23.55"/>
-  <line stroke="#000" y1="86.41" x1="23.55" id="GH" x2="7.2" y2="63.9"/>
-  <line stroke="#000" x2="7.2" y2="63.9" id="HI" y1="36.1" x1="7.2"/>
-  <line stroke="#000" y1="36.1" x1="7.2" id="IJ" x2="23.55" y2="13.59"/>
-  <line stroke="#000" x2="23.55" y2="13.59" id="JK" y1="5" x1="50"/>
-  <!--inner-->
-  <line fill="none" x1="50" y1="26" x2="72.83" y2="42.59" id="LM" stroke="#000"/>
-  <line fill="none" x1="72.83" y1="42.59" x2="64.09" y2="69.41" id="MN" stroke="#000"/>
-  <line id="NO" stroke="#000" fill="none" x1="64.09" y1="69.41" x2="35.91" y2="69.41"/>
-  <line id="OP" stroke="#000" fill="none" x1="35.91" y1="69.41" x2="27.17" y2="42.59"/>
-  <line id="PQ" stroke="#000" fill="none" x1="27.17" y1="42.59" x2="50" y2="26"/>  
-  <!--connecting-->
-  <line stroke="#000" fill="none" x2="50" y2="26" id="AL" x1="50" y1="5"/>
-  <line stroke="#000" fill="none" x2="92.8" y2="36.1" id="CM" x1="72.83" y1="42.59"/>
-  <line stroke="#000" fill="none" id="EN" x2="64.09" y2="69.41" x1="76.45" y1="86.41"/>
-  <line stroke="#000" fill="none" y2="69.41" y1="86.41" id="GO" x2="35.91" x1="23.55"/>
-  <line stroke="#000" fill="none" id="IP" x1="27.17" x2="7.2" y1="42.59" y2="36.1"/>
-  <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="50" y="52"> ${n} </text>
-  </g>`;
+    <g>
+    <!--outer-->
+    <line stroke="#000" id="AB" x1="50" y1="5" x2="76.45" y2="13.59"/>
+    <line stroke="#000" id="BC" x1="76.45" y1="13.59" x2="92.8" y2="36.1"/>
+    <line stroke="#000" id="CD" x1="92.8" y1="36.1" x2="92.8" y2="63.9"/>
+    <line stroke="#000" x2="92.8" y2="63.9" id="DE" x1="76.45" y1="86.41"/>
+    <line stroke="#000" x1="76.45" y1="86.41" id="EF" x2="50" y2="95"/>
+    <line stroke="#000" y1="86.41" x2="50" y2="95" id="FG" x1="23.55"/>
+    <line stroke="#000" y1="86.41" x1="23.55" id="GH" x2="7.2" y2="63.9"/>
+    <line stroke="#000" x2="7.2" y2="63.9" id="HI" y1="36.1" x1="7.2"/>
+    <line stroke="#000" y1="36.1" x1="7.2" id="IJ" x2="23.55" y2="13.59"/>
+    <line stroke="#000" x2="23.55" y2="13.59" id="JK" y1="5" x1="50"/>
+    <!--inner-->
+    <line fill="none" x1="50" y1="26" x2="72.83" y2="42.59" id="LM" stroke="#000"/>
+    <line fill="none" x1="72.83" y1="42.59" x2="64.09" y2="69.41" id="MN" stroke="#000"/>
+    <line id="NO" stroke="#000" fill="none" x1="64.09" y1="69.41" x2="35.91" y2="69.41"/>
+    <line id="OP" stroke="#000" fill="none" x1="35.91" y1="69.41" x2="27.17" y2="42.59"/>
+    <line id="PQ" stroke="#000" fill="none" x1="27.17" y1="42.59" x2="50" y2="26"/>  
+    <!--connecting-->
+    <line stroke="#000" fill="none" x2="50" y2="26" id="AL" x1="50" y1="5"/>
+    <line stroke="#000" fill="none" x2="92.8" y2="36.1" id="CM" x1="72.83" y1="42.59"/>
+    <line stroke="#000" fill="none" id="EN" x2="64.09" y2="69.41" x1="76.45" y1="86.41"/>
+    <line stroke="#000" fill="none" y2="69.41" y1="86.41" id="GO" x2="35.91" x1="23.55"/>
+    <line stroke="#000" fill="none" id="IP" x1="27.17" x2="7.2" y1="42.59" y2="36.1"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" fill="#000" x="50" y="52"> ${n} </text>
+    </g>`;
 
   
   return `
-  <g>
+    <g>
     <!-- Outer hexagon (same circumradius as decagon) -->
     <line fill="none" x1="50" y1="5" x2="88.97" y2="27.5" id="AB" stroke="#000"/>
     <line fill="none" x1="88.97" y1="27.5" x2="88.97" y2="72.5" id="BC" stroke="#000"/>
