@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v3.5.1 - Fixed dice roller pill widths -->
+  <!-- v3.6 - Enhanced total display -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -425,6 +425,12 @@
 
     .mod-total {
       font-size: 16px;
+    }
+
+    .die-total {
+      font-size: 32px;
+      font-weight: bold;
+      margin-top: 4px;
     }
 
     .modal-actions {
@@ -917,7 +923,7 @@ function dieHTML(d, dice, isWinner, adv, showTotals, winner) {
       showTotals && isWinner
         ? `<div>
             ${d.mod ? `<div class="mod-total">Mod: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ""}
-            <div class="mod-total">Total: ${d.total}</div>
+            <div class="die-total">${d.total}</div>
           </div>`
         : ""
     }
