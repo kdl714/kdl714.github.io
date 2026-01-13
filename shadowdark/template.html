@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v3.6.1 -->
+  <!-- v3.6.2 -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -225,8 +225,8 @@
       margin-top: 6px;
     }
 
-    .free input {
-      height: 60px;
+    .free textarea {
+      height: 80px;
     }
 
     .loading {
@@ -782,8 +782,9 @@ function render(c) {
 
         <div class="free">
           <div class="title">FREE TO CARRY</div>
-          <input value="${c.FREE_TO_CARRY || ''}"
-            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value, this)">
+          <textarea
+            oninput="saveDebounced('${c.ID}','FREE_TO_CARRY',this.value, this)"
+          >${c.FREE_TO_CARRY || ''}</textarea>
         </div>
       </div>
     </div>
