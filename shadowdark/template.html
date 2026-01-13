@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- v3.3 - Increased debounce delays -->
+  <!-- v3.4 - Integrated dice roller with modal -->
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -246,6 +246,200 @@
     body.mobile .gear-list {
       grid-template-columns: 1fr;
     }
+
+    /* ===== Dice Roller Styles ===== */
+    .dice-roller {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #000;
+      border-radius: 3px;
+    }
+
+    .dice-roller-title {
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .pill-group {
+      display: inline-flex;
+      border: 1px solid black;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+
+    .pill {
+      padding: 6px 14px;
+      background: white;
+      color: black;
+      border: none;
+      border-right: 1px solid black;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    .pill:last-child { border-right: none; }
+    .pill.active { background: black; color: white; }
+    .pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #dicebtn {
+      margin-top: 8px;
+      padding: 8px 20px;
+      font-size: 16px;
+      border: 2px solid black;
+      background: black;
+      color: white;
+      cursor: pointer;
+      border-radius: 6px;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    #dicebtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ===== Modal Styles ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 32px;
+      border-radius: 8px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+      border: 2px solid #000;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 32px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      width: 32px;
+      height: 32px;
+    }
+
+    .modal-body {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .die-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .die {
+      width: 90px;
+      height: 90px;
+      color: black;
+    }
+
+    .die line,
+    .die polygon,
+    .die rect {
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: white;
+    }
+
+    .die text {
+      font-size: 20px;
+      font-weight: bold;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      fill: currentColor;
+      filter: drop-shadow(0 0 2px rgba(0,0,0,0.2));
+    }
+
+    .winner.adv { color: green; }
+    .winner.dis { color: red; }
+
+    .winner.adv text {
+      filter: drop-shadow(0 0 4px rgba(0,255,0,.6));
+    }
+    .winner.dis text {
+      filter: drop-shadow(0 0 4px rgba(255,0,0,.6));
+    }
+
+    .nat20 {
+      color: gold;
+    }
+    .nat20 text {
+      filter: drop-shadow(0 0 5px gold);
+    }
+
+    .nat1 {
+      color: #8b0000;
+    }
+    .nat1 text {
+      filter: drop-shadow(0 0 5px #8b0000);
+    }
+
+    .mod-total {
+      font-size: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .modal-btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: 2px solid black;
+      background: white;
+      color: black;
+      cursor: pointer;
+      border-radius: 6px;
+      font-family: inherit;
+    }
+
+    .modal-btn.primary {
+      background: black;
+      color: white;
+    }
   </style>
 </head>
 
@@ -266,10 +460,27 @@ if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(naviga
 
 <div id="sheet" class="sheet loading"></div>
 
+<!-- Dice Roller Modal -->
+<div class="modal-overlay" id="diceModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Roll Result</div>
+      <button class="modal-close" onclick="closeDiceModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalDiceOutput"></div>
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="closeDiceModal()">Close</button>
+      <button class="modal-btn primary" onclick="rerollDice()">Re-roll</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let saveTimer;
 let currentChar;
 let saveLock = false;
+let diceRollerMods = { str: 0, int: 0, dex: 0, wis: 0, con: 0, cha: 0 };
+let lastDiceRoll = null;
 
 function setInputState(input, state) {
   if (!input) return;
@@ -329,7 +540,7 @@ function saveDebounced(id, field, value, inputElement) {
         }, 3000);
       })
       .updateCharacterField(id, field, value);
-  }, 600);
+  }, 1500);
 }
 
 /* ===== Text field debounce with global lock ===== */
@@ -344,7 +555,7 @@ function saveTextFieldDebounced(id, field, value, inputElement) {
   clearTimeout(textSaveTimers[field]);
   textSaveTimers[field] = setTimeout(() => {
     forceSaveTextField(id, field, value, inputElement);
-  }, 1000);
+  }, 2000);
 }
 
 function forceSaveTextField(id, field, value, inputElement) {
@@ -426,8 +637,6 @@ function render(c) {
 
   document.getElementById('sheet').innerHTML = `
     <div>
-      <h1>${c.NAME || ''}</h1>
-
       <div class="stats">
         ${['STR','INT','DEX','WIS','CON','CHA'].map(s => `
           <div class="stat">
@@ -473,6 +682,34 @@ function render(c) {
           oninput="saveTextFieldDebounced('${c.ID}','ATTACKS',this.value, this)"
           onblur="forceSaveTextField('${c.ID}','ATTACKS',this.value, this)"
         >${c.ATTACKS || ''}</textarea>
+      </div>
+
+      <div class="box dice-roller">
+        <div class="dice-roller-title">DICE ROLLER</div>
+        <div class="pill-group" id="dice-group">
+          <button class="pill" data-dice="4">d4</button>
+          <button class="pill" data-dice="6">d6</button>
+          <button class="pill" data-dice="8">d8</button>
+          <button class="pill" data-dice="10">d10</button>
+          <button class="pill" data-dice="12">d12</button>
+          <button class="pill active" data-dice="20">d20</button>
+        </div>
+        <br>
+        <div class="pill-group" id="mod-group">
+          <button class="pill" data-mod="str">STR</button>
+          <button class="pill" data-mod="int">INT</button>
+          <button class="pill" data-mod="dex">DEX</button>
+          <button class="pill" data-mod="wis">WIS</button>
+          <button class="pill" data-mod="con">CON</button>
+          <button class="pill" data-mod="cha">CHA</button>
+        </div>
+        <br>
+        <div class="pill-group" id="adv-group">
+          <button class="pill" data-adv="adv">Advantage</button>
+          <button class="pill" data-adv="dis">Disadvantage</button>
+        </div>
+        <br>
+        <button id="dicebtn" onclick="rollDiceFromButton()">Roll</button>
       </div>
     </div>
 
@@ -533,6 +770,8 @@ function render(c) {
       </div>
     </div>
   `;
+  
+  initDiceRoller();
 }
 
 function gearColumn(start, end) {
@@ -549,6 +788,255 @@ function gearColumn(start, end) {
   }
   return out;
 }
+
+/* ===== Dice Roller Functions ===== */
+function initDiceRoller() {
+  // Update mods from current character
+  ['STR','INT','DEX','WIS','CON','CHA'].forEach(s => {
+    const val = currentChar[s];
+    diceRollerMods[s.toLowerCase()] = Math.floor((val - 10) / 2);
+  });
+
+  // Setup pill groups
+  exclusivePills("#dice-group");
+  togglePills("#mod-group");
+  togglePills("#adv-group");
+}
+
+function exclusivePills(group) {
+  document.querySelectorAll(group + " .pill").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll(group + " .pill").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    };
+  });
+}
+
+function togglePills(group) {
+  document.querySelectorAll(group + " .pill").forEach(b => {
+    b.onclick = () => {
+      const on = b.classList.contains("active");
+      document.querySelectorAll(group + " .pill").forEach(x => x.classList.remove("active"));
+      if (!on) b.classList.add("active");
+    };
+  });
+}
+
+function rollDiceFromButton() {
+  const dice = +document.querySelector("#dice-group .active").dataset.dice;
+  const modBtn = document.querySelector("#mod-group .active");
+  const advBtn = document.querySelector("#adv-group .active");
+
+  const modKey = modBtn ? modBtn.dataset.mod : null;
+  const adv = advBtn ? advBtn.dataset.adv : "NONE";
+
+  lastDiceRoll = { dice, modKey, adv };
+  performDiceRoll(dice, modKey, adv);
+}
+
+function rerollDice() {
+  if (lastDiceRoll) {
+    performDiceRoll(lastDiceRoll.dice, lastDiceRoll.modKey, lastDiceRoll.adv);
+  }
+}
+
+function performDiceRoll(dice, modKey, adv) {
+  const d1 = rollDie(dice, modKey);
+  const d2 = adv !== "NONE" ? rollDie(dice, modKey) : null;
+
+  const output = renderDiceResult(d1, d2, adv, dice, !!modKey);
+  document.getElementById('modalDiceOutput').innerHTML = output;
+  openDiceModal();
+}
+
+function rollDie(d, modKey) {
+  const roll = Math.floor(Math.random() * d) + 1;
+  let total = roll;
+  let mod = 0;
+  let nat1 = false, nat20 = false;
+
+  if (d === 20) {
+    nat1 = roll === 1;
+    nat20 = roll === 20;
+  }
+
+  if (!nat1 && !nat20 && modKey) {
+    mod = diceRollerMods[modKey];
+    total += mod;
+  }
+
+  return { roll, total, mod, nat1, nat20 };
+}
+
+function renderDiceResult(d1, d2, adv, dice, showTotals) {
+  if (!d2) {
+    return dieHTML(d1, dice, true, "", showTotals);
+  }
+
+  let winner =
+    d1.total === d2.total
+      ? d1
+      : adv === "adv"
+        ? (d1.total > d2.total ? d1 : d2)
+        : (d1.total < d2.total ? d1 : d2);
+
+  const loser = winner === d1 ? d2 : d1;
+
+  return (
+    dieHTML(loser, dice, false, adv, showTotals, winner) +
+    dieHTML(winner, dice, true, adv, showTotals, winner)
+  );
+}
+
+function dieHTML(d, dice, isWinner, adv, showTotals, winner) {
+  let cls = "";
+
+  const isNat = d.nat1 || d.nat20;
+  const showNat = isNat && (!winner || d === winner);
+
+  if (showNat) {
+    cls = d.nat20 ? "nat20" : "nat1";
+  } else if (isWinner && adv) {
+    cls = `winner ${adv}`;
+  }
+
+  return `
+  <div class="die-container">
+    <svg class="die ${cls}" viewBox="0 0 120 100">
+      ${dieShape(dice, d.roll)}
+    </svg>
+    ${
+      showTotals && isWinner
+        ? `<div>
+            ${d.mod ? `<div class="mod-total">Mod: ${d.mod > 0 ? "+" : ""}${d.mod}</div>` : ""}
+            <div class="mod-total">Total: ${d.total}</div>
+          </div>`
+        : ""
+    }
+  </div>`;
+}
+
+function dieShape(d, n) {
+  if (d === 4) return `
+    <g>
+    <line id="AB" x1="85" y2="5" x2="45" y1="35"/>
+    <line id="AD" y2="5" x1="5" x2="45" y1="35"/>
+    <line id="BC" x2="45" x1="85" y2="95" y1="35"/>
+    <line id="CD" x2="45" x1="5" y1="35" y2="95"/>
+    <line id="AC" x2="45" x1="45" y1="5" y2="95"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="35" y="30"> ${n} </text>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="55" y="30"> ${n} </text>
+    </g>`;
+
+  if (d === 6) return `
+    <g>
+    <line id="AB" y2="10" y1="10" x1="20" x2="70"/>
+    <line id="BC" y1="10" y2="60" x1="70" x2="70"/>
+    <line id="CD" y1="60" y2="60" x2="20" x1="70"/>
+    <line id="AD" y1="10" y2="60" x1="20" x2="20"/>
+    <line id="AE" x1="20" y1="10" x2="10" y2="25"/>
+    <line id="EF" x2="10" x1="10" y2="25" y1="75"/>
+    <line id="DF" y2="60" x2="20" x1="10" y1="75"/>
+    <line id="FG" x2="55" x1="10" y1="75" y2="75"/>
+    <line x2="55" id="CG" y1="60" x1="70" y2="75"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" y="35" x="45"> ${n} </text>
+    </g>`;
+
+  if (d === 8) return `
+    <g>
+    <line id="AB" y2="5" y1="65" x2="45" x1="83"/>
+    <line id="AB-2" y2="5" x2="45" y1="30" x1="85"/>
+    <line id="AB-3" x1="85" y2="65" y1="30" x2="83"/>
+    <line id="AD" y2="5" x2="45" y1="65" x1="7"/>
+    <line id="AD-2" y2="5" x1="5" x2="45" y1="30"/>
+    <line id="AD-3" y1="65" x2="5" y2="30" x1="7"/>
+    <line id="CD" x1="45" y2="65" y1="95" x2="7"/>
+    <line id="BC" x1="45" y2="65" y1="95" x2="83"/>
+    <line id="BD" y1="65" y2="65" x2="7" x1="83"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="45" y="45"> ${n} </text>
+    </g>`;
+  
+  if (d === 10) return `
+    <g>
+    <line id="AB" y2="5" x1="105" y1="55" x2="55"/>
+    <line id="AD" y2="5" x1="5" y1="55" x2="55"/>
+    <line id="CD" x2="5" x1="55" y2="55" y1="105"/>
+    <line id="BC" y2="55" y1="105" x1="55" x2="105"/>
+    <line id="AE" y2="5" y1="55" x2="55" x1="55"/>
+    <line id="EF" x1="55" y2="60" y1="55" x2="80"/>
+    <line id="F-AB" y1="50" x1="100" x2="80" y2="60"/>
+    <line id="FC" y1="105" x1="55" y2="60" x2="80"/>
+    <line id="EG" x1="55" y1="55" y2="60" x2="30"/>
+    <line id="G-AD" y2="60" x2="30" x1="10" y1="50"/>
+    <line id="GC" y1="105" x1="55" y2="60" x2="30"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="69" y="39"> ${n} </text>
+    </g>`;
+
+  if (d === 12) return `
+    <g>
+    <line id="AB" x1="50" y1="5" x2="76.45" y2="13.59"/>
+    <line id="BC" x1="76.45" y1="13.59" x2="92.8" y2="36.1"/>
+    <line id="CD" x1="92.8" y1="36.1" x2="92.8" y2="63.9"/>
+    <line x2="92.8" y2="63.9" id="DE" x1="76.45" y1="86.41"/>
+    <line x1="76.45" y1="86.41" id="EF" x2="50" y2="95"/>
+    <line y1="86.41" x2="50" y2="95" id="FG" x1="23.55"/>
+    <line y1="86.41" x1="23.55" id="GH" x2="7.2" y2="63.9"/>
+    <line x2="7.2" y2="63.9" id="HI" y1="36.1" x1="7.2"/>
+    <line y1="36.1" x1="7.2" id="IJ" x2="23.55" y2="13.59"/>
+    <line x2="23.55" y2="13.59" id="JK" y1="5" x1="50"/>
+    <line x1="50" y1="26" x2="72.83" y2="42.59" id="LM"/>
+    <line x1="72.83" y1="42.59" x2="64.09" y2="69.41" id="MN" />
+    <line id="NO" x1="64.09" y1="69.41" x2="35.91" y2="69.41"/>
+    <line id="OP" x1="35.91" y1="69.41" x2="27.17" y2="42.59"/>
+    <line id="PQ" x1="27.17" y1="42.59" x2="50" y2="26"/>  
+    <line x2="50" y2="26" id="AL" x1="50" y1="5"/>
+    <line x2="92.8" y2="36.1" id="CM" x1="72.83" y1="42.59"/>
+    <line id="EN" x2="64.09" y2="69.41" x1="76.45" y1="86.41"/>
+    <line y2="69.41" y1="86.41" id="GO" x2="35.91" x1="23.55"/>
+    <line id="IP" x1="27.17" x2="7.2" y1="42.59" y2="36.1"/>
+    <text font-family="serif" text-anchor="middle" dominant-baseline="middle" x="50" y="52"> ${n} </text>
+    </g>`;
+
+  return `
+    <g>
+    <line x1="50" y1="5" x2="88.97" y2="27.5" id="AB" />
+    <line x1="88.97" y1="27.5" x2="88.97" y2="72.5" id="BC" />
+    <line x1="88.97" y1="72.5" x2="50" y2="95" id="CD" />
+    <line x1="50" y1="95" x2="11.03" y2="72.5" id="DE" />
+    <line x1="11.03" y1="72.5" x2="11.03" y2="27.5" id="EF" />
+    <line x1="11.03" y1="27.5" x2="50" y2="5" id="FG" />
+    <line x1="50" y1="24.02" x2="72.5" y2="62.99" id="HI" />
+    <line x1="72.5" y1="62.99" x2="27.5" y2="62.99" id="IJ" />
+    <line x1="27.5" y1="62.99" x2="50" y2="24.02" id="JK" />
+    <line x2="50" y2="24.02" id="AH" x1="50" y1="5"/>
+    <line x2="50" y2="24.02" id="BH" x1="88.97" y1="27.5"/>
+    <line x1="88.97" y1="27.5" id="BI" x2="72.5" y2="62.99"/>
+    <line x1="88.97" x2="72.5" y2="62.99" id="CI" y1="72.5"/>
+    <line id="DI" x2="50" y2="95" x1="72.5" y1="62.99"/>
+    <line x2="50" y2="95" y1="62.99" id="DJ" x1="27.5"/>
+    <line y1="62.99" x1="27.5" id="EJ" x2="11.03" y2="72.5"/>
+    <line y1="62.99" x1="27.5" x2="11.03" id="FJ" y2="27.5"/>
+    <line x2="11.03" y2="27.5" id="FH" y1="24.02" x1="50"/>
+    <text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-family="serif" > ${n} </text>
+    </g>`;
+}
+
+function openDiceModal() {
+  document.getElementById('diceModal').classList.add('show');
+  lockAllInputs();
+  // Also disable dice roller controls
+  document.querySelectorAll('.pill, #dicebtn').forEach(el => el.disabled = true);
+}
+
+function closeDiceModal() {
+  document.getElementById('diceModal').classList.remove('show');
+  if (!saveLock) {
+    unlockAllInputs();
+    // Re-enable dice roller controls
+    document.querySelectorAll('.pill, #dicebtn').forEach(el => el.disabled = false);
+  }
+}
+
 </script>
 
 </body>
