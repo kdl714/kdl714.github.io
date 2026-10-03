@@ -35,6 +35,7 @@
     padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   header h1 { font-size: 16px; margin: 0 8px 0 0; color: var(--accent); }
   header .spacer { flex: 1; }
+  .sm { display: none; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
   .seg button { border: 0; border-radius: 0; }
   .seg button.on { background: var(--accent); color: #1d2333; font-weight: 600; }
@@ -78,7 +79,7 @@
   .card.hinted { border-color: #4fd8e8; box-shadow: 0 0 0 3px #4fd8e8; }
   .card .key { position: absolute; top: 2px; right: 4px; font-size: 9px; color: #9a917c; }
   #hintBox { display: none; background: #4fd8e81a; border: 1px solid #4fd8e866; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
-  #timer { display: none; height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+  #timer { display: none; height: 6px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
   #timer i { display: block; height: 100%; width: 0; background: var(--accent); }
   .card.cycling { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad); }
   .peek { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
@@ -95,6 +96,9 @@
   .card .price { position: absolute; top: -8px; right: -8px; background: #4fd8e8; color: #10333a; font-weight: 700; font-size: 11px; border-radius: 10px; padding: 1px 6px; }
   .card .sell { position: absolute; bottom: -8px; right: -6px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-size: 10px; border-radius: 10px; padding: 1px 6px; cursor: pointer; }
   .card.cant { opacity: .4; cursor: not-allowed; }
+  body.paused #cv { filter: blur(16px) brightness(.6); }
+  body.endless #hud { margin-top: 8px; }    /* leave room for the timer strip on the canvas */
+  body.paused #hud, body.paused #hand .card, body.paused #seq .card { visibility: hidden; }
   .drag-ghost { position: fixed; z-index: 50; pointer-events: none; margin: 0; transform: scale(1.08) rotate(-2deg);
     box-shadow: 0 12px 28px #000a; border-color: var(--accent); transition: none; }
   .drag-ghost.out { border-color: var(--bad); opacity: .85; }
@@ -139,15 +143,28 @@
 
   /* Phones, portrait: stack everything; game on top, cards below */
   @media (max-width: 600px) {
-    header { gap: 6px; }
+    header { gap: 6px; flex-wrap: nowrap; padding-bottom: 6px; }
     header h1 { display: none; }
+    header .spacer { display: none; }
+    .lg { display: none; } .sm { display: inline; }
+    #levelSel { flex: 1 1 0; min-width: 0; max-width: 46vw; padding: 5px 6px; text-overflow: ellipsis; }
+    .seg button, #editBtn { padding: 6px 9px; }
+    /* card rows scroll sideways instead of stacking */
+    .cards { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 0; padding: 10px 6px 8px 8px; margin: -6px -4px 0;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+    .cards::-webkit-scrollbar { display: none; }
+    .card, .slot { flex: 0 0 auto; }
+    .cards > span { flex: 1 1 auto; min-width: 0; white-space: normal; }
+    #deck { gap: 6px; padding-top: 8px; }
+    #play { gap: 6px; }
+    #play .lanes { gap: 4px; }
+    .lane-label small { display: inline; margin: 0 0 0 6px; }
     select, input, textarea { font-size: 16px; }   /* stops iOS zooming in on focus */
     #stage { flex: 0 0 auto; padding: 8px; flex-direction: column; gap: 6px; }
     #deck { flex: 1 1 auto; max-height: none; }
     #hud { left: 14px; top: 12px; font-size: 10px; }
     .lane-label { width: auto; }
-    .lane { flex-direction: column; align-items: stretch; gap: 4px; }
-    .cards { min-height: 84px; gap: 6px; }
+    .lane { flex-direction: column; align-items: stretch; gap: 0; }
     .card, .slot { width: 62px; height: 80px; }
     .card .nm { font-size: 10.5px; }
     #play { grid-template-columns: 1fr; }
@@ -182,14 +199,14 @@
   <h1>Card Climber</h1>
   <select id="levelSel" aria-label="Level"></select>
   <span class="seg" id="modeSeg" title="How turns work (CONFIG.turnMode)">
-    <button data-mode="plan">Plan &amp; Run</button>
+    <button data-mode="plan"><span class="lg">Plan &amp; Run</span><span class="sm">Plan</span></button>
     <button data-mode="instant">Instant</button>
-    <button data-mode="time">Time Attack</button>
-    <button data-mode="run">Roguelite</button>
-    <button data-mode="quest">Roguelite</button>
+    <button data-mode="time">Endless</button>
+    <button data-mode="run"><span class="lg">Roguelite</span><span class="sm">Rogue</span></button>
+    <button data-mode="quest"><span class="lg">Roguelite</span><span class="sm">Rogue</span></button>
   </span>
   <span class="spacer"></span>
-  <button id="editBtn">✎ Editor</button>
+  <button id="editBtn" aria-label="Editor">✎<span class="lg"> Editor</span></button>
 </header>
 
 <div id="stage">
@@ -1337,13 +1354,12 @@ const Plan = {
     renderDeck();
     return status;
   },
-  clear() { if (app.running) return; app.hand.push(...app.seq); app.seq = []; app.hand.sort((a, b) => a.uid - b.uid); resetRun(); },
+  // Reset = start the level over: cards back in your hand, character back at the start
+  reset() { if (app.running) return; app.hand.push(...app.seq); app.seq = []; app.hand.sort((a, b) => a.uid - b.uid); resetRun(); },
   actions() {
     return [
       ['▶ Play', 'primary', Plan.play, !app.seq.length || app.running],
-      ['Step', '', () => Plan.step(), !app.seq.length || app.running || (app.cursor >= app.seq.length && app.state.status === 'playing')],
-      ['↺ Reset', '', resetRun, app.running],
-      ['Clear', '', Plan.clear, app.running || !app.seq.length],
+      ['↺ Reset', '', Plan.reset, app.running || (!app.seq.length && !app.cursor && app.state.status === 'playing')],
       ...(CONFIG.features.hints && app.fails > 0 ? [[`💡 Hint${CONFIG.features.gems ? ` (−${CONFIG.hints.penalty})` : ''}`, '', Hints.next, app.running]] : []),
     ];
   },
@@ -1409,13 +1425,14 @@ const Instant = {
     ];
   },
 };
-// Time Attack: endless runner. Cards come from a weighted random pool; you
+// Endless (Time Attack): endless runner. Cards come from a weighted random pool; you
 // have a few seconds per pick (less the further you get). Too slow or a
 // fatal move costs a heart; dying puts you back where you were before the card.
 const TimeAttack = {
   start() {
     const T = CONFIG.timeAttack;
-    app.level = { name: 'Time Attack', map: [], cards: [] }; app.levelKey = 'time';
+    app.level = { name: 'Endless', map: [], cards: [] }; app.levelKey = 'time';
+    document.body.classList.remove('paused');
     app.map = makeEndlessMap();
     app.map.start.y = app.map.grid.findIndex((r) => r[1] === '#') - 1;
     app.state = initialState(app.map);
@@ -1424,7 +1441,7 @@ const TimeAttack = {
     app.hand = []; app.played = []; app.seq = [];
     TimeAttack.fill();
     renderDeck();
-    showBanner('Time Attack', `Go as far as you can. You get about ${T.startSeconds}s to pick each card, less the further you go.\nToo slow or a bad move costs a heart. Keys 1–${T.handSize} pick cards.`,
+    showBanner('Endless', `Go as far as you can. You get about ${T.startSeconds}s to pick each card, less the further you go.\nToo slow or a bad move costs a heart. Keys 1–${T.handSize} pick cards.`,
       [['Start', () => { hideBanner(); TimeAttack.arm(); renderDeck(); }]]);
   },
   pick() {
@@ -1512,8 +1529,12 @@ const TimeAttack = {
   pause() {
     const ta = app.ta;
     if (!ta || ta.over || app.running) return;
-    if (ta.paused != null) { ta.deadline = performance.now() + ta.paused; ta.paused = null; hideBanner(); }
-    else if (ta.deadline) { ta.paused = ta.deadline - performance.now(); showBanner('Paused', 'Take a breather.', [['Resume', TimeAttack.pause]]); }
+    if (ta.paused != null) { ta.deadline = performance.now() + ta.paused; ta.paused = null; hideBanner(); document.body.classList.remove('paused'); }
+    else if (ta.deadline) {
+      ta.paused = ta.deadline - performance.now();
+      document.body.classList.add('paused');            // hide the level and your cards: no planning while paused
+      showBanner('Paused', 'Take a breather.', [['Resume', TimeAttack.pause]]);
+    }
     renderDeck();
   },
   actions() {
@@ -1677,7 +1698,9 @@ const Quest = {
       + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`), [['New run', Quest.start]]);
   },
   actions() {
-    return [...Plan.actions().filter(([label]) => !label.startsWith('💡') && label !== 'Clear'),
+    return [
+      ['▶ Play', 'primary', Plan.play, !app.seq.length || app.running],
+      ['↺ Reset', '', resetRun, app.running],              // back to the start; your cards stay in the plan
       ['Sell all', '', Quest.sellAll, app.running || !app.seq.length],
       ['Give up run', '', () => { if (!app.running && confirm('Give up this run?')) Quest.over(); }, app.running]];
   },
@@ -2077,7 +2100,20 @@ function draw() {
   }
   ctx.restore();
   const run = app.mode === 'run' && app.run, ta = app.mode === 'time' && app.ta, q = app.mode === 'quest' && app.q;
-  if (ta) TimeAttack.tick();
+  if (ta) {
+    TimeAttack.tick();
+    // the timer lives on the game itself, so it's visible however the page is laid out
+    if (ta.deadline || ta.paused != null) {
+      const left = ta.paused ?? (ta.deadline - performance.now()), frac = Math.max(0, Math.min(1, left / ta.limitMs));
+      const low = frac < .3;
+      ctx.fillStyle = '#0006'; ctx.fillRect(0, 0, W * TS, Math.max(6, TS * .18));
+      ctx.fillStyle = low ? '#ff4d4d' : '#ffcc33'; ctx.fillRect(0, 0, W * TS * frac, Math.max(6, TS * .18));
+      if (low && !ta.paused) {                       // pulsing red edge as a second warning
+        ctx.strokeStyle = `rgba(255,77,77,${.45 + .4 * Math.sin(performance.now() / 70)})`; ctx.lineWidth = Math.max(4, TS * .15);
+        ctx.strokeRect(0, 0, W * TS, H * TS);
+      }
+    }
+  }
   $('hud').textContent = app.editing ? 'Editing — click/drag to paint'
     : q ? `Level ${q.depth}  ·  ${'♥'.repeat(q.hearts)}${'♡'.repeat(Math.max(0, q.maxHearts - q.hearts))}  ·  ◆ ${q.gems}`
         + (app.map.keyMask ? (hasAllKeys(app.map, v) ? '  ·  🔑 ✓' : '  ·  🔑 needed') : '') + (gemTotal(map) ? `  ·  gems ${gemCount(map, v)}/${gemTotal(map)}` : '')
@@ -2252,6 +2288,7 @@ function renderDeck() {
   });
   if (time && app.played.length > 1) seqBox.appendChild(Object.assign(document.createElement('span'), { className: 'played-count', textContent: `${app.played.length} cards played` }));
   $('timer').style.display = time ? 'block' : 'none';
+  document.body.classList.toggle('endless', time);
   $('hintBox').style.display = app.mode === 'plan' && app.hintText ? 'block' : 'none';
   if (app.hintHtml && app.hintText === 'cards') $('hintBox').innerHTML = `💡 ${app.hintHtml}`;
   else $('hintBox').textContent = app.hintText ? `💡 ${app.hintText}` : '';
@@ -2348,6 +2385,13 @@ const Drag = {
     document.body.appendChild(d.ghost);
     d.el.classList.add('dragging');
     if (navigator.vibrate) navigator.vibrate(10);
+    // keep scrolling the plan row while the card is held near its left/right edge (phones)
+    d.auto = setInterval(() => {
+      const row = $('seq'), r = row.getBoundingClientRect();
+      if (d.y < r.top - 30 || d.y > r.bottom + 30) return;
+      const dx = d.x < r.left + 36 ? -8 : d.x > r.right - 36 ? 8 : 0;
+      if (dx) { row.scrollLeft += dx; Drag.position(); }
+    }, 16);
     Drag.position();
   },
   // where in the plan would the card land? (index among the other planned cards)
@@ -2395,7 +2439,7 @@ const Drag = {
   cancel() { clearTimeout(Drag.cur?.timer); Drag.cleanup(); },
   cleanup() {
     const d = Drag.cur;
-    if (d) { d.ghost?.remove(); d.el.classList.remove('dragging'); }
+    if (d) { clearInterval(d.auto); d.ghost?.remove(); d.el.classList.remove('dragging'); }
     $('dropMarker').style.display = 'none'; $('seq').classList.remove('drop-target');
     Drag.cur = null;
   },
@@ -2441,7 +2485,7 @@ function setEditing(on) {
   app.editing = on; app.playtesting = false;
   $('play').style.display = on ? 'none' : '';
   $('editor').style.display = on ? 'flex' : 'none';
-  $('editBtn').textContent = on ? '✕ Close editor' : '✎ Editor';
+  $('editBtn').innerHTML = on ? '✕<span class="lg"> Close editor</span>' : '✎<span class="lg"> Editor</span>';
   if (on) { hideBanner(); renderEditor(); }
   else { app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id })); app.seq = []; app.played = []; app.history = []; resetRun(); }
 }
@@ -2552,7 +2596,7 @@ document.querySelectorAll('#modeSeg button').forEach((b) => b.onclick = () => {
   if (app.running) return;
   const was = app.mode;
   app.mode = b.dataset.mode; store.set('cardclimber.mode', app.mode);
-  if (was === 'time') app.ta = null;
+  if (was === 'time') { app.ta = null; document.body.classList.remove('paused'); }
   if (app.mode === 'run') return Run.start();
   if (app.mode === 'time') return TimeAttack.start();
   if (app.mode === 'quest') return Quest.start();
@@ -2566,7 +2610,7 @@ document.querySelector(CONFIG.features.timeAttack ? '[data-mode=instant]' : '[da
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, textarea') || app.editing) return;
   if (e.key === 'Enter' && app.mode === 'plan') Plan.play();
-  if (e.key === 'r' && (app.mode === 'plan' || app.mode === 'instant')) app.mode === 'plan' ? resetRun() : Instant.restart();
+  if (e.key === 'r' && (app.mode === 'plan' || app.mode === 'instant')) app.mode === 'plan' ? Plan.reset() : Instant.restart();
   if (app.mode === 'time') {
     const n = parseInt(e.key, 10);
     if (n >= 1 && app.hand[n - 1]) TimeAttack.clickHand(app.hand[n - 1].uid);
