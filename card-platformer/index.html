@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- iPhone: "Add to Home Screen" launches full-screen like an app -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Climber">
+<meta name="theme-color" content="#1d2333">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="apple-touch-icon.png">
+<title>Card Climber</title>
+<style>
+  :root {
+    --bg: #1d2333; --panel: #262d40; --panel2: #2f3750; --text: #eef1f8; --muted: #9aa3bb;
+    --accent: #ffcc33; --good: #5cd18b; --bad: #ff6b6b; --line: #3c4562;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+  button, .card { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  @media (hover: hover) { button:hover:not(:disabled) { border-color: var(--accent); } }
+  button:active:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); color: #1d2333; border-color: var(--accent); font-weight: 600; }
+  select, input, textarea { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+
+  header { display: flex; gap: 10px; align-items: center;
+    padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; color: var(--accent); }
+  header .spacer { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.on { background: var(--accent); color: #1d2333; font-weight: 600; }
+
+  #stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; padding: 8px 16px; }
+  #cv { display: block; border-radius: 8px; box-shadow: 0 4px 20px #0006; touch-action: none; }
+  #banner { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: #1d2333ee; border: 2px solid var(--accent);
+    border-radius: 10px; padding: 16px 24px; text-align: center; display: none; min-width: 240px; }
+  #banner h2 { margin: 0 0 6px; font-size: 20px; }
+  #banner p { margin: 0 0 12px; color: var(--muted); }
+  #banner .row { display: flex; gap: 8px; justify-content: center; }
+  #rotateHint { display: none; color: var(--muted); font-size: 11px; text-align: center; }
+  #hud { position: absolute; left: 24px; top: 14px; font-size: 12px; background: #0007; padding: 3px 8px; border-radius: 4px; pointer-events: none; }
+
+  #deck { flex: 0 0 auto; max-height: 45vh; background: var(--panel); border-top: 1px solid var(--line);
+    padding: 12px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+  #play { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; }
+  #play .lanes { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  #seqActions { flex-direction: column; justify-content: center; }
+  #seqActions button { width: 100%; }
+  .lane { display: flex; align-items: center; gap: 10px; }
+  .lane-label { width: 72px; flex-shrink: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .cards { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-height: 94px; align-items: center; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .card { width: 80px; height: 92px; background: #f6f1e4; color: #2a2a2a; border-radius: 8px; border: 2px solid #d8cfb8; display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between; padding: 5px 3px; cursor: pointer; user-select: none; position: relative; transition: transform .1s; }
+  @media (hover: hover) { .card:hover { transform: translateY(-3px); border-color: var(--accent); } }
+  .card:active { transform: translateY(-3px); border-color: var(--accent); }
+  .card .nm { font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .card .ds { font-size: 9.5px; color: #6b6455; text-align: center; line-height: 1.15; }
+  .card svg { display: block; }
+  .card .idx { position: absolute; top: -8px; left: -8px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 50%;
+    width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .card.done { opacity: .5; }
+  .lane-label small { display: block; text-transform: none; letter-spacing: 0; margin-top: 4px; }
+  #banner .extra { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  .card.failed { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad); }
+  .slot { width: 80px; height: 92px; border: 2px dashed var(--line); border-radius: 8px; }
+  .locked .card { cursor: default; }
+  .locked .card:hover, .locked .card:active { transform: none; }
+
+  /* Editor */
+  #editor { display: none; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  #editor .group { display: flex; flex-direction: column; gap: 6px; }
+  #editor .group > b { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .tiles { display: flex; gap: 4px; flex-wrap: wrap; max-width: 300px; }
+  .tiles button { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+  .tiles button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .tiles i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  .cardcounts { display: grid; grid-template-columns: auto auto auto auto; gap: 3px 6px; align-items: center; font-size: 12px; }
+  .cardcounts button { padding: 0 7px; }
+  .cardcounts span.n { min-width: 14px; text-align: center; }
+  #solveOut { font-size: 12px; color: var(--muted); max-width: 320px; white-space: pre-wrap; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; width: min(640px, 92vw); }
+  dialog textarea { width: 100%; height: 280px; font: 12px/1.35 ui-monospace, Menlo, monospace; }
+  dialog::backdrop { background: #0008; }
+
+  /* Phones, portrait: stack everything; game on top, cards below */
+  @media (max-width: 600px) {
+    header { gap: 6px; }
+    header h1 { display: none; }
+    select, input, textarea { font-size: 16px; }   /* stops iOS zooming in on focus */
+    #stage { flex: 0 0 auto; padding: 8px; flex-direction: column; gap: 6px; }
+    #deck { flex: 1 1 auto; max-height: none; }
+    #hud { left: 14px; top: 12px; font-size: 10px; }
+    .lane-label { width: auto; }
+    .lane { flex-direction: column; align-items: stretch; gap: 4px; }
+    .cards { min-height: 84px; gap: 6px; }
+    .card, .slot { width: 62px; height: 80px; }
+    .card .nm { font-size: 10px; letter-spacing: -.2px; }
+    .card .ds { font-size: 8.5px; }
+    #play { grid-template-columns: 1fr; }
+    #seqActions { flex-direction: row; }
+    #seqActions button { width: auto; flex: 1; padding: 10px 8px; }
+    #banner { width: calc(100% - 24px); min-width: 0; padding: 12px; }
+    #banner .extra .card { width: 70px; }
+  }
+  @media (max-width: 600px) and (pointer: coarse) { #rotateHint { display: block; } }
+  /* Phones, landscape: game on the left, cards in a scrolling column on the right */
+  @media (orientation: landscape) and (max-height: 500px) {
+    body { display: grid; grid-template-columns: 1fr minmax(240px, 36%); grid-template-rows: auto minmax(0, 1fr); }
+    header { grid-column: 1 / -1; padding-top: 6px; padding-bottom: 6px; }
+    header h1 { display: none; }
+    select, input, textarea { font-size: 16px; }
+    #stage { padding: 6px 8px 6px max(8px, env(safe-area-inset-left)); }
+    #deck { max-height: none; border-top: 0; border-left: 1px solid var(--line); padding-top: 8px; }
+    #play { grid-template-columns: 1fr; }
+    .lane { flex-direction: column; align-items: stretch; gap: 4px; }
+    .lane-label { width: auto; }
+    .cards { min-height: 0; gap: 6px; }
+    .card, .slot { width: 58px; height: 74px; }
+    .card .nm { font-size: 10.5px; }
+    .card .ds { display: none; }
+    #seqActions { flex-direction: row; order: -1; }
+    #seqActions button { width: auto; flex: 1; padding: 8px 6px; }
+    #editor { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Card Climber</h1>
+  <select id="levelSel" aria-label="Level"></select>
+  <span class="seg" id="modeSeg" title="How turns work (CONFIG.turnMode)">
+    <button data-mode="plan">Plan &amp; Run</button>
+    <button data-mode="instant">Instant</button>
+    <button data-mode="run">Roguelite</button>
+  </span>
+  <span class="spacer"></span>
+  <button id="editBtn">✎ Editor</button>
+</header>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hud"></div>
+  <div id="rotateHint">Turn your phone sideways for a bigger view</div>
+  <div id="banner"><h2></h2><p></p><div class="row"></div></div>
+</div>
+
+<section id="deck">
+  <div id="play">
+    <div class="lanes">
+      <div class="lane">
+        <div class="lane-label" id="seqLabel">Sequence</div>
+        <div class="cards" id="seq"></div>
+      </div>
+      <div class="lane">
+        <div class="lane-label" id="handLabel">Hand</div>
+        <div class="cards" id="hand"></div>
+      </div>
+    </div>
+    <div class="actions" id="seqActions"></div>
+  </div>
+
+  <div id="editor">
+    <div class="group">
+      <b>Level name</b>
+      <input id="edName">
+      <b>Paint tile</b>
+      <div class="tiles" id="edTiles"></div>
+    </div>
+    <div class="group">
+      <b>Hand (cards given)</b>
+      <div class="cardcounts" id="edCards"></div>
+    </div>
+    <div class="group">
+      <b>Level</b>
+      <div class="actions">
+        <button class="primary" id="edPlay">▶ Playtest</button>
+        <button id="edSolve">Check solvable</button>
+        <button id="edSave">Save</button>
+      </div>
+      <div class="actions">
+        <button id="edNew">New blank</button>
+        <button id="edIO">Import / Export</button>
+        <button id="edDelete">Delete</button>
+      </div>
+      <div id="solveOut"></div>
+    </div>
+  </div>
+</section>
+
+<dialog id="ioDlg">
+  <p style="margin-top:0">Level JSON — copy it out to share, or paste one in and press Import.</p>
+  <textarea id="ioText" spellcheck="false"></textarea>
+  <div class="actions" style="margin-top:8px;justify-content:flex-end">
+    <button id="ioCopy">Copy</button>
+    <button id="ioImport" class="primary">Import</button>
+    <button id="ioClose">Close</button>
+  </div>
+</dialog>
+
+<script>
+/* =====================================================================
+   CONFIG — knobs for experimenting with the design.
+   turnMode:  'plan'    → arrange cards into a sequence, then press Play.
+              'instant' → clicking a card plays it immediately (with undo).
+              'run'     → roguelite run: draw from a deck, generated levels.
+   All modes run on the same pure simulation (runCard), so adding a mode
+   only means writing a new controller, not touching rules.
+
+   features: switch each experiment off to get back to the earlier game.
+     Experiment 1 (puzzle depth): echo, crates, puzzlePack
+     Experiment 2 (replayability): runMode
+   ===================================================================== */
+const CONFIG = {
+  turnMode: 'plan',
+  features: {
+    echo: true,        // "Echo" card: replays the previous card
+    crates: true,      // pushable crates (tile C)
+    puzzlePack: true,  // levels 3–5, built around echo/crates/decoy cards
+    runMode: true,     // "Roguelite" mode: deck, draws, generated levels, rewards
+    fairGenerator: true, // generated levels respect your deck's card counts and are play-tested with random draws
+  },
+  run: {
+    hearts: 3,
+    handSize: 4,
+    startingDeck: ['walk1', 'walk1', 'walk2', 'walk2', 'jump', 'jump', 'highjump', 'wait'],
+    rewardPool: ['walk3', 'longjump', 'highjump', 'jump', 'walk2', 'wait', 'echo'],
+    minWinRate: 0.75,  // fairGenerator: a simulated player must win this often with random draws…
+    fairTrials: 20,    // …over this many shuffled attempts, or the level is thrown away
+    spareSteps: 6,     // step budget = shortest possible solution + this (6 ≈ 80–100% wins for a perfect player)
+  },
+  stepMs: 130,        // animation time per tile moved
+  fallMs: 70,         // animation time per tile fallen
+  pauseBetweenCards: 180,
+};
+
+// ===== SIM-START (pure rules, no DOM — also used by the solver) =====
+const W = 16, H = 9;
+
+// Tile legend for level maps:
+//   .  empty      #  ground (solid)     ^  spikes (deadly)
+//   t  timed spikes: retracted on even turns, up on odd turns (toggle after every card)
+//   C  crate: solid, pushed by walking into it; falls; covers spikes it lands on
+//   P  player start (faces right)       G  goal flag
+// A card is a list of moves. A move is a path of [dx,dy] steps (dx is relative
+// to facing), followed by gravity. If a step is blocked, the rest of that path
+// is skipped; with stop:true the remaining moves of the card are skipped too.
+// push:true lets that step shove a crate.
+const step = { path: [[1, 0]], stop: true, push: true };
+const CARDS = {
+  walk1:    { name: 'Walk 1',    desc: 'Forward 1',          moves: [step] },
+  walk2:    { name: 'Walk 2',    desc: 'Forward 2',          moves: [step, step] },
+  walk3:    { name: 'Walk 3',    desc: 'Forward 3',          moves: [step, step, step] },
+  jump:     { name: 'Jump',      desc: 'Up 1, forward 2',    moves: [{ path: [[0,-1],[1,0],[1,0]] }] },
+  highjump: { name: 'High Jump', desc: 'Up 2, forward 1',    moves: [{ path: [[0,-1],[0,-1],[1,0]] }] },
+  longjump: { name: 'Long Jump', desc: 'Up 1, forward 3',    moves: [{ path: [[0,-1],[1,0],[1,0],[1,0]] }] },
+  turn:     { name: 'Turn',      desc: 'Face the other way', moves: [{ type: 'turn' }] },
+  wait:     { name: 'Wait',      desc: 'Skip a turn',        moves: [{ type: 'wait' }] },
+  echo:     { name: 'Echo',      desc: 'Replay the previous card', echo: true, moves: [] },
+};
+if (!CONFIG.features.echo) delete CARDS.echo;
+
+function parseLevel(level) {
+  const grid = [], map = { grid, start: { x: 0, y: 0 }, goal: { x: -1, y: -1 }, crates: [] };
+  for (let y = 0; y < H; y++) {
+    const row = (level.map[y] || '').padEnd(W, '.').slice(0, W).split('');
+    row.forEach((c, x) => {
+      if (c === 'P') { map.start = { x, y }; row[x] = '.'; }
+      if (c === 'G') { map.goal = { x, y }; row[x] = '.'; }
+      if (c === 'C') { if (CONFIG.features.crates) map.crates.push({ x, y }); row[x] = '.'; }
+    });
+    grid.push(row);
+  }
+  return map;
+}
+
+function initialState(map) {
+  const s = { x: map.start.x, y: map.start.y, dir: 1, turn: 0, status: 'playing', last: null, crates: map.crates.map((c) => ({ ...c })) };
+  settleCrates(map, s, []);
+  return s;
+}
+
+function wall(map, x, y) {
+  if (x < 0 || x >= W) return true;          // side walls
+  if (y < 0 || y >= H) return false;         // open sky / bottomless pit
+  return map.grid[y][x] === '#';
+}
+const crateAt = (s, x, y) => s.crates.findIndex((c) => !c.gone && c.x === x && c.y === y);
+const solid = (map, s, x, y) => wall(map, x, y) || crateAt(s, x, y) >= 0;
+
+function spikeUp(map, s, x, y) {
+  if (x < 0 || x >= W || y < 0 || y >= H || crateAt(s, x, y) >= 0) return false;
+  const c = map.grid[y][x];
+  return c === '^' || (c === 't' && s.turn % 2 === 1);
+}
+
+// Drop every unsupported crate (bottom-most first so stacks fall together).
+function settleCrates(map, s, ev) {
+  let moved = true;
+  while (moved) {
+    moved = false;
+    [...s.crates.keys()].sort((a, b) => s.crates[b].y - s.crates[a].y).forEach((i) => {
+      const c = s.crates[i];
+      if (c.gone) return;
+      const by = c.y + 1;
+      if (wall(map, c.x, by) || crateAt(s, c.x, by) >= 0 || (s.x === c.x && s.y === by)) return;
+      c.y = by; moved = true;
+      if (c.y >= H) { c.gone = true; ev.push({ k: 'cgone', i }); }
+      else ev.push({ k: 'cfall', i, x: c.x, y: c.y });
+    });
+  }
+}
+
+// Runs one card. Returns the new state plus a list of events for animation.
+function runCard(map, st, id) {
+  const s = { ...st, crates: st.crates.map((c) => ({ ...c })) }, ev = [];
+  let card = CARDS[id];
+  if (card.echo) {
+    ev.push({ k: 'echo', x: s.x, y: s.y, of: s.last });
+    card = s.last ? CARDS[s.last] : CARDS.wait;   // nothing to echo → wasted turn
+  } else s.last = id;
+  const check = () => {
+    if (spikeUp(map, s, s.x, s.y)) { s.status = 'dead'; s.why = 'spikes'; ev.push({ k: 'die', x: s.x, y: s.y }); return true; }
+    if (s.x === map.goal.x && s.y === map.goal.y) { s.status = 'won'; ev.push({ k: 'win', x: s.x, y: s.y }); return true; }
+    return false;
+  };
+  const fall = () => {
+    while (!solid(map, s, s.x, s.y + 1)) {
+      s.y++; ev.push({ k: 'fall', x: s.x, y: s.y });
+      if (s.y >= H) { s.status = 'dead'; s.why = 'pit'; ev.push({ k: 'die', x: s.x, y: s.y }); return true; }
+      if (check()) return true;
+    }
+    return false;
+  };
+  for (const m of card.moves) {
+    if (m.type === 'turn') { s.dir = -s.dir; ev.push({ k: 'turn', x: s.x, y: s.y, dir: s.dir }); continue; }
+    if (m.type === 'wait') { ev.push({ k: 'wait', x: s.x, y: s.y }); continue; }
+    let blocked = false;
+    for (const [dx, dy] of m.path) {
+      const nx = s.x + dx * s.dir, ny = s.y + dy;
+      const ci = crateAt(s, nx, ny);
+      if (ci >= 0 && m.push && dy === 0 && !solid(map, s, nx + dx * s.dir, ny)) {
+        const c = s.crates[ci];
+        c.x = nx + dx * s.dir;
+        s.x = nx; ev.push({ k: 'push', x: s.x, y: s.y, i: ci, cx: c.x, cy: c.y });
+        settleCrates(map, s, ev);
+        if (check()) return { state: s, ev };
+        continue;
+      }
+      if (solid(map, s, nx, ny)) { ev.push({ k: 'bump', x: s.x, y: s.y, dx: dx * s.dir, dy }); blocked = true; break; }
+      s.x = nx; s.y = ny; ev.push({ k: 'move', x: s.x, y: s.y });
+      if (check()) return { state: s, ev };
+    }
+    if (fall()) return { state: s, ev };
+    settleCrates(map, s, ev);
+    if (blocked && m.stop) break;
+  }
+  s.turn++; ev.push({ k: 'tick', x: s.x, y: s.y, turn: s.turn });
+  check(); // timed spikes may pop up underneath you
+  return { state: s, ev };
+}
+
+// Depth-first search over every order of the hand. A sequence counts as a
+// solution as soon as it reaches the flag (leftover cards are allowed).
+function solve(level, limit = 200) {
+  const map = parseLevel(level), sols = [], counts = {};
+  let explored = 0;
+  for (const c of level.cards) counts[c] = (counts[c] || 0) + 1;
+  const dfs = (st, seq) => {
+    for (const id in counts) {
+      if (!counts[id] || sols.length >= limit) continue;
+      explored++;
+      const r = runCard(map, st, id);
+      seq.push(id); counts[id]--;
+      if (r.state.status === 'won') sols.push([...seq]);
+      else if (r.state.status === 'playing') dfs(r.state, seq);
+      seq.pop(); counts[id]++;
+    }
+  };
+  dfs(initialState(map), []);
+  return { solutions: sols, explored };
+}
+
+// Breadth-first search with unlimited copies of each card type: the fewest
+// cards that can possibly finish the level. Used to vet generated levels.
+function shortestPath(level, types, maxDepth = 16) {
+  const map = parseLevel(level);
+  const key = (s) => `${s.x},${s.y},${s.dir},${s.turn % 2},${s.last},${s.crates.map((c) => c.gone ? '_' : c.x + ':' + c.y).join(';')}`;
+  let frontier = [{ s: initialState(map), seq: [] }];
+  const seen = new Set([key(frontier[0].s)]);
+  for (let d = 0; d < maxDepth && frontier.length; d++) {
+    const next = [];
+    for (const { s, seq } of frontier) for (const id of types) {
+      const r = runCard(map, s, id);
+      if (r.state.status === 'won') return [...seq, id];
+      if (r.state.status !== 'playing') continue;
+      const k = key(r.state);
+      if (!seen.has(k)) { seen.add(k); next.push({ s: r.state, seq: [...seq, id] }); }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+// Random level for roguelite runs: left-to-right terrain built only from moves
+// the deck can make, then kept only if shortestPath finds a route.
+// With fairGenerator on, obstacles are also capped by how many of each jump
+// card the deck holds (one High Jump → at most one tall step), and the level
+// must pass drawOdds() so it's winnable with the luck of the draw.
+function generateLevel(depth, deck, rand = Math.random) {
+  const types = [...new Set(deck)];
+  const fair = CONFIG.features.fairGenerator;
+  const has = (id) => types.includes(id);
+  const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+  let best = null;
+  for (let attempt = 0; attempt < 400; attempt++) {
+    // obstacle budget: each obstacle spends one card that can clear it
+    const budget = {};
+    for (const id of deck) budget[id] = (budget[id] || 0) + 1;
+    const spend = (...ids) => {
+      if (!fair) return ids.some(has);
+      const id = ids.find((i) => budget[i] > 0);
+      if (id) budget[id]--;
+      return !!id;
+    };
+    const rows = Array.from({ length: H }, () => Array(W).fill('.'));
+    let top = 7 - Math.floor(rand() * 2);   // row of the top ground tile
+    const column = (x, t) => { for (let y = t; y < H; y++) rows[y][x] = '#'; };
+    column(0, top); column(1, top);
+    let x = 2;
+    const danger = Math.min(.15 + depth * .07, .5);
+    while (x < W - 2) {
+      const opts = ['flat', 'flat', 'up', 'down', 'gap'];
+      if (rand() < danger) opts.push('spike', 'spike', 'timed');
+      if (CONFIG.features.crates && depth >= 2 && rand() < .3) opts.push('crate');
+      let f = pick(opts);
+      if (f === 'gap') {
+        const wide = rand() < .5 && spend('longjump');
+        if (wide || spend('jump', 'longjump')) x += wide ? 2 : 1;   // leave columns empty → pit
+        else f = 'flat';
+      } else if (f === 'up') {
+        const tall = rand() < .5 && spend('highjump');
+        if (tall || spend('jump', 'highjump', 'longjump')) { top = Math.max(3, top - (tall ? 2 : 1)); column(x, top); x++; }
+        else f = 'flat';
+      } else if (f === 'down') {
+        top = Math.min(8, top + 1 + Math.floor(rand() * 2)); column(x, top); x++;
+      } else if (f === 'spike' || f === 'timed') {
+        if (f === 'spike' && !spend('jump', 'longjump')) f = 'flat';
+        else { column(x, top); rows[top - 1][x] = f === 'spike' ? '^' : 't'; x++; }
+      } else if (f === 'crate') {
+        column(x, top); column(x + 1, top); rows[top - 1][x] = 'C'; x += 2;
+      }
+      if (f === 'flat') {
+        const n = 1 + Math.floor(rand() * 2);
+        for (let i = 0; i < n && x < W - 2; i++, x++) column(x, top);
+      }
+    }
+    for (; x < W; x++) column(x, top);
+    rows[top - 1][W - 2] = 'G';
+    const startTop = rows.findIndex((r) => r[0] === '#');
+    rows[startTop - 1][0] = 'P';
+    const level = { name: `Run level ${depth}`, map: rows.map((r) => r.join('')), cards: [] };
+    const path = shortestPath(level, types, 14);
+    const minLen = Math.min(3 + Math.floor(depth / 2), 7);
+    if (!path || path.length < minLen) continue;
+    const gen = { level, par: path.length, path };
+    if (!fair) return gen;
+    gen.odds = drawOdds(level, gen.par, deck, CONFIG.run.fairTrials, rand);
+    if (gen.odds >= CONFIG.run.minWinRate) return gen;
+    if (!best || gen.odds > best.odds) best = gen;
+    if (attempt >= 60 && best) break;      // keep load times short: settle for the fairest seen
+  }
+  return best;
+}
+
+// Plays a level many times with shuffled draws, the way a careful player
+// would: play the card that gets closest to the flag, mulligan if none helps.
+// Returns the fraction of attempts that reach the flag within the step budget.
+function drawOdds(level, par, deck, trials, rand = Math.random) {
+  const map = parseLevel(level), types = [...new Set(deck)];
+  const key = (s) => `${s.x},${s.y},${s.dir},${s.turn % 2},${s.last},${s.crates.map((c) => c.gone ? '_' : c.x + ':' + c.y).join(';')}`;
+  const memo = new Map();
+  const dist = (s0) => {                   // fewest cards to the flag with any draws
+    const k0 = key(s0);
+    if (memo.has(k0)) return memo.get(k0);
+    let frontier = [s0], d = 0, found = 99;
+    const seen = new Set([k0]);
+    search: while (frontier.length && ++d <= 14) {
+      const next = [];
+      for (const s of frontier) for (const id of types) {
+        const r = runCard(map, s, id);
+        if (r.state.status === 'won') { found = d; break search; }
+        if (r.state.status !== 'playing') continue;
+        const k = key(r.state);
+        if (!seen.has(k)) { seen.add(k); next.push(r.state); }
+      }
+      frontier = next;
+    }
+    memo.set(k0, found);
+    return found;
+  };
+  const shuffled = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  let wins = 0;
+  for (let t = 0; t < trials; t++) {
+    let s = initialState(map), draw = shuffled(deck), disc = [], hand = [], steps = par + CONFIG.run.spareSteps;
+    const fill = () => { while (hand.length < CONFIG.run.handSize) { if (!draw.length) { if (!disc.length) break; draw = shuffled(disc); disc = []; } hand.push(draw.pop()); } };
+    fill();
+    while (steps-- > 0 && s.status === 'playing') {
+      let bestId = null, bestState = null, bd = dist(s);
+      for (const id of new Set(hand)) {
+        const r = runCard(map, s, id);
+        if (r.state.status === 'won') { bestId = id; bestState = r.state; break; }
+        if (r.state.status !== 'playing') continue;
+        const d = dist(r.state);
+        if (d < bd) { bd = d; bestId = id; bestState = r.state; }
+      }
+      if (bestId) { hand.splice(hand.indexOf(bestId), 1); disc.push(bestId); s = bestState; }
+      else { disc.push(...hand); hand = []; const last = s.last; s = runCard(map, s, 'wait').state; s.last = last; }
+      fill();
+    }
+    if (s.status === 'won') wins++;
+  }
+  return wins / trials;
+}
+// ===== SIM-END =====
+
+const BASE_LEVELS = [
+  {
+    name: '1. Mind the Gap',
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '...........G....',
+      '.........#######',
+      '.........#######',
+      '.P......########',
+      '####..##########',
+    ],
+    cards: ['jump', 'walk2', 'highjump', 'walk2', 'longjump'],
+  },
+  {
+    name: '2. Up and Back',
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '...G............',
+      '.######.........',
+      '.........##.....',
+      'P^.t.....##.....',
+      '################',
+    ],
+    cards: ['walk3', 'highjump', 'turn', 'jump', 'walk3', 'wait', 'longjump', 'walk3'],
+  },
+];
+
+// Experiment 1: levels built around a single "aha" each (verified with solve()).
+const PUZZLE_PACK = [
+  {
+    name: '3. Echo Chamber',          // one High Jump, two tall steps
+    map: [
+      '................',
+      '................',
+      '................',
+      '..........G.....',
+      '....#..#..######',
+      '....#..#..######',
+      '...##..#..######',
+      '..P##..#..######',
+      '#####..#..######',
+    ],
+    cards: ['highjump', 'walk1', 'longjump', 'echo', 'jump', 'echo'],
+  },
+  {
+    name: '4. Crate Expectations',    // jumping the pit wastes a jump you need later
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '.........G......',
+      '........########',
+      '.P.C...C########',
+      '#####^##########',
+      '################',
+    ],
+    cards: ['jump', 'walk2', 'jump', 'walk3'],
+  },
+  {
+    name: '5. Down and Under',        // crate covers spikes, echo + timing
+    map: [
+      '................',
+      '................',
+      '................',
+      '.P.C............',
+      '#####...........',
+      '#####...........',
+      '#####...........',
+      '#####^.t..t.G...',
+      '################',
+    ],
+    cards: ['walk2', 'walk3', 'echo', 'wait', 'walk3'],
+  },
+];
+
+// Levels that need a switched-off feature are hidden.
+const usesDisabled = (l) => (!CONFIG.features.crates && l.map.some((r) => r.includes('C'))) || l.cards.some((c) => !CARDS[c]);
+const BUILTIN_LEVELS = [...BASE_LEVELS, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l));
+
+/* =====================================================================
+   App state & helpers
+   ===================================================================== */
+const $ = (id) => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let uidSeq = 1;
+
+const app = {
+  custom: store.get('cardclimber.custom', []),
+  levelKey: 'b0',          // 'b<i>' built-in, 'c<i>' custom
+  level: null, map: null,
+  mode: store.get('cardclimber.mode', CONFIG.turnMode),
+  run: null,                // roguelite run state (Experiment 2)
+  flash: null,              // floating text above the player
+  state: null,
+  view: null,               // what the renderer draws (animated)
+  hand: [], seq: [],        // [{uid,id}]
+  played: [], history: [],  // instant-mode
+  cursor: 0,                // plan-mode: next card index when stepping
+  running: false,
+  editing: false, playtesting: false, paint: '#',
+  particles: [],
+};
+
+function allLevels() {
+  return [
+    ...BUILTIN_LEVELS.map((l, i) => ({ key: 'b' + i, level: l })),
+    ...app.custom.map((l, i) => ({ key: 'c' + i, level: l })),
+  ];
+}
+
+function loadLevel(key, levelObj) {
+  app.levelKey = key;
+  app.level = clone(levelObj || allLevels().find((l) => l.key === key)?.level || BUILTIN_LEVELS[0]);
+  app.level.cards = app.level.cards.filter((id) => CARDS[id]);
+  app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id }));
+  app.seq = []; app.played = []; app.history = [];
+  resetRun();
+  refreshLevelSelect();
+}
+
+function resetRun() {
+  app.map = parseLevel(app.level);
+  app.state = initialState(app.map);
+  app.view = { ...clone(app.state), ox: 0, oy: 0 };
+  app.cursor = 0; app.particles = [];
+  hideBanner();
+  renderDeck();
+}
+
+/* =====================================================================
+   Animation — plays the event list from runCard on the view
+   ===================================================================== */
+function tween(ms, fn) {
+  return new Promise((res) => {
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - t0) / ms);
+      fn(t);
+      t < 1 ? requestAnimationFrame(tick) : res();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+const ease = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+async function animate(ev) {
+  const v = app.view;
+  for (const e of ev) {
+    if (e.k === 'move' || e.k === 'fall') {
+      const fx = v.x, fy = v.y;
+      await tween(e.k === 'fall' ? CONFIG.fallMs : CONFIG.stepMs, (t) => {
+        const k = e.k === 'fall' ? t * t : ease(t);
+        v.x = fx + (e.x - fx) * k; v.y = fy + (e.y - fy) * k;
+      });
+      v.x = e.x; v.y = e.y;
+    } else if (e.k === 'bump') {
+      await tween(CONFIG.stepMs, (t) => { const k = Math.sin(t * Math.PI) * .2; v.ox = e.dx * k; v.oy = e.dy * k; });
+      v.ox = v.oy = 0;
+    } else if (e.k === 'turn') {
+      v.dir = e.dir; await sleep(CONFIG.stepMs);
+    } else if (e.k === 'wait') {
+      await tween(CONFIG.stepMs * 2, (t) => { v.oy = -Math.abs(Math.sin(t * Math.PI * 2)) * .08; });
+      v.oy = 0;
+    } else if (e.k === 'push') {
+      const c = v.crates[e.i], fx = v.x, cfx = c.x;
+      await tween(CONFIG.stepMs * 1.3, (t) => { const k = ease(t); v.x = fx + (e.x - fx) * k; c.x = cfx + (e.cx - cfx) * k; });
+      v.x = e.x; c.x = e.cx;
+    } else if (e.k === 'cfall') {
+      const c = v.crates[e.i], fy = c.y;
+      await tween(CONFIG.fallMs, (t) => { c.y = fy + (e.y - fy) * t * t; });
+      c.y = e.y;
+    } else if (e.k === 'cgone') {
+      v.crates[e.i].gone = true;
+    } else if (e.k === 'echo') {
+      app.flash = { text: e.of ? `Echo: ${CARDS[e.of].name}` : 'Echo: nothing to repeat', t0: performance.now() };
+      await sleep(CONFIG.stepMs * 2);
+    } else if (e.k === 'tick') {
+      v.turn = e.turn;
+    } else if (e.k === 'die') {
+      v.status = 'dead';
+      burst(e.x, Math.min(e.y, H - 1), '#ff6b6b');
+      await sleep(400);
+    } else if (e.k === 'win') {
+      v.status = 'won';
+      burst(e.x, e.y, '#ffcc33'); burst(e.x, e.y, '#5cd18b');
+      await sleep(400);
+    }
+  }
+}
+
+async function playCard(id) {
+  const r = runCard(app.map, app.state, id);
+  await animate(r.ev);
+  app.state = r.state;
+  Object.assign(app.view, { x: r.state.x, y: r.state.y, dir: r.state.dir, turn: r.state.turn, status: r.state.status, crates: clone(r.state.crates) });
+  return r.state.status;
+}
+
+/* =====================================================================
+   Controllers — one per turn mode
+   ===================================================================== */
+const Plan = {
+  clickHand(uid) {
+    if (app.running) return;
+    const i = app.hand.findIndex((c) => c.uid === uid);
+    app.seq.push(...app.hand.splice(i, 1));
+    if (app.cursor) resetRun(); else renderDeck();
+  },
+  clickSeq(uid) {
+    if (app.running) return;
+    const i = app.seq.findIndex((c) => c.uid === uid);
+    app.hand.push(...app.seq.splice(i, 1));
+    app.hand.sort((a, b) => a.uid - b.uid);
+    if (app.cursor) resetRun(); else renderDeck();
+  },
+  async play() {
+    if (app.running || !app.seq.length) return;
+    if (app.cursor || app.state.status !== 'playing') resetRun();
+    while (app.cursor < app.seq.length && await Plan.step(true) === 'playing') await sleep(CONFIG.pauseBetweenCards);
+  },
+  async step(fromPlay) {
+    if (app.running && !fromPlay) return;
+    if (app.state.status !== 'playing') resetRun();
+    if (app.cursor >= app.seq.length) return;
+    app.running = true; renderDeck();
+    const status = await playCard(app.seq[app.cursor].id);
+    app.cursor++; app.running = false;
+    finishCheck(status, app.cursor >= app.seq.length, app.hand.length);
+    renderDeck();
+    return status;
+  },
+  clear() { if (app.running) return; app.hand.push(...app.seq); app.seq = []; app.hand.sort((a, b) => a.uid - b.uid); resetRun(); },
+  actions() {
+    return [
+      ['▶ Play', 'primary', Plan.play, !app.seq.length || app.running],
+      ['Step', '', () => Plan.step(), !app.seq.length || app.running || (app.cursor >= app.seq.length && app.state.status === 'playing')],
+      ['↺ Reset', '', resetRun, app.running],
+      ['Clear', '', Plan.clear, app.running || !app.seq.length],
+    ];
+  },
+};
+
+const Instant = {
+  async clickHand(uid) {
+    if (app.running || app.state.status !== 'playing') return;
+    app.history.push({ state: { ...app.state }, hand: [...app.hand], played: [...app.played] });
+    const i = app.hand.findIndex((c) => c.uid === uid);
+    const card = app.hand.splice(i, 1)[0];
+    app.played.push(card);
+    app.running = true; renderDeck();
+    const status = await playCard(card.id);
+    app.running = false;
+    finishCheck(status, !app.hand.length, 0);
+    renderDeck();
+  },
+  clickSeq() {},
+  undo() {
+    if (app.running || !app.history.length) return;
+    const h = app.history.pop();
+    app.state = h.state; app.hand = h.hand; app.played = h.played;
+    app.view = { ...clone(app.state), ox: 0, oy: 0 }; app.particles = [];
+    hideBanner(); renderDeck();
+  },
+  restart() {
+    if (app.running) return;
+    app.hand.push(...app.played); app.played = []; app.history = [];
+    app.hand.sort((a, b) => a.uid - b.uid);
+    resetRun();
+  },
+  actions() {
+    return [
+      ['↶ Undo', '', Instant.undo, app.running || !app.history.length],
+      ['↺ Restart', '', Instant.restart, app.running || !app.played.length],
+    ];
+  },
+};
+// Experiment 2: roguelite run. Deck → shuffled draw pile → hand of N.
+// Playing a card plays it immediately and draws a replacement. Each level
+// has a step budget (shortest solution + spare). Die or run out of steps →
+// lose a heart. Clear a level → pick a new card for the deck.
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const Run = {
+  start() {
+    app.run = { depth: 0, hearts: CONFIG.run.hearts, deck: CONFIG.run.startingDeck.filter((id) => CARDS[id]).map((id) => ({ uid: uidSeq++, id })) };
+    Run.next();
+  },
+  next() {
+    const r = app.run;
+    r.depth++;
+    r.gen = generateLevel(r.depth, r.deck.map((c) => c.id));
+    if (!r.gen) { showBanner('Could not build a level', 'The generator gave up — try a new run.', [['New run', Run.start]]); return; }
+    app.level = r.gen.level; app.levelKey = 'run';
+    Run.retry();
+  },
+  retry() {
+    const r = app.run;
+    r.draw = shuffle([...r.deck]); r.discard = [];
+    r.steps = r.gen.par + CONFIG.run.spareSteps;
+    app.hand = []; app.played = []; app.seq = []; app.history = [];
+    Run.fill(); resetRun();
+  },
+  fill() {
+    const r = app.run;
+    while (app.hand.length < CONFIG.run.handSize) {
+      if (!r.draw.length) { if (!r.discard.length) break; r.draw = shuffle(r.discard); r.discard = []; }
+      app.hand.push(r.draw.pop());
+    }
+  },
+  async clickHand(uid) {
+    const r = app.run;
+    if (app.running || app.state.status !== 'playing' || r.steps <= 0) return;
+    const card = app.hand.splice(app.hand.findIndex((c) => c.uid === uid), 1)[0];
+    app.played.push(card); r.discard.push(card); r.steps--;
+    app.running = true; renderDeck();
+    const status = await playCard(card.id);
+    app.running = false;
+    Run.fill(); Run.after(status);
+  },
+  clickSeq() {},
+  // Throw the hand away and draw a new one. Costs a step and a turn.
+  async mulligan() {
+    const r = app.run;
+    if (app.running || app.state.status !== 'playing' || r.steps <= 0) return;
+    r.discard.push(...app.hand); app.hand = []; r.steps--;
+    app.running = true; renderDeck();
+    const last = app.state.last;
+    const status = await playCard('wait');
+    app.state.last = last;      // a mulligan isn't something Echo can repeat
+    app.running = false;
+    Run.fill(); Run.after(status);
+  },
+  after(status) {
+    const r = app.run;
+    if (status === 'won') Run.reward();
+    else if (status === 'dead') Run.loseHeart(app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!');
+    else if (r.steps <= 0) Run.loseHeart('Out of steps');
+    renderDeck();
+  },
+  loseHeart(title) {
+    const r = app.run;
+    r.hearts--;
+    if (r.hearts <= 0) showBanner('Run over', `You made it to level ${r.depth} with a ${r.deck.length}-card deck.`, [['New run', Run.start]]);
+    else showBanner(title, `${r.hearts} heart${r.hearts === 1 ? '' : 's'} left. The level stays the same; your deck is reshuffled.`, [['Retry level', Run.retry]]);
+  },
+  reward() {
+    const pool = CONFIG.run.rewardPool.filter((id) => CARDS[id]);
+    const picks = shuffle([...pool]).slice(0, 3);
+    const box = document.createElement('div'); box.className = 'extra';
+    for (const id of picks) {
+      const el = cardEl({ id });
+      el.onclick = () => { app.run.deck.push({ uid: uidSeq++, id }); Run.next(); };
+      box.appendChild(el);
+    }
+    showBanner(`Level ${app.run.depth} cleared!`, 'Add a card to your deck:', [['Skip', Run.next]], box);
+  },
+  actions() {
+    const r = app.run, busy = app.running || app.state.status !== 'playing';
+    return [
+      ['Mulligan (−1 step)', '', Run.mulligan, busy || !r || r.steps <= 0],
+      ['New run', '', () => { if (!app.running && confirm('Abandon this run?')) Run.start(); }, app.running],
+    ];
+  },
+};
+const ctrl = () => (app.mode === 'run' ? Run : app.mode === 'instant' ? Instant : Plan);
+
+function finishCheck(status, outOfCards, unused) {
+  const retry = app.mode === 'instant' ? [['↶ Undo', Instant.undo], ['↺ Restart', Instant.restart]] : [['↺ Try again', resetRun]];
+  if (status === 'won') {
+    const all = allLevels(), idx = all.findIndex((l) => l.key === app.levelKey);
+    const next = all[idx + 1];
+    const used = app.mode === 'instant' ? app.played.length : app.cursor;
+    showBanner('Level complete!', `Reached the flag in ${used} card${used === 1 ? '' : 's'}.`,
+      next && !app.playtesting ? [['Next level →', () => loadLevel(next.key)], ['Replay', retry[retry.length - 1][1]]] : [['Replay', retry[retry.length - 1][1]]]);
+  } else if (status === 'dead') {
+    showBanner(app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!', 'Rearrange your cards and try again.', retry);
+  } else if (outOfCards) {
+    showBanner('Out of cards', unused ? `You haven't reached the flag. ${unused} card(s) still in your hand.` : "You haven't reached the flag.", retry);
+  }
+}
+
+/* =====================================================================
+   Rendering — canvas world
+   ===================================================================== */
+let TS = 40; // tile size in CSS px
+function resize() {
+  const st = $('stage'), cs = getComputedStyle(st);
+  const aw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  // In phone portrait the stage hugs the canvas, so size against the screen instead
+  const ah = matchMedia('(max-width: 600px)').matches ? innerHeight * .5
+    : st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  TS = Math.max(8, Math.floor(Math.min(aw / W, ah / H)));
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = TS * W + 'px'; cv.style.height = TS * H + 'px';
+  cv.width = TS * W * dpr; cv.height = TS * H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function burst(x, y, color) {
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3;
+    app.particles.push({ x: x + .5, y: y + .5, vx: Math.cos(a) * sp / 40, vy: Math.sin(a) * sp / 40 - .05, life: 1, color });
+  }
+}
+
+function draw() {
+  const map = app.editing ? parseLevel(app.level) : app.map;
+  const v = app.view;
+  const turn = app.editing ? 0 : v.turn;
+  // sky
+  const g = ctx.createLinearGradient(0, 0, 0, H * TS);
+  g.addColorStop(0, '#7ec8f7'); g.addColorStop(1, '#d8f0ff');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W * TS, H * TS);
+  // clouds (decor)
+  ctx.fillStyle = '#ffffffaa';
+  [[2, 1.2], [9, .8], [13, 2]].forEach(([cx, cy]) => {
+    ctx.beginPath(); ctx.ellipse(cx * TS, cy * TS, TS * .9, TS * .3, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse((cx + .5) * TS, (cy - .2) * TS, TS * .6, TS * .3, 0, 0, 7); ctx.fill();
+  });
+  // grid lines (helps planning)
+  ctx.strokeStyle = '#0000000d'; ctx.lineWidth = 1;
+  for (let x = 1; x < W; x++) { ctx.beginPath(); ctx.moveTo(x * TS + .5, 0); ctx.lineTo(x * TS + .5, H * TS); ctx.stroke(); }
+  for (let y = 1; y < H; y++) { ctx.beginPath(); ctx.moveTo(0, y * TS + .5); ctx.lineTo(W * TS, y * TS + .5); ctx.stroke(); }
+
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = map.grid[y][x], px = x * TS, py = y * TS;
+    if (c === '#') {
+      ctx.fillStyle = '#8b5a2b'; ctx.fillRect(px, py, TS, TS);
+      ctx.fillStyle = '#7a4d23'; ctx.fillRect(px + TS * .15, py + TS * .5, TS * .2, TS * .15); ctx.fillRect(px + TS * .6, py + TS * .75, TS * .2, TS * .12);
+      if (y === 0 || map.grid[y - 1][x] !== '#') { ctx.fillStyle = '#5cb85c'; ctx.fillRect(px, py, TS, TS * .22); ctx.fillStyle = '#4a9e4a'; ctx.fillRect(px, py + TS * .18, TS, TS * .05); }
+    } else if (c === '^' || c === 't') {
+      const up = c === '^' || turn % 2 === 1;
+      const h = up ? .55 : .14;
+      ctx.fillStyle = c === '^' ? '#cfd5df' : (up ? '#ff8c42' : '#c9774a');
+      ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = Math.max(1, TS / 30);
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(px + TS * (i / 3), py + TS); ctx.lineTo(px + TS * (i / 3 + 1 / 6), py + TS * (1 - h)); ctx.lineTo(px + TS * ((i + 1) / 3), py + TS);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      if (c === 't') { ctx.fillStyle = '#3a3f4b'; ctx.font = `${Math.floor(TS * .28)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(up ? 'UP' : 'down', px + TS / 2, py + TS * .3); }
+    }
+  }
+  // goal flag
+  if (map.goal.x >= 0) {
+    const gx = map.goal.x * TS, gy = map.goal.y * TS;
+    ctx.fillStyle = '#555'; ctx.fillRect(gx + TS * .3, gy + TS * .08, TS * .07, TS * .92);
+    const wave = Math.sin(performance.now() / 250) * TS * .04;
+    ctx.fillStyle = '#e8434b'; ctx.beginPath();
+    ctx.moveTo(gx + TS * .37, gy + TS * .1); ctx.lineTo(gx + TS * .85, gy + TS * .25 + wave); ctx.lineTo(gx + TS * .37, gy + TS * .42); ctx.fill();
+  }
+  // crates
+  for (const c of (app.editing ? map.crates : v.crates)) if (!c.gone) drawCrate(c.x, c.y);
+  // player
+  if (app.editing) drawPlayer(map.start.x, map.start.y, 1, 'playing', .9);
+  else drawPlayer(v.x + v.ox, v.y + v.oy, v.dir, v.status, 1);
+
+  // particles
+  app.particles = app.particles.filter((p) => p.life > 0);
+  for (const p of app.particles) {
+    p.x += p.vx; p.y += p.vy; p.vy += .006; p.life -= .02;
+    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
+    ctx.fillRect(p.x * TS - 3, p.y * TS - 3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+
+  // floating text (e.g. what Echo repeated)
+  if (app.flash && !app.editing) {
+    const age = (performance.now() - app.flash.t0) / 1100;
+    if (age >= 1) app.flash = null;
+    else {
+      ctx.globalAlpha = 1 - age * age; ctx.fillStyle = '#5b3fd1'; ctx.font = `bold ${Math.floor(TS * .34)}px system-ui`; ctx.textAlign = 'center';
+      ctx.fillText(app.flash.text, (v.x + .5) * TS, (v.y - .25 - age * .6) * TS); ctx.globalAlpha = 1;
+    }
+  }
+  // editor hover cell
+  if (app.editing && hover) {
+    ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 2; ctx.strokeRect(hover.x * TS + 1, hover.y * TS + 1, TS - 2, TS - 2);
+  }
+  const run = app.mode === 'run' && app.run;
+  $('hud').textContent = app.editing ? 'Editing — click/drag to paint'
+    : (run ? `Level ${run.depth}  ·  ${'♥'.repeat(run.hearts)}${'♡'.repeat(Math.max(0, CONFIG.run.hearts - run.hearts))}  ·  Steps left ${run.steps}  ·  ` : '') + `Turn ${v.turn}  ·  facing ${v.dir > 0 ? '→' : '←'}`;
+  requestAnimationFrame(draw);
+}
+
+function drawPlayer(x, y, dir, status, alpha) {
+  const px = x * TS, py = y * TS, s = TS * .72, o = (TS - s) / 2;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = status === 'dead' ? '#ff6b6b' : '#ffcc33';
+  ctx.strokeStyle = '#3a2e10'; ctx.lineWidth = Math.max(1.5, TS / 20);
+  roundRect(px + o, py + TS - s, s, s, TS * .14); ctx.fill(); ctx.stroke();
+  // eyes look in facing direction
+  const ex = px + TS / 2 + dir * s * .14, ey = py + TS - s * .62;
+  ctx.fillStyle = '#3a2e10';
+  if (status === 'dead') {
+    ctx.font = `bold ${Math.floor(TS * .25)}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText('x x', ex, ey + TS * .08);
+  } else {
+    ctx.fillRect(ex - s * .2, ey - s * .1, s * .1, s * .2);
+    ctx.fillRect(ex + s * .08, ey - s * .1, s * .1, s * .2);
+    if (status === 'won') { ctx.beginPath(); ctx.arc(ex, ey + s * .22, s * .14, 0, Math.PI); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawCrate(x, y) {
+  const px = x * TS, py = y * TS, i = TS * .06;
+  ctx.fillStyle = '#c68a3f'; ctx.strokeStyle = '#6b4416'; ctx.lineWidth = Math.max(1.5, TS / 18);
+  ctx.fillRect(px + i, py + i, TS - 2 * i, TS - 2 * i); ctx.strokeRect(px + i, py + i, TS - 2 * i, TS - 2 * i);
+  ctx.beginPath(); ctx.moveTo(px + i, py + i); ctx.lineTo(px + TS - i, py + TS - i); ctx.moveTo(px + TS - i, py + i); ctx.lineTo(px + i, py + TS - i); ctx.stroke();
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+/* =====================================================================
+   Rendering — cards (DOM)
+   ===================================================================== */
+function cardIcon(id) {
+  const card = CARDS[id];
+  if (card.echo) return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M32 12a12 12 0 1 0 3 10" fill="none" stroke="#5b3fd1" stroke-width="3" stroke-linecap="round"/><path d="M34 4v9h-9" fill="none" stroke="#5b3fd1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="22" y="25" font-size="10" font-weight="700" text-anchor="middle" fill="#5b3fd1">×2</text></svg>';
+  if (card.moves[0].type === 'turn') return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M10 14h22l-6-6M34 26H12l6 6" fill="none" stroke="#2a2a2a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if (card.moves[0].type === 'wait') return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M14 6h16M14 34h16M16 6c0 10 12 10 12 14S16 24 16 34M28 6c0 10-12 10-12 14s12 4 12 14" fill="none" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  // trace the path on a mini grid
+  const pts = [[0, 0]]; let x = 0, y = 0;
+  for (const m of card.moves) for (const [dx, dy] of m.path) { x += dx; y += dy; pts.push([x, y]); }
+  const minY = Math.min(...pts.map((p) => p[1])), maxX = Math.max(...pts.map((p) => p[0]));
+  const cols = maxX + 1, rows = -minY + 1, c = Math.min(14, 60 / cols, 40 / rows);
+  const wpx = cols * c, hpx = rows * c;
+  let cells = '';
+  pts.forEach(([px, py], i) => {
+    cells += `<rect x="${px * c + 1}" y="${(py - minY) * c + 1}" width="${c - 2}" height="${c - 2}" rx="2" fill="${i === 0 ? '#ffcc33' : '#d8cfb8'}"/>`;
+  });
+  const line = pts.map(([px, py]) => `${px * c + c / 2},${(py - minY) * c + c / 2}`).join(' ');
+  const [lx, ly] = pts[pts.length - 1];
+  return `<svg width="${wpx}" height="${hpx}" viewBox="0 0 ${wpx} ${hpx}">${cells}
+    <polyline points="${line}" fill="none" stroke="#2a2a2a" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${lx * c + c / 2}" cy="${(ly - minY) * c + c / 2}" r="3" fill="#2a2a2a"/></svg>`;
+}
+
+function cardEl(c, cls = '', idx) {
+  const d = CARDS[c.id];
+  const el = document.createElement('div');
+  el.className = 'card ' + cls;
+  el.title = `${d.name}: ${d.desc}`;
+  el.innerHTML = `${idx != null ? `<span class="idx">${idx}</span>` : ''}<div class="nm">${d.name}</div>${cardIcon(c.id)}<div class="ds">${d.desc}</div>`;
+  return el;
+}
+
+function renderDeck() {
+  const seqBox = $('seq'), handBox = $('hand'), act = $('seqActions');
+  seqBox.innerHTML = ''; handBox.innerHTML = ''; act.innerHTML = '';
+  const C = ctrl();
+  const instant = app.mode !== 'plan';
+  $('seqLabel').textContent = instant ? 'Played' : 'Sequence';
+  const r = app.mode === 'run' && app.run;
+  $('handLabel').innerHTML = r && r.draw ? `Hand<small>draw ${r.draw.length} · discard ${r.discard.length} · deck ${r.deck.length}</small>` : 'Hand';
+  $('levelSel').style.visibility = app.mode === 'run' ? 'hidden' : '';
+  $('editBtn').disabled = app.mode === 'run';
+  const list = instant ? app.played : app.seq;
+  list.forEach((c, i) => {
+    let cls = '';
+    if (!instant) {
+      if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
+      if (app.running && i === app.cursor) cls = 'active';
+    } else if (app.running && i === list.length - 1) cls = 'active';
+    const el = cardEl(c, cls, i + 1);
+    el.onclick = () => C.clickSeq(c.uid);
+    seqBox.appendChild(el);
+  });
+  if (!instant) for (let i = list.length; i < app.level.cards.length; i++) seqBox.appendChild(Object.assign(document.createElement('div'), { className: 'slot' }));
+  app.hand.forEach((c) => { const el = cardEl(c); el.onclick = () => C.clickHand(c.uid); handBox.appendChild(el); });
+  if (!app.hand.length) handBox.innerHTML = '<span style="color:var(--muted)">No cards left in hand.</span>';
+  $('play').classList.toggle('locked', app.running);
+  for (const [label, cls, fn, disabled] of C.actions()) {
+    const b = document.createElement('button'); b.textContent = label; b.className = cls; b.disabled = disabled; b.onclick = fn; act.appendChild(b);
+  }
+  if (app.playtesting) { const b = document.createElement('button'); b.textContent = '✎ Back to editor'; b.onclick = () => setEditing(true); act.appendChild(b); }
+  document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mode === app.mode));
+}
+
+function showBanner(title, text, buttons, extra) {
+  const b = $('banner');
+  b.querySelector('h2').textContent = title; b.querySelector('p').textContent = text;
+  b.querySelector('.extra')?.remove();
+  if (extra) b.querySelector('.row').before(extra);
+  const row = b.querySelector('.row'); row.innerHTML = '';
+  buttons.forEach(([label, fn], i) => { const btn = document.createElement('button'); btn.textContent = label; if (!i) btn.className = 'primary'; btn.onclick = fn; row.appendChild(btn); });
+  b.style.display = 'block';
+}
+function hideBanner() { $('banner').style.display = 'none'; }
+
+function refreshLevelSelect() {
+  const sel = $('levelSel'); sel.innerHTML = '';
+  for (const { key, level } of allLevels()) {
+    const o = document.createElement('option'); o.value = key; o.textContent = (key[0] === 'c' ? '★ ' : '') + level.name; sel.appendChild(o);
+  }
+  sel.value = app.levelKey;
+}
+
+/* =====================================================================
+   Editor
+   ===================================================================== */
+const TILES = [
+  ['.', 'Empty', '#7ec8f7'], ['#', 'Ground', '#8b5a2b'], ['^', 'Spikes', '#cfd5df'],
+  ['t', 'Timed spikes', '#ff8c42'], ['P', 'Player start', '#ffcc33'], ['G', 'Goal', '#e8434b'],
+  ...(CONFIG.features.crates ? [['C', 'Crate', '#c68a3f']] : []),
+];
+let hover = null, painting = false;
+function setEditing(on) {
+  app.editing = on; app.playtesting = false;
+  $('play').style.display = on ? 'none' : '';
+  $('editor').style.display = on ? 'flex' : 'none';
+  $('editBtn').textContent = on ? '✕ Close editor' : '✎ Editor';
+  if (on) { hideBanner(); renderEditor(); }
+  else { app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id })); app.seq = []; app.played = []; app.history = []; resetRun(); }
+}
+function playtest() {
+  setEditing(false);
+  app.playtesting = true; // shows a "back to editor" button
+  renderDeck();
+}
+
+function renderEditor() {
+  $('edName').value = app.level.name;
+  const tiles = $('edTiles'); tiles.innerHTML = '';
+  for (const [ch, label, col] of TILES) {
+    const b = document.createElement('button');
+    b.innerHTML = `<i style="background:${col}"></i>${label}`;
+    b.classList.toggle('on', app.paint === ch);
+    b.onclick = () => { app.paint = ch; renderEditor(); };
+    tiles.appendChild(b);
+  }
+  const cc = $('edCards'); cc.innerHTML = '';
+  for (const id in CARDS) {
+    const n = app.level.cards.filter((c) => c === id).length;
+    const name = document.createElement('span'); name.textContent = CARDS[id].name;
+    const minus = document.createElement('button'); minus.textContent = '−';
+    const num = document.createElement('span'); num.className = 'n'; num.textContent = n;
+    const plus = document.createElement('button'); plus.textContent = '+';
+    minus.onclick = () => { const i = app.level.cards.lastIndexOf(id); if (i >= 0) app.level.cards.splice(i, 1); renderEditor(); };
+    plus.onclick = () => { if (app.level.cards.length < 12) app.level.cards.push(id); renderEditor(); };
+    cc.append(name, minus, num, plus);
+  }
+  $('edDelete').disabled = app.levelKey[0] !== 'c';
+}
+
+function paintAt(x, y) {
+  const rows = app.level.map.map((r) => r.padEnd(W, '.').slice(0, W).split(''));
+  while (rows.length < H) rows.push('.'.repeat(W).split(''));
+  if (app.paint === 'P' || app.paint === 'G') rows.forEach((r) => r.forEach((c, i) => { if (c === app.paint) r[i] = '.'; }));
+  rows[y][x] = app.paint;
+  app.level.map = rows.map((r) => r.join(''));
+  $('solveOut').textContent = '';
+}
+function cellFromEvent(e) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / TS), y = Math.floor((e.clientY - r.top) / TS);
+  return x >= 0 && x < W && y >= 0 && y < H ? { x, y } : null;
+}
+cv.addEventListener('pointerdown', (e) => { if (!app.editing) return; painting = true; cv.setPointerCapture(e.pointerId); const c = cellFromEvent(e); if (c) paintAt(c.x, c.y); });
+cv.addEventListener('pointermove', (e) => {
+  if (!app.editing) { hover = null; return; }
+  hover = cellFromEvent(e); if (painting && hover) paintAt(hover.x, hover.y);
+});
+cv.addEventListener('pointerup', () => { painting = false; });
+cv.addEventListener('pointerleave', () => { hover = null; });
+
+$('edName').oninput = (e) => { app.level.name = e.target.value; };
+$('edPlay').onclick = playtest;
+$('edSolve').onclick = () => {
+  const t0 = performance.now();
+  const { solutions, explored } = solve(app.level);
+  const ms = Math.round(performance.now() - t0);
+  const names = (s) => s.map((id) => CARDS[id].name).join(' → ');
+  $('solveOut').textContent = solutions.length
+    ? `${solutions.length}${solutions.length >= 200 ? '+' : ''} solution(s) (${explored} card plays checked, ${ms}ms).\n` +
+      solutions.slice(0, 4).map((s, i) => `${i + 1}. ${names(s)}`).join('\n') + (solutions.length > 4 ? '\n…' : '')
+    : `No solution found (${explored} card plays checked).`;
+};
+$('edSave').onclick = () => {
+  if (app.levelKey[0] === 'c') app.custom[+app.levelKey.slice(1)] = clone(app.level);
+  else { if (BUILTIN_LEVELS.some((l) => l.name === app.level.name)) app.level.name += ' (copy)'; app.custom.push(clone(app.level)); app.levelKey = 'c' + (app.custom.length - 1); }
+  store.set('cardclimber.custom', app.custom);
+  refreshLevelSelect(); renderEditor();
+  $('solveOut').textContent = 'Saved to this browser.';
+};
+$('edNew').onclick = () => {
+  app.level = { name: 'My Level', map: [...Array(H - 2).fill('.'.repeat(W)), 'P.............G.', '#'.repeat(W)], cards: ['walk3'] };
+  app.levelKey = 'new'; refreshLevelSelect(); renderEditor();
+};
+$('edDelete').onclick = () => {
+  if (app.levelKey[0] !== 'c' || !confirm(`Delete "${app.level.name}"?`)) return;
+  app.custom.splice(+app.levelKey.slice(1), 1); store.set('cardclimber.custom', app.custom);
+  loadLevel('b0'); renderEditor();
+};
+$('edIO').onclick = () => {
+  $('ioText').value = JSON.stringify(app.level, null, 1).replace(/\n\s+"(?=[^\n]*",?\n)/g, '\n  "').replace(/\[\n\s+/g, '[\n  ');
+  $('ioDlg').showModal();
+};
+$('ioClose').onclick = () => $('ioDlg').close();
+$('ioCopy').onclick = () => { navigator.clipboard?.writeText($('ioText').value); };
+$('ioImport').onclick = () => {
+  try {
+    const l = JSON.parse($('ioText').value);
+    if (!Array.isArray(l.map) || !Array.isArray(l.cards)) throw new Error('needs "map" and "cards" arrays');
+    const bad = l.cards.find((c) => !CARDS[c]); if (bad) throw new Error('unknown card "' + bad + '"');
+    app.level = { name: l.name || 'Imported', map: l.map, cards: l.cards };
+    app.levelKey = 'new'; refreshLevelSelect(); renderEditor(); $('ioDlg').close();
+  } catch (err) { alert('Could not import: ' + err.message); }
+};
+
+/* =====================================================================
+   Wiring
+   ===================================================================== */
+$('levelSel').onchange = (e) => { app.playtesting = false; loadLevel(e.target.value); if (app.editing) setEditing(true); };
+$('editBtn').onclick = () => setEditing(!app.editing);
+document.querySelectorAll('#modeSeg button').forEach((b) => b.onclick = () => {
+  if (app.running) return;
+  const was = app.mode;
+  app.mode = b.dataset.mode; store.set('cardclimber.mode', app.mode);
+  if (app.mode === 'run') return Run.start();
+  if (was === 'run') return loadLevel(BUILTIN_LEVELS.length ? 'b0' : 'c0');
+  app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id })); app.seq = []; app.played = []; app.history = [];
+  resetRun();
+});
+if (!CONFIG.features.runMode) document.querySelector('[data-mode=run]').remove();
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea') || app.editing) return;
+  if (e.key === 'Enter' && app.mode === 'plan') Plan.play();
+  if (e.key === 'r' && app.mode !== 'run') app.mode === 'plan' ? resetRun() : Instant.restart();
+  if (e.key === 'Backspace' && app.mode === 'plan' && app.seq.length) Plan.clickSeq(app.seq[app.seq.length - 1].uid);
+  if ((e.key === 'z' || e.key === 'u') && app.mode === 'instant') Instant.undo();
+});
+new ResizeObserver(resize).observe($('stage'));
+
+if (app.mode === 'run' && !CONFIG.features.runMode) app.mode = CONFIG.turnMode;
+loadLevel('b0');
+if (app.mode === 'run') Run.start();
+resize();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
