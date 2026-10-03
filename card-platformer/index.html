@@ -121,7 +121,10 @@
   .lane-label small { display: block; text-transform: none; letter-spacing: 0; margin-top: 4px; }
   #banner .extra { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
   .card.failed { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad); }
-  .slot { width: 80px; height: 92px; border: 2px dashed var(--line); border-radius: 8px; }
+  .slot { width: 80px; height: 92px; border: 2px dashed var(--line); border-radius: 8px; flex-shrink: 0; }
+  .slot.gap { border-color: var(--bad); background: #ff6b6b14; }
+  .slot.drop-here, .card.drop-here { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .lane-label small.warn { color: var(--bad); font-weight: 600; }
   .locked .card { cursor: default; }
   .locked .card:hover, .locked .card:active { transform: none; }
 
@@ -155,6 +158,13 @@
     .cards::-webkit-scrollbar { display: none; }
     .card, .slot { flex: 0 0 auto; }
     .cards > span { flex: 1 1 auto; min-width: 0; white-space: normal; }
+    /* Endless: the hand fills the width of the phone with big cards */
+    body.endless #hand { display: grid; grid-template-columns: repeat(var(--hand, 4), 1fr); gap: 8px; overflow: visible; margin: 0; padding: 10px 0 4px; }
+    body.endless #hand .card { width: auto; height: 124px; }
+    body.endless #hand .card .nm { font-size: 14px; }
+    body.endless #hand .card .key { font-size: 11px; }
+    body.endless #hand .card .pic { align-self: stretch; }
+    body.endless #hand .card .pic svg { transform: scale(1.25); }   /* same scale on every card, so tile sizes stay comparable */
     #deck { gap: 6px; padding-top: 8px; }
     #play { gap: 6px; }
     #play .lanes { gap: 4px; }
@@ -1317,28 +1327,56 @@ async function playCard(id) {
 /* =====================================================================
    Controllers — one per turn mode
    ===================================================================== */
+// Plan & Run sequence = fixed slots (one per card in the level). app.seq may
+// contain nulls (empty slots); Play needs the cards to be contiguous from slot 1.
+const Slots = {
+  filled: () => app.seq.filter(Boolean),
+  lastFilled: () => app.seq.map(Boolean).lastIndexOf(true),
+  gap() { const last = Slots.lastFilled(); for (let i = 0; i < last; i++) if (!app.seq[i]) return i; return -1; },
+  trim() { while (app.seq.length && !app.seq[app.seq.length - 1]) app.seq.pop(); },
+  firstEmpty() { const i = app.seq.indexOf(null); return i >= 0 ? i : app.seq.length; },
+  // put a card in slot i; if it's taken, shift cards along into the nearest empty slot
+  place(card, i) {
+    const s = app.seq, n = app.level.cards.length;
+    i = Math.max(0, Math.min(n - 1, i));
+    while (s.length < n) s.push(null);
+    if (!s[i]) s[i] = card;
+    else {
+      let j = s.indexOf(null, i);
+      if (j >= 0) { for (let k = j; k > i; k--) s[k] = s[k - 1]; }
+      else { j = s.lastIndexOf(null, i); for (let k = j; k < i; k++) s[k] = s[k + 1]; }
+      s[i] = card;
+    }
+    Slots.trim();
+  },
+};
+
 const Plan = {
-  clickHand(uid, at = app.seq.length) {
+  clickHand(uid, at = Slots.firstEmpty()) {
     if (app.running) return;
     const i = app.hand.findIndex((c) => c.uid === uid);
-    app.seq.splice(at, 0, ...app.hand.splice(i, 1));
+    Slots.place(app.hand.splice(i, 1)[0], at);
     if (app.cursor) resetRun(); else renderDeck();
   },
   moveTo(uid, at) {
     if (app.running) return;
-    const card = app.seq.splice(app.seq.findIndex((c) => c.uid === uid), 1)[0];
-    app.seq.splice(at, 0, card);
+    const i = app.seq.findIndex((c) => c && c.uid === uid), card = app.seq[i];
+    app.seq[i] = null;
+    Slots.place(card, at);
     if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
   },
+  // tapping a planned card takes it back to your hand and leaves its slot empty
   clickSeq(uid) {
     if (app.running) return;
-    const i = app.seq.findIndex((c) => c.uid === uid);
-    app.hand.push(...app.seq.splice(i, 1));
+    const i = app.seq.findIndex((c) => c && c.uid === uid);
+    app.hand.push(app.seq[i]); app.seq[i] = null; Slots.trim();
     app.hand.sort((a, b) => a.uid - b.uid);
     if (app.cursor) resetRun(); else renderDeck();
   },
   async play() {
-    if (app.running || !app.seq.length) return;
+    if (app.running || !Slots.filled().length) return;
+    if (Slots.gap() >= 0) { renderDeck(); return; }      // an empty slot between cards: fill it first
+    Slots.trim();
     hideBanner();
     if (app.cursor || app.state.status !== 'playing') resetRun();
     while (app.cursor < app.seq.length && await Plan.step(true) === 'playing') await sleep(CONFIG.pauseBetweenCards);
@@ -1355,11 +1393,11 @@ const Plan = {
     return status;
   },
   // Reset = start the level over: cards back in your hand, character back at the start
-  reset() { if (app.running) return; app.hand.push(...app.seq); app.seq = []; app.hand.sort((a, b) => a.uid - b.uid); resetRun(); },
+  reset() { if (app.running) return; app.hand.push(...Slots.filled()); app.seq = []; app.hand.sort((a, b) => a.uid - b.uid); resetRun(); },
   actions() {
     return [
-      ['▶ Play', 'primary', Plan.play, !app.seq.length || app.running],
-      ['↺ Reset', '', Plan.reset, app.running || (!app.seq.length && !app.cursor && app.state.status === 'playing')],
+      ['▶ Play', 'primary', Plan.play, !Slots.filled().length || Slots.gap() >= 0 || app.running],
+      ['↺ Reset', '', Plan.reset, app.running || (!Slots.filled().length && !app.cursor && app.state.status === 'playing')],
       ...(CONFIG.features.hints && app.fails > 0 ? [[`💡 Hint${CONFIG.features.gems ? ` (−${CONFIG.hints.penalty})` : ''}`, '', Hints.next, app.running]] : []),
     ];
   },
@@ -1377,7 +1415,7 @@ const Hints = {
     if (!app.hintSols) app.hintSols = solve(app.level, 2000).solutions.sort((a, b) => a.length - b.length);
     const sols = app.hintSols;
     if (!sols.length) { app.hintText = "These cards can't reach the flag — the level may need editing."; renderDeck(); return; }
-    const seq = app.seq.map((c) => c.id);
+    const seq = app.seq.map((c) => c && c.id);
     const prefix = (sol) => { let k = 0; while (k < seq.length && k < sol.length && sol[k] === seq[k]) k++; return k; };
     const sol = sols.reduce((best, x) => (prefix(x) > prefix(best) ? x : best), sols[0]);
     const k = prefix(sol);
@@ -1438,6 +1476,7 @@ const TimeAttack = {
     app.state = initialState(app.map);
     app.view = { ...clone(app.state), ox: 0, oy: 0 }; app.cam = 0; app.particles = [];
     app.ta = { hearts: T.hearts, dist: 0, gems: 0, deadline: null, limitMs: 0, paused: null, over: false };
+    $('hand').style.setProperty('--hand', T.handSize);
     app.hand = []; app.played = []; app.seq = [];
     TimeAttack.fill();
     renderDeck();
@@ -1643,7 +1682,12 @@ const Quest = {
     app.seq.splice(i, 1);
     if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
   },
-  moveTo: (uid, at) => Plan.moveTo(uid, at),
+  moveTo(uid, at) {                                   // the shop plan has no fixed slots: just reorder
+    if (app.running) return;
+    const card = app.seq.splice(app.seq.findIndex((c) => c.uid === uid), 1)[0];
+    app.seq.splice(at, 0, card);
+    if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
+  },
   sellAll() {
     if (app.running) return;
     app.q.gems += app.seq.reduce((a, c) => a + c.paid, 0); app.seq = []; resetRun();
@@ -2261,12 +2305,15 @@ function renderDeck() {
   const quest = app.mode === 'quest';
   const instant = app.mode !== 'plan' && !quest;
   const time = app.mode === 'time';
-  $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>` : instant ? 'Played' : 'Sequence';
+  $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>`
+    : instant ? 'Played'
+    : 'Sequence' + (Slots.gap() >= 0 ? '<small class="warn">fill the empty slot to play</small>' : '<small>tap a card to remove · drag to move</small>');
   const r = app.mode === 'run' && app.run;
   const peekN = r && r.draw ? CONFIG.run.peek : 0;
   const peek = peekN ? r.draw.slice(-peekN).reverse().map((c) => cardChip(c.id)) : [];
   while (peek.length < peekN) peek.push('<b>?</b>');   // will come from a reshuffle
   if (quest) $('handLabel').innerHTML = `Hand<small>${Quest.owned()}/${Quest.handLimit()} cards</small>`;
+  else if (app.mode === 'plan') $('handLabel').innerHTML = 'Hand<small>tap or drag into a slot</small>';
   else $('handLabel').innerHTML = r && r.draw
     ? `Hand<small>draw ${r.draw.length} · discard ${r.discard.length} · deck ${r.deck.length}</small>`
       + (peekN ? `<small>Next up:</small><span class="peek">${peek.join('')}</span>` : '')
@@ -2275,7 +2322,25 @@ function renderDeck() {
   $('levelSel').style.visibility = app.mode === 'run' || time || quest ? 'hidden' : '';
   $('editBtn').disabled = app.mode === 'run' || time || quest;
   const list = time ? app.played.slice(-1) : instant ? app.played : app.seq;   // time attack: just the last card
-  list.forEach((c, i) => {
+  if (app.mode === 'plan') {
+    // fixed slots: cards where you put them, dashed outlines for empty ones (red if it's a gap)
+    const gapBefore = Slots.gap() >= 0 ? Slots.lastFilled() : -1;
+    for (let i = 0; i < app.level.cards.length; i++) {
+      const c = app.seq[i];
+      if (!c) {
+        const sl = Object.assign(document.createElement('div'), { className: 'slot' + (i < gapBefore ? ' gap' : '') });
+        sl.dataset.slot = i; seqBox.appendChild(sl); continue;
+      }
+      let cls = '';
+      if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
+      if (app.running && i === app.cursor) cls = 'active';
+      const el = cardEl(c, cls, i + 1);
+      el.dataset.slot = i;
+      el.onclick = Drag.tap(() => C.clickSeq(c.uid));
+      Drag.attach(el, { src: 'seq', uid: c.uid, id: c.id });
+      seqBox.appendChild(el);
+    }
+  } else list.forEach((c, i) => {
     let cls = '';
     if (!instant) {
       if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
@@ -2298,7 +2363,6 @@ function renderDeck() {
     el.insertAdjacentHTML('afterbegin', `<span class="price">${c.paid}◆</span>`);
     el.title = `${el.title}\nDrag to reorder · tap or drag off to sell back for ${c.paid}◆`;
   });
-  if (!instant && !quest) for (let i = list.length; i < app.level.cards.length; i++) seqBox.appendChild(Object.assign(document.createElement('div'), { className: 'slot' }));
   app.hand.forEach((c, i) => {
     const el = cardEl(c, app.mode === 'plan' && c.id === app.hintNext && app.hand.findIndex((h) => h.id === c.id) === i ? 'hinted'
       : app.mode === 'run' && app.run?.cycling ? 'cycling' : '');
@@ -2379,7 +2443,7 @@ const Drag = {
     d.live = true; d.dx = d.x0 - r.left; d.dy = d.y0 - r.top + (d.touch ? 56 : 0);   // on touch, float the card above your finger
     d.ghost = d.el.cloneNode(true);
     d.ghost.classList.add('drag-ghost');
-    const planned = app.seq.find((c) => c.uid === d.info.uid);
+    const planned = app.seq.find((c) => c && c.uid === d.info.uid);
     d.ghost.dataset.out = app.mode === 'quest' ? `Sell ${planned?.paid ?? ''}◆` : 'Back to hand';   // shown when dragged off the plan
     Object.assign(d.ghost.style, { width: r.width + 'px', height: r.height + 'px' });
     document.body.appendChild(d.ghost);
@@ -2399,6 +2463,14 @@ const Drag = {
     const d = Drag.cur, lane = $('seq').getBoundingClientRect();
     const over = d.x >= lane.left - 20 && d.x <= lane.right + 20 && d.y >= lane.top - 30 && d.y <= lane.bottom + 30;
     if (!over) return null;
+    if (app.mode === 'plan') {      // fixed slots: the slot (card or empty outline) nearest the finger
+      let best = null, bd = Infinity;
+      for (const el of $('seq').querySelectorAll('[data-slot]')) {
+        const r = el.getBoundingClientRect(), dist = Math.hypot(d.x - (r.left + r.width / 2), d.y - (r.top + r.height / 2));
+        if (dist < bd) { bd = dist; best = el; }
+      }
+      return best && { at: +best.dataset.slot, el: best };
+    }
     const cards = [...$('seq').querySelectorAll('.card')].filter((c) => c !== d.el);
     let at = 0;
     for (const c of cards) {
@@ -2413,7 +2485,9 @@ const Drag = {
     const s = Drag.slot();
     $('seq').classList.toggle('drop-target', !!s);
     d.ghost.classList.toggle('out', !s && d.info.src === 'seq');
+    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
     if (!s) { marker.style.display = 'none'; return; }
+    if (s.el) { marker.style.display = 'none'; s.el.classList.add('drop-here'); return; }   // Plan & Run: highlight the slot
     // marker: before the card at `at`, or after the last one
     const ref = s.cards[s.at] || s.cards[s.at - 1];
     const lane = $('seq').getBoundingClientRect();
@@ -2441,6 +2515,7 @@ const Drag = {
     const d = Drag.cur;
     if (d) { clearInterval(d.auto); d.ghost?.remove(); d.el.classList.remove('dragging'); }
     $('dropMarker').style.display = 'none'; $('seq').classList.remove('drop-target');
+    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
     Drag.cur = null;
   },
 };
@@ -2617,7 +2692,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === ' ') { e.preventDefault(); TimeAttack.redraw(); }
     if (e.key === 'p' || e.key === 'Escape') TimeAttack.pause();
   }
-  if (e.key === 'Backspace' && app.mode === 'plan' && app.seq.length) Plan.clickSeq(app.seq[app.seq.length - 1].uid);
+  if (e.key === 'Backspace' && app.mode === 'plan' && Slots.filled().length) Plan.clickSeq(app.seq[Slots.lastFilled()].uid);
   if ((e.key === 'z' || e.key === 'u') && app.mode === 'instant') Instant.undo();
 });
 new ResizeObserver(resize).observe($('stage'));
