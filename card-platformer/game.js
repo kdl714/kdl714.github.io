@@ -1330,10 +1330,17 @@ function renderDeck() {
       if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
       if (app.running && i === app.cursor) cls = 'active';
       let def;
-      if (sim && sim.status === 'playing') {
+      if (sim) {
         const mm = momentumMoves(app.map, sim, c.id);
         if (mm.combo) def = { ...CARDS[c.id], moves: mm.moves, boosted: true, combo: mm.combo };
-        sim = runCard(app.map, sim, c.id).state;
+        if (sim.status === 'playing') sim = runCard(app.map, sim, c.id).state;
+        else {
+          // the run would already be over, but keep showing momentum from the card order alone
+          // (so the preview never gives away where a plan fails)
+          const resolved = CARDS[c.id].echo ? (sim.last || 'wait') : c.id;
+          sim = { ...sim, last: CARDS[c.id].echo ? sim.last : c.id };
+          carryMomentum(sim, resolved, false);
+        }
       }
       const el = cardEl(c, cls, i + 1, def);
       el.dataset.slot = i;

@@ -62,6 +62,12 @@ function momentumMoves(map, s, id) {
   return { moves, combo };
 }
 
+// updates s.streak / s.lastKind after playing `resolved` (shared with the plan preview)
+function carryMomentum(s, resolved, bumped) {
+  s.streak = !bumped && resolved.startsWith('walk') ? (s.lastKind === 'run' ? (s.streak || 0) + 1 : 1) : 0;
+  s.lastKind = bumped ? null : resolved.startsWith('walk') || resolved === 'dash' ? 'run' : JUMPY.includes(resolved) ? 'jump' : null;
+}
+
 function parseLevel(level) {
   const grid = [], map = { grid, w: W, start: { x: 0, y: 0 }, goal: { x: -1, y: -1 }, crates: [], items: [], keyMask: 0, enemies: [],
     momentum: !!CONFIG.features.momentum };
@@ -282,9 +288,7 @@ function runCard(map, st, id) {
   }
   if (movedSideways && slide()) return { state: s, ev };
   if (map.momentum) {                       // carry momentum into the next card (a bump breaks it)
-    const bumped = ev.some((e) => e.k === 'bump');
-    s.streak = !bumped && resolved.startsWith('walk') ? (s.lastKind === 'run' ? (s.streak || 0) + 1 : 1) : 0;
-    s.lastKind = bumped ? null : resolved.startsWith('walk') || resolved === 'dash' ? 'run' : JUMPY.includes(resolved) ? 'jump' : null;
+    carryMomentum(s, resolved, ev.some((e) => e.k === 'bump'));
   }
   // patrollers take their step after your card
   s.enemies.forEach((e, i) => {
