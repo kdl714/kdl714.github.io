@@ -20,7 +20,11 @@ select, input, textarea { background: var(--panel2); border: 1px solid var(--lin
 
 header { display: flex; gap: 10px; align-items: center;
   padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-header h1 { font-size: 16px; margin: 0 8px 0 0; color: var(--accent); }
+header h1 { font-size: 16px; margin: 0 8px 0 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#backBtn { font-size: 22px; line-height: 1; padding: 3px 12px 6px; }
+#modeSeg, #editBtn, header .spacer { display: none; }     /* modes and the editor live on the Start screen now */
+#levelSel { display: none; }
+body.editing #levelSel { display: block; max-width: 40vw; }   /* the editor picks which level to edit */
 header .spacer { flex: 1; }
 .sm { display: none; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
@@ -152,7 +156,6 @@ dialog::backdrop { background: #0008; }
 /* Phones, portrait: stack everything; game on top, cards below */
 @media (max-width: 600px) {
   header { gap: 6px; flex-wrap: nowrap; padding-bottom: 6px; }
-  header h1 { display: none; }
   header .spacer { display: none; }
   .lg { display: none; } .sm { display: inline; }
   #levelSel { flex: 1 1 0; min-width: 0; max-width: 46vw; padding: 5px 6px; text-overflow: ellipsis; }
@@ -193,7 +196,6 @@ dialog::backdrop { background: #0008; }
 @media (orientation: landscape) and (max-height: 500px) {
   body { display: grid; grid-template-columns: 1fr minmax(240px, 36%); grid-template-rows: auto minmax(0, 1fr); }
   header { grid-column: 1 / -1; padding-top: 6px; padding-bottom: 6px; }
-  header h1 { display: none; }
   select, input, textarea { font-size: 16px; }
   #stage { padding: 6px 8px 6px max(8px, env(safe-area-inset-left)); }
   #deck { max-height: none; border-top: 0; border-left: 1px solid var(--line); padding-top: 8px; }
@@ -207,3 +209,59 @@ dialog::backdrop { background: #0008; }
   #seqActions button { width: auto; flex: 1; padding: 8px 6px; }
   #editor { flex-direction: column; }
 }
+
+/* ---------- Start, Puzzles, level set and Settings screens ---------- */
+#menu { display: none; }
+body.menu > header, body.menu > #deck, body.menu:not(.home) > #stage { display: none; }
+body.menu #menu { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+body.home #menu { order: 2; padding-top: 4px; }
+body.home #stage { flex: 0 0 auto; height: min(38vh, 340px); padding: 12px 16px 0; padding-top: max(12px, env(safe-area-inset-top)); }
+body.home #hud, body.home #rotateHint { display: none !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  body.menu { display: flex; }
+  body.home #stage { display: none; }
+}
+.m-screen { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; animation: m-in .18s ease-out; }
+@keyframes m-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .m-screen { animation: none; } }
+.m-title { text-align: center; font-size: 26px; margin: 4px 0 6px; letter-spacing: .01em; }
+.m-btn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; background: var(--panel); }
+.m-btn .ic { width: 28px; text-align: center; font-size: 20px; color: var(--accent); }
+.m-btn b, .m-set b, .m-row b { display: block; font-size: 16px; font-weight: 600; }
+.m-btn small, .m-set small, .m-row small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.m-btn.primary { background: var(--accent); color: #1d2333; }
+.m-btn.primary .ic, .m-btn.primary small { color: #5a4300; }
+.m-btn.danger .ic, .m-btn.danger b { color: var(--bad); }
+.m-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.m-bar h2 { margin: 0; font-size: 20px; }
+.m-back { font-size: 22px; line-height: 1; padding: 3px 12px 6px; }
+.m-set { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border-width: 1px; }
+.m-set > span:first-child { flex: 1; }
+.m-set .n { font-weight: 600; font-size: 15px; }
+.t-meadow.m-set { background: #2c4a35; border-color: #5cb85c; } .t-meadow.m-set small { color: #b9e3bd; }
+.t-canyon.m-set { background: #4f3230; border-color: #e07a4f; } .t-canyon.m-set small { color: #f3c6b0; }
+.t-peaks.m-set { background: #2d3f5c; border-color: #8fc8ee; } .t-peaks.m-set small { color: #c9e3f7; }
+.m-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-tile { aspect-ratio: 1 / 1.05; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; border-radius: 12px; }
+.m-tile b { font-size: 22px; }
+.m-tile small { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.2; }
+.m-tile .marks { display: flex; gap: 5px; font-style: normal; }
+.m-tile .marks i { font-style: normal; font-size: 13px; opacity: .25; }
+.m-tile .marks i.on { opacity: 1; }
+.t-meadow .m-tile.done { background: #2c4a35; border-color: #5cb85c; }
+.t-canyon .m-tile.done { background: #4f3230; border-color: #e07a4f; }
+.t-peaks .m-tile.done { background: #2d3f5c; border-color: #8fc8ee; }
+.t-mine .m-tile.done { border-color: var(--accent); }
+.b-flag.on { color: #ff8a8a; } .b-gems.on { color: #4fd8e8; } .b-clean.on { color: var(--accent); }
+.m-foot { text-align: center; color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+.m-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--panel); border-radius: 12px; }
+.m-row > span:first-child { flex: 1; }
+.m-row .seg button { padding: 7px 10px; }
+/* level complete: the three badges */
+.badges { display: flex; gap: 8px; justify-content: center; margin: 2px 0 12px; flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.badge b { font-size: 15px; opacity: .35; }
+.badge.on { border-color: currentColor; background: #ffffff10; }
+.badge.on b { opacity: 1; }
+@media (max-width: 600px) { body.home #stage { height: auto; padding-top: max(16px, env(safe-area-inset-top)); } }

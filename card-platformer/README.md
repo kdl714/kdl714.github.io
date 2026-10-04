@@ -31,18 +31,27 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-04c`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-06c`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+
+## Screens
+
+The game opens on a **Start** screen with four buttons: **Puzzles**, **Endless**, **Level editor** and **Settings**.
+
+- **Puzzles** lists the level sets (9 levels each, one theme per set) plus **Your levels** from the editor. Tap a set to see its levels, then a level to play it. Every level is open.
+- Each level has up to three **badges**: ⚑ cleared, ◆ every gem in one run (only on levels with gems) and ★ cleared without hints. They're shown on the level grid and on the Level complete card. Badges are saved per level name in this browser.
+- **Settings:** animation speed, hints on or off, reduce motion (follows the device until you change it) and Reset progress (clears badges and best scores; your own levels are kept). It also shows the version tag, which helps when a tester reports something.
+- The ‹ button (or the browser's or phone's Back) goes up a level: level → set → Puzzles → Start. Leaving in the middle of a run stops it cleanly.
+- Every screen has its own address (`#/puzzles`, `#/set/1`, `#/play/b4`, `#/endless`, `#/editor`, `#/settings`), so you can link a tester straight to a level.
 
 ## Adding levels
 
-Build a level in the editor (✎), check it with **Check solvable**, then use **Import / Export** to copy its JSON. Paste it into `PUZZLE_PACK` in `levels.js`, using the same shape as the other entries.
+Build a level in the **Level editor**, check it with **Check solvable**, then use **Import / Export** to copy its JSON. Paste it into `PUZZLE_PACK` in `levels.js`, using the same shape as the other entries. Levels are grouped into sets in order, `SET_SIZE` (9) at a time; the set names, themes and one-line descriptions are in `LEVEL_SETS` at the bottom of `levels.js`.
 
 ## Tweaking
 
 Everything you can change is in `config.js`:
 
 - `stepMs`, `gravityMs` and `pauseBetweenCards` set the feel of playback: walking pace, how fast falls speed up, and the gap between cards.
-- `turnMode` sets the default mode: `'plan'`, `'instant'` or `'run'` (roguelite).
 - `features` turns each experiment on or off: `echo`, `crates`, `puzzlePack`, `runMode`, `fairGenerator`, `keys`, `gems`, `hints` and `timeAttack` (Endless; off brings back the old Instant mode).
 - `hints.penalty` sets the points a hint costs. `timeAttack` (Endless) has every Endless knob in one place: `handSize`, `hearts`, `freeCards`, `startSeconds`, `minSeconds`, `secondsLostPer100Tiles`, `terrainRampTiles`, `fairDeal`, `heartEvery` and the card `pool` weights.
 - `score` sets the points: flag, per gem, per spare card or step, and the multiplier for collecting every gem.
@@ -77,7 +86,7 @@ The order of cards matters, like real platformer physics:
 - **Double jump:** a jump straight after a jump goes one tile higher.
 - **Breaking momentum:** a Turn or Wait in between, or (in Endless) a redraw or timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
 
-Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Levels 2–4 introduce momentum, 11 introduces Hop and 18 introduces Dash. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
+Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Levels 1-2 to 1-4 introduce momentum, 2-2 introduces Hop and 2-9 introduces Dash. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
 
 ## Tiles, cards and the patroller
 
@@ -100,7 +109,7 @@ Each mechanic can be switched off in `config.js` (`features.ice`, `platforms`, `
 
 ## Look
 
-Levels 1–7 are set in a **meadow**, 8–13 in a **dusk canyon** and 14 onwards on **snowy peaks**. Endless cycles through all three, cross-fading every 150 tiles. Each theme has its own sky, parallax scenery, ground colours and ambient particles (pollen, embers, snow). Theme colours and the parallax strength (`PARALLAX`) live at the top of `art.js`. Effects are deliberately subtle: soft shadows, small landing and spring rings, gem twinkles and a light vignette. The small screen shake on deaths and stomps is switched off if the device asks for reduced motion.
+Each level set has its own theme: set 1 is a **meadow**, set 2 a **dusk canyon** and set 3 **snowy peaks** (set in `LEVEL_SETS` in `levels.js`). Endless cycles through all three, cross-fading every 150 tiles. Each theme has its own sky, parallax scenery, ground colours and ambient particles (pollen, embers, snow). Theme colours and the parallax strength (`PARALLAX`) live at the top of `art.js`. Effects are deliberately subtle: soft shadows, small landing and spring rings, gem twinkles and a light vignette. The small screen shake on deaths and stomps is switched off with **Reduce motion** in Settings (on by default if the device asks for reduced motion).
 
 ## Keys, doors and gems
 

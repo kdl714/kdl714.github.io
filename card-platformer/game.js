@@ -10,6 +10,10 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
+// player settings (Settings screen); `var` so art.js can see them too
+var settings = Object.assign({ speed: 1, hints: true, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches },
+  store.get('cardclimber.settings', {}));
+const saveSettings = () => store.set('cardclimber.settings', settings);
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let uidSeq = 1;
@@ -31,6 +35,7 @@ const app = {
   played: [], history: [],  // instant-mode
   cursor: 0,                // plan-mode: next card index when stepping
   running: false,
+  gen: 0,                   // bumped when you leave a screen, so a run that's still animating stops
   editing: false, playtesting: false, paint: '#',
   particles: [],
 };
@@ -67,13 +72,15 @@ function resetRun() {
 /* =====================================================================
    Animation — plays the event list from runCard on the view
    ===================================================================== */
-const animSpeed = () => (app.mode === 'time' ? CONFIG.timeAttack.animSpeed : 1);
+const animSpeed = () => (app.mode === 'time' ? CONFIG.timeAttack.animSpeed : 1) / settings.speed;   // multiplies durations
 const nap = (ms) => sleep(ms * animSpeed());
 function tween(ms, fn) {
   ms *= animSpeed();
+  const gen = app.gen;
   return new Promise((res) => {
     const t0 = performance.now();
     const tick = (now) => {
+      if (gen !== app.gen) return res();          // left the screen: stop here
       const t = Math.min(1, (now - t0) / ms);
       fn(t);
       t < 1 ? requestAnimationFrame(tick) : res();
@@ -113,7 +120,7 @@ async function animate(ev) {
 const groundBelow = (x, y) => y + 1 >= H ? false : wall(app.map, x, y + 1) || tileAt(app.map, x, y + 1) === '=' || app.view.crates.some((c) => !c.gone && Math.round(c.x) === x && Math.round(c.y) === y + 1);
 
 function glide(run) {
-  const v = app.view, speed = animSpeed();
+  const v = app.view, speed = animSpeed(), gen = app.gen;
   const pts = [{ x: v.x, y: v.y }], segs = [], along = [];   // along[j]: events to fire on reaching point j
   let falls = 0;
   for (const e of run) {
@@ -179,6 +186,7 @@ function glide(run) {
     const t0 = performance.now();
     let lastSeg = -1, prev = { x: v.x, y: v.y, t: t0 };
     const frame = (now) => {
+      if (gen !== app.gen) return resolve();      // left the screen: stop here
       let el = Math.min(total, now - t0), j = 0;
       while (j < segs.length - 1 && el > segs[j].ms) { el -= segs[j].ms; j++; }
       for (let q = lastSeg + 1; q <= j; q++) if (q > 0) {          // reached point q
@@ -299,8 +307,9 @@ async function beat(e) {
 }
 
 async function playCard(id) {
-  const r = runCard(app.map, app.state, id);
+  const r = runCard(app.map, app.state, id), gen = app.gen;
   await animate(r.ev);
+  if (gen !== app.gen) return 'aborted';           // you left mid-run; the new screen owns the state now
   app.state = r.state;
   Object.assign(app.view, { x: r.state.x, y: r.state.y, dir: r.state.dir, turn: r.state.turn, status: r.state.status, got: r.state.got, crates: clone(r.state.crates),
     enemies: (r.state.enemies || []).map((e, i) => ({ ...e, deadT: app.view.enemies?.[i]?.deadT })) });
@@ -362,7 +371,8 @@ const Plan = {
     Slots.trim();
     hideBanner();
     if (app.cursor || app.state.status !== 'playing') resetRun();
-    while (app.cursor < app.seq.length && await Plan.step(true) === 'playing') await sleep(CONFIG.pauseBetweenCards);
+    const gen = app.gen;
+    while (gen === app.gen && app.cursor < app.seq.length && await Plan.step(true) === 'playing') await sleep(CONFIG.pauseBetweenCards);
   },
   async step(fromPlay) {
     if (app.running && !fromPlay) return;
@@ -370,6 +380,7 @@ const Plan = {
     if (app.cursor >= app.seq.length) return;
     app.running = true; renderDeck();
     const status = await playCard(app.seq[app.cursor].id);
+    if (status === 'aborted') return status;
     app.cursor++; app.running = false;
     finishCheck(status, app.cursor >= app.seq.length, app.hand.length);
     renderDeck();
@@ -381,7 +392,7 @@ const Plan = {
     return [
       ['▶ Play', 'primary', Plan.play, !Slots.filled().length || Slots.gap() >= 0 || app.running],
       ['↺ Reset', '', Plan.reset, app.running || (!Slots.filled().length && !app.cursor && app.state.status === 'playing')],
-      ...(CONFIG.features.hints && app.fails > 0 ? [[`💡 Hint${CONFIG.features.gems ? ` (−${CONFIG.hints.penalty})` : ''}`, '', Hints.next, app.running]] : []),
+      ...(CONFIG.features.hints && settings.hints && app.fails > 0 ? [[`💡 Hint${CONFIG.features.gems ? ` (−${CONFIG.hints.penalty})` : ''}`, '', Hints.next, app.running]] : []),
     ];
   },
 };
@@ -390,7 +401,7 @@ const Plan = {
 // First hint is the level's own nudge (if it has one); after that, compare
 // the player's sequence with the closest solution and reveal one more card.
 const Hints = {
-  available: () => CONFIG.features.hints && app.mode === 'plan' && app.fails > 0 && !app.running,
+  available: () => CONFIG.features.hints && settings.hints && app.mode === 'plan' && app.fails > 0 && !app.running,
   next() {
     if (!Hints.available()) return;
     app.hintsUsed++;
@@ -532,7 +543,7 @@ const TimeAttack = {
     const T = CONFIG.timeAttack, score = ta.dist * T.pointsPerTile + ta.gems * T.pointsPerGem + (ta.combos || 0) * (T.pointsPerCombo || 0);
     const best = recordBest('time attack', score);
     showBanner('Out of hearts', `Distance ${ta.dist} tiles · ${ta.gems} gem${ta.gems === 1 ? '' : 's'} · ${ta.combos || 0} combo${ta.combos === 1 ? '' : 's'}\nScore ${score}` + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`),
-      [['Play again', TimeAttack.start]]);
+      [['Play again', TimeAttack.start], ['Menu', Router.up, true]]);
     return false;
   },
   async clickHand(uid) {
@@ -544,6 +555,7 @@ const TimeAttack = {
     const before = clone(app.state);
     app.running = true; renderDeck();
     const status = await playCard(card.id);
+    if (status === 'aborted') return;
     // bank collected gems and drop them from the map (keeps the bitmask small)
     const got = app.state.got;
     if (got) {
@@ -1029,17 +1041,21 @@ function finishCheck(status, outOfCards, unused) {
   const retry = app.mode === 'instant' ? [['↶ Undo', Instant.undo], ['↺ Restart', Instant.restart]] : [['↺ Try again', resetRun]];
   if (status === 'won') {
     const all = allLevels(), idx = all.findIndex((l) => l.key === app.levelKey);
-    const next = all[idx + 1];
+    const next = all[idx + 1]?.key[0] === app.levelKey[0] ? all[idx + 1] : null;   // the next level in the same list (built-in or yours)
     const used = app.mode === 'instant' ? app.played.length : app.cursor;
-    let text = `Reached the flag in ${used} card${used === 1 ? '' : 's'}.`;
+    let text = `Reached the flag in ${used} card${used === 1 ? '' : 's'}.`, badges;
     if (CONFIG.features.gems) {
       const sc = scoreFor(app.map, app.state, app.level.cards.length - used, app.mode === 'plan' ? app.hintsUsed : 0);
       const best = app.playtesting ? null : recordBest(app.level.name, sc.points);
-      text = `${sc.text}` + (sc.total > sc.gems ? `\n${sc.total - sc.gems} gem${sc.total - sc.gems > 1 ? 's' : ''} left behind — there's a harder way.` : '')
-        + (best ? (best.isNew ? (best.prev ? `\nNew best! (was ${best.prev})` : '') : `\nBest: ${best.prev}`) : '');
+      text = (sc.total > sc.gems ? `${sc.total - sc.gems} gem${sc.total - sc.gems > 1 ? 's' : ''} left behind — there's a harder way.\n` : '')
+        + `Score ${sc.points}` + (best ? (best.isNew ? (best.prev ? ` · new best! (was ${best.prev})` : '') : ` · best ${best.prev}`) : '');
+      const run = { flag: true, gems: !!sc.total && sc.gems === sc.total, clean: !app.hintsUsed };
+      if (!app.playtesting) Progress.earn(app.level.name, run);
+      badges = badgeRow(run, sc.total > 0);
     }
-    showBanner('Level complete!', text,
-      next && !app.playtesting ? [['Next level →', () => loadLevel(next.key)], ['Replay', retry[retry.length - 1][1]]] : [['Replay', retry[retry.length - 1][1]]]);
+    const replay = ['Replay', retry[retry.length - 1][1]];
+    showBanner('Level complete!', text, app.playtesting ? [replay]
+      : [...(next ? [['Next level →', () => Router.go('#/play/' + next.key)]] : []), replay, ['Levels', Router.up, true]], badges);
   } else if (status === 'dead') {
     if (app.mode === 'plan') app.fails++;
     const hint = Hints.available() ? [[`💡 Hint`, () => { hideBanner(); Hints.next(); }]] : [];
@@ -1538,9 +1554,9 @@ document.addEventListener('touchmove', (e) => { if (Drag.cur?.live) e.preventDef
 function showBanner(title, text, buttons, extra) {
   const b = $('banner');
   b.querySelector('h2').textContent = title; b.querySelector('p').textContent = text;
-  b.querySelectorAll(':scope > .extra, :scope > .reward, :scope > .routes').forEach((n) => n.remove());
+  b.querySelectorAll(':scope > .extra, :scope > .reward, :scope > .routes, :scope > .badges').forEach((n) => n.remove());
   if (extra) b.querySelector('.row').before(extra);
-  b.classList.toggle('wide', !!extra);   // card choices get the whole screen, not just the game area
+  b.classList.toggle('wide', !!extra && !extra.classList.contains('badges'));   // card choices get the whole screen, not just the game area
   const row = b.querySelector('.row'); row.innerHTML = '';
   buttons.forEach(([label, fn, plain], i) => { const btn = document.createElement('button'); btn.textContent = label; if (!i && !plain) btn.className = 'primary'; btn.onclick = fn; row.appendChild(btn); });
   b.style.display = 'block';
@@ -1551,6 +1567,9 @@ function refreshLevelSelect() {
   const sel = $('levelSel'); sel.innerHTML = '';
   for (const { key, level } of allLevels()) {
     const o = document.createElement('option'); o.value = key; o.textContent = (key[0] === 'c' ? '★ ' : '') + level.name; sel.appendChild(o);
+  }
+  if (!allLevels().some((l) => l.key === app.levelKey)) {   // a new level you haven't saved yet
+    const o = document.createElement('option'); o.value = app.levelKey; o.textContent = 'New: ' + (app.level?.name || 'level'); sel.prepend(o);
   }
   sel.value = app.levelKey;
 }
@@ -1576,13 +1595,15 @@ function setEditing(on) {
   app.editing = on; app.playtesting = false;
   $('play').style.display = on ? 'none' : '';
   $('editor').style.display = on ? 'flex' : 'none';
-  $('editBtn').innerHTML = on ? '✕<span class="lg"> Close editor</span>' : '✎<span class="lg"> Editor</span>';
+  document.body.classList.toggle('editing', on);
+  setTitle();
   if (on) { hideBanner(); renderEditor(); }
   else { app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id })); app.seq = []; app.played = []; app.history = []; resetRun(); }
 }
 function playtest() {
   setEditing(false);
   app.playtesting = true; // shows a "back to editor" button
+  setTitle();
   renderDeck();
 }
 
@@ -1699,7 +1720,7 @@ document.querySelector(CONFIG.features.shopRun ? '[data-mode=run]' : '[data-mode
 if (!CONFIG.features.runMode) document.querySelector('[data-mode=run], [data-mode=quest]')?.remove();
 document.querySelector(CONFIG.features.timeAttack ? '[data-mode=instant]' : '[data-mode=time]').remove();
 document.addEventListener('keydown', (e) => {
-  if (e.target.matches('input, textarea') || app.editing) return;
+  if (e.target.matches('input, textarea') || app.editing || document.body.classList.contains('menu')) return;
   if (e.key === 'Enter' && app.mode === 'plan') Plan.play();
   if (e.key === 'r' && (app.mode === 'plan' || app.mode === 'instant')) app.mode === 'plan' ? Plan.reset() : Instant.restart();
   if (app.mode === 'time') {
@@ -1713,12 +1734,194 @@ document.addEventListener('keydown', (e) => {
 });
 new ResizeObserver(resize).observe($('stage'));
 
-if (((app.mode === 'run' || app.mode === 'quest') && !CONFIG.features.runMode) || (app.mode === 'time' && !CONFIG.features.timeAttack)
-  || (app.mode === 'run' && CONFIG.features.shopRun) || (app.mode === 'quest' && !CONFIG.features.shopRun)
-  || (app.mode === 'instant' && CONFIG.features.timeAttack)) app.mode = CONFIG.turnMode;
-loadLevel('b0');
-if (app.mode === 'run') Run.start();
-if (app.mode === 'time') TimeAttack.start();
-if (app.mode === 'quest') Quest.start();
+/* =====================================================================
+   Screens — Start, Puzzles (level sets), a set's levels, Settings.
+   The address bar hash says where you are (#/, #/puzzles, #/set/0, #/play/b4,
+   #/endless, #/editor, #/settings), so Back and the phone's swipe-back work.
+   ===================================================================== */
+// badges per level, saved by name: flag (cleared), gems (every gem in one run), clean (no hints)
+const Progress = {
+  all() {
+    let b = store.get('cardclimber.badges', null);
+    if (!b) {   // first time: anything with a best score was cleared
+      b = {};
+      for (const name in store.get('cardclimber.best', {})) if (name !== 'time attack') b[name] = { flag: true };
+      store.set('cardclimber.badges', b);
+    }
+    return b;
+  },
+  of: (name) => Progress.all()[name] || {},
+  earn(name, run) {
+    const all = Progress.all(), cur = all[name] || {};
+    for (const k in run) if (run[k]) cur[k] = true;
+    all[name] = cur; store.set('cardclimber.badges', all);
+  },
+};
+const BADGES = [['flag', '⚑', 'Flag'], ['gems', '◆', 'Every gem'], ['clean', '★', 'No hints']];
+function badgeRow(got, hasGems) {
+  const row = document.createElement('div'); row.className = 'badges';
+  for (const [k, icon, label] of BADGES) {
+    if (k === 'gems' && !hasGems) continue;
+    row.insertAdjacentHTML('beforeend', `<span class="badge b-${k}${got[k] ? ' on' : ''}"><b>${icon}</b>${label}</span>`);
+  }
+  return row;
+}
+const levelHasGems = (l) => l.map.some((r) => r.includes('*'));
+const shortName = (name) => name.replace(/^\d+\.\s*/, '');      // "7. Crate Expectations" → "Crate Expectations"
+const setOf = (key) => Math.floor(+key.slice(1) / SET_SIZE);
+const sets = () => Array.from({ length: Math.ceil(BUILTIN_LEVELS.length / SET_SIZE) }, (_, i) => ({
+  i, ...setInfo(i), levels: allLevels().filter((l) => l.key[0] === 'b' && setOf(l.key) === i),
+}));
+const version = () => /[?&]v=([^&]+)/.exec(document.querySelector('script[src*="game.js"]')?.src || '')?.[1] || 'dev';
+
+function setTitle() {
+  const k = app.levelKey || '';
+  $('gameTitle').textContent = app.editing ? 'Level editor'
+    : app.mode === 'time' ? 'Endless'
+    : k[0] === 'b' ? `${setOf(k) + 1}-${+k.slice(1) % SET_SIZE + 1} · ${shortName(app.level.name)}`
+    : app.level?.name || '';
+}
+
+// leave whatever was running: stop animations, the Endless clock and the editor
+function leaveGame() {
+  app.gen++; app.running = false; app.ta = null; app.playtesting = false;
+  document.body.classList.remove('paused', 'editing');
+  if (app.editing) { app.editing = false; $('play').style.display = ''; $('editor').style.display = 'none'; }
+  hideBanner();
+}
+
+const HOME_SCENE = { name: 'Card Climber', cards: [], map: [
+  '................', '................', '................', '................', '.........*......',
+  '................', '................', '...P.........G..', '################'] };
+
+const Router = {
+  trail: [],
+  go(hash) { if (location.hash === hash) Router.show(); else location.hash = hash; },
+  // the screen "above" this one: a level → its set → Puzzles → Start
+  parent() {
+    const [page, arg] = location.hash.replace(/^#\/?/, '').split('/');
+    if (page === 'play') return app.playtesting ? '#/editor' : arg?.[0] === 'c' ? '#/set/mine' : '#/set/' + setOf(arg);
+    if (page === 'set') return '#/puzzles';
+    return '#/';
+  },
+  // Back: step back in history when that's where we came from, so swipe-back stays in step
+  up() {
+    if (app.playtesting) { leaveGame(); setEditing(true); return; }
+    const to = Router.parent();
+    if (Router.trail[Router.trail.length - 2] === to) history.back(); else Router.go(to);
+  },
+  show() {
+    const hash = location.hash || '#/', [page, arg] = hash.replace(/^#\/?/, '').split('/');
+    if (Router.trail[Router.trail.length - 2] === hash) Router.trail.pop(); else Router.trail.push(hash);
+    leaveGame();
+    const body = document.body;
+    body.classList.remove('menu', 'home');
+    if (page === 'play' && allLevels().some((l) => l.key === arg)) { app.mode = 'plan'; loadLevel(arg); setTitle(); return; }
+    if (page === 'endless' && CONFIG.features.timeAttack) { app.mode = 'time'; TimeAttack.start(); setTitle(); return; }
+    if (page === 'editor') {
+      app.mode = 'plan';
+      if (app.custom.length) loadLevel('c0');
+      else { loadLevel('b0'); app.level = { name: 'My Level', map: [...Array(H - 2).fill('.'.repeat(W)), 'P.............G.', '#'.repeat(W)], cards: ['walk3'] }; app.levelKey = 'new'; refreshLevelSelect(); }
+      setEditing(true); return;
+    }
+    const screen = Screens[page] ? page : 'home';
+    body.classList.add('menu');
+    if (screen === 'home') { body.classList.add('home'); app.mode = 'plan'; loadLevel('home', HOME_SCENE); }
+    const m = $('menu'); m.innerHTML = '';
+    m.append(Screens[screen](arg));
+    m.scrollTop = 0;
+  },
+};
+
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+function menuButton(icon, title, sub, onclick, cls = '') {
+  const b = el('button', 'm-btn ' + cls, `<span class="ic">${icon}</span><span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>`);
+  b.onclick = onclick; return b;
+}
+function menuBar(title) {
+  const bar = el('div', 'm-bar'), back = el('button', 'm-back', '‹');
+  back.setAttribute('aria-label', 'Back'); back.onclick = Router.up;
+  bar.append(back, el('h2', '', title)); return bar;
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+const Screens = {
+  home() {
+    const s = el('div', 'm-screen m-home');
+    const builtIn = allLevels().filter((l) => l.key[0] === 'b'), prog = Progress.all();
+    const flags = builtIn.filter((l) => prog[l.level.name]?.flag).length;
+    const bestEndless = store.get('cardclimber.best', {})['time attack'];
+    s.append(el('h1', 'm-title', 'Card Climber'));
+    s.append(menuButton('▶', 'Puzzles', `${flags} / ${builtIn.length} flags`, () => Router.go('#/puzzles'), 'primary'));
+    if (CONFIG.features.timeAttack) s.append(menuButton('∞', 'Endless', bestEndless ? `Best score ${bestEndless}` : 'How far can you go?', () => Router.go('#/endless')));
+    s.append(menuButton('✎', 'Level editor', app.custom.length ? plural(app.custom.length, 'saved level') : 'Build your own', () => Router.go('#/editor')));
+    s.append(menuButton('⚙︎', 'Settings', '', () => Router.go('#/settings')));
+    return s;
+  },
+  puzzles() {
+    const s = el('div', 'm-screen'), prog = Progress.all();
+    s.append(menuBar('Puzzles'));
+    let gems = 0, gemLevels = 0;
+    for (const set of sets()) {
+      const done = set.levels.filter((l) => prog[l.level.name]?.flag).length;
+      set.levels.forEach((l) => { if (levelHasGems(l.level)) { gemLevels++; if (prog[l.level.name]?.gems) gems++; } });
+      const row = el('button', `m-set t-${set.theme}`, `<span><b>${set.i + 1} · ${set.name}</b><small>${set.blurb}</small></span><span class="n">${done}/${set.levels.length}</span>`);
+      row.onclick = () => Router.go('#/set/' + set.i);
+      s.append(row);
+    }
+    const mine = el('button', 'm-set t-mine', `<span><b>Your levels</b><small>${app.custom.length ? 'Made in the level editor' : 'Make one in the level editor'}</small></span><span class="n">${app.custom.length}</span>`);
+    mine.onclick = () => Router.go(app.custom.length ? '#/set/mine' : '#/editor');
+    s.append(mine);
+    if (gemLevels) s.append(el('p', 'm-foot', `◆ Every gem on ${gems} of ${gemLevels} levels`));
+    return s;
+  },
+  set(arg) {
+    const s = el('div', 'm-screen'), prog = Progress.all(), mine = arg === 'mine';
+    const set = mine ? { name: 'Your levels', theme: 'mine', levels: allLevels().filter((l) => l.key[0] === 'c') } : sets()[+arg] || sets()[0];
+    s.append(menuBar(mine ? set.name : `${set.i + 1} · ${set.name}`));
+    const grid = el('div', `m-grid t-${set.theme}`);
+    set.levels.forEach(({ key, level }, n) => {
+      const got = prog[level.name] || {};
+      const marks = BADGES.filter(([k]) => k !== 'gems' || levelHasGems(level))
+        .map(([k, icon]) => `<i class="b-${k}${got[k] ? ' on' : ''}">${icon}</i>`).join('');
+      const t = el('button', 'm-tile' + (got.flag ? ' done' : ''), `<b>${n + 1}</b><small>${shortName(level.name)}</small><span class="marks">${marks}</span>`);
+      t.onclick = () => Router.go('#/play/' + key);
+      grid.append(t);
+    });
+    s.append(grid);
+    s.append(el('p', 'm-foot', BADGES.map(([k, icon, label]) => `<span class="b-${k} on">${icon}</span> ${label}`).join(' &nbsp; ')));
+    return s;
+  },
+  settings() {
+    const s = el('div', 'm-screen');
+    s.append(menuBar('Settings'));
+    const choice = (label, sub, key, options) => {
+      const row = el('div', 'm-row', `<span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span>`), seg = el('span', 'seg');
+      for (const [text, value] of options) {
+        const b = el('button', settings[key] === value ? 'on' : '', text);
+        b.onclick = () => { settings[key] = value; saveSettings(); seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); };
+        seg.append(b);
+      }
+      row.append(seg); s.append(row);
+    };
+    choice('Animation speed', '', 'speed', [['Relaxed', .75], ['Normal', 1], ['Fast', 1.5]]);
+    if (CONFIG.features.hints) choice('Hints', 'Offered after a failed run', 'hints', [['On', true], ['Off', false]]);
+    choice('Reduce motion', 'Less screen shake and drifting scenery', 'reduceMotion', [['On', true], ['Off', false]]);
+    const reset = el('button', 'm-btn danger', '<span class="ic">↺</span><span><b>Reset progress</b><small>Clears badges and best scores. Your levels are kept.</small></span>');
+    reset.onclick = () => {
+      if (!confirm('Reset all badges and best scores?')) return;
+      store.set('cardclimber.badges', {}); store.set('cardclimber.best', {});
+      reset.querySelector('small').textContent = 'Progress cleared.';
+    };
+    s.append(reset);
+    s.append(el('p', 'm-foot', 'Version ' + version()));
+    return s;
+  },
+};
+
+$('backBtn').onclick = Router.up;
+window.addEventListener('hashchange', Router.show);
+app.mode = 'plan';
+Router.show();
 resize();
 requestAnimationFrame(draw);

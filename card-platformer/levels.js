@@ -453,3 +453,14 @@ const usesDisabled = (l) => (l.needs || []).some((f) => !CONFIG.features[f]) || 
   || (!CONFIG.features.keys && l.map.some((r) => r.includes('K'))) || l.cards.some((c) => !CARDS[c]);
 const withGemBonus = (l) => CONFIG.features.gems && l.gemBonus?.every((c) => CARDS[c]) ? { ...l, cards: [...l.cards, ...l.gemBonus] } : l;
 const BUILTIN_LEVELS = [...BASE_LEVELS, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);
+
+// Level sets: the Puzzles screen groups the levels above, in order, SET_SIZE at a time.
+// Each set has its own theme (see THEMES in art.js). Levels past the last set listed
+// here get a numbered set that cycles through the themes.
+const SET_SIZE = 9;
+const LEVEL_SETS = [
+  { name: 'Meadow', theme: 'meadow', blurb: 'Jumps, momentum, crates and keys' },
+  { name: 'Dusk Canyon', theme: 'canyon', blurb: 'Keys, crates, Hop and Dash' },
+  { name: 'Snowy Peaks', theme: 'peaks', blurb: 'Ice, springs, slimes and bumpers' },
+];
+const setInfo = (i) => LEVEL_SETS[i] || { name: 'Set ' + (i + 1), theme: ['meadow', 'canyon', 'peaks'][i % 3], blurb: '' };

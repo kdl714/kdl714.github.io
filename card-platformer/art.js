@@ -30,10 +30,12 @@ const THEMES = {
     motes: { kind: 'snow', color: '#ffffff' },
   },
 };
+// built-in levels use their set's theme (LEVEL_SETS in levels.js); editor levels go by the number their name starts with
 const THEME_BANDS = [{ upTo: 9, theme: 'meadow' }, { upTo: 18, theme: 'canyon' }, { upTo: Infinity, theme: 'peaks' }];
 const ENDLESS_THEME_ORDER = ['meadow', 'canyon', 'peaks'];
 const ENDLESS_THEME_TILES = CONFIG.timeAttack.biomeLength || 150;   // Endless changes scenery every N tiles (set in config.js)
-const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// less motion: follows the device setting until the player changes it in Settings
+const reducedMotion = () => window.settings ? settings.reduceMotion : matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Parallax strength. Endless: how fast each layer scrolls relative to the ground (0 = fixed, 1 = with the ground).
 // Fixed screens: how far (in tiles, per tile the player is off-centre) the near layer eases with the player.
 const PARALLAX = { far: .1, clouds: .18, near: .3, followPlayer: .06 };
@@ -54,6 +56,7 @@ const Art = {
   },
   themeName() {
     if (app.mode === 'time') return ENDLESS_THEME_ORDER[Math.floor((app.cam + W / 2) / ENDLESS_THEME_TILES) % 3];
+    if (app.levelKey?.[0] === 'b') return setInfo(Math.floor(+app.levelKey.slice(1) / SET_SIZE)).theme;   // built-in: its set's theme
     const n = Art.levelNumber();
     return THEME_BANDS.find((b) => n <= b.upTo).theme;
   },
@@ -72,7 +75,7 @@ const Art = {
     g.fillStyle = glow; g.fillRect(sx - TS * 2, sy - TS * 2, TS * 4, TS * 4);
     // Parallax. Endless: layers scroll slower the further away they are. Fixed screens: the
     // background eases a hair to follow the player, just enough to feel deep.
-    const target = REDUCED_MOTION || app.mode === 'time' ? 0 : (px - W / 2) * PARALLAX.followPlayer;
+    const target = reducedMotion() || app.mode === 'time' ? 0 : (px - W / 2) * PARALLAX.followPlayer;
     Art.shiftNow += (target - Art.shiftNow) * .04;
     Art.layer(g, th, camX * PARALLAX.far + Art.shiftNow * .3, 'far');
     Art.clouds(g, th, camX * PARALLAX.clouds + Art.shiftNow * .5, t);
@@ -142,7 +145,7 @@ const Art = {
     const span = W + 8;
     for (let i = 0; i < 5; i++) {
       const base = Art.hash(i, 1) * span, speed = .06 + Art.hash(i, 2) * .08, s = .7 + Art.hash(i, 5) * .5;
-      const cx = ((base + (REDUCED_MOTION ? 0 : t * speed) - off) % span + span) % span - 4, cy = .3 + Art.hash(i, 4) * 2;
+      const cx = ((base + (reducedMotion() ? 0 : t * speed) - off) % span + span) % span - 4, cy = .3 + Art.hash(i, 4) * 2;
       g.globalAlpha = .75 + Art.hash(i, 6) * .2;
       g.drawImage(Art.cloudSprite(i % 4, th.cloud), cx * TS, cy * TS, TS * 3.4 * s, TS * 1.4 * s);
     }
@@ -478,7 +481,7 @@ const Art = {
   // screen-space ambient motes: pollen in the meadow, embers in the canyon, snow on the peaks
   motes: [],
   ambient(g, name) {
-    const th = THEMES[name], kind = th.motes.kind, n = REDUCED_MOTION ? 6 : 14;
+    const th = THEMES[name], kind = th.motes.kind, n = reducedMotion() ? 6 : 14;
     if (Art.motes.length !== n || Art.motes.kind !== kind) {
       Art.motes = Array.from({ length: n }, (_, i) => ({ x: Art.hash(i, 1) * W, y: Art.hash(i, 2) * H, p: Art.hash(i, 3) * 6, s: .03 + Art.hash(i, 4) * .04 }));
       Art.motes.kind = kind;
@@ -487,7 +490,7 @@ const Art = {
     g.fillStyle = th.motes.color;
     for (const m of Art.motes) {
       const vy = kind === 'snow' ? .012 : kind === 'embers' ? -.01 : -.004;
-      m.y += vy * (REDUCED_MOTION ? .4 : 1); m.x += Math.sin(t + m.p) * .004 + (kind === 'snow' ? .002 : .003);
+      m.y += vy * (reducedMotion() ? .4 : 1); m.x += Math.sin(t + m.p) * .004 + (kind === 'snow' ? .002 : .003);
       if (m.y > H + .2) m.y = -.2; if (m.y < -.2) m.y = H + .2; if (m.x > W + .2) m.x = -.2;
       g.globalAlpha = kind === 'embers' ? .5 + .4 * Math.sin(t * 3 + m.p) : .75;
       g.beginPath(); g.arc(m.x * TS, m.y * TS, m.s * TS, 0, 7); g.fill();
@@ -501,7 +504,7 @@ const Art = {
   },
   // a tiny screen shake for deaths and stomps (off if the device asks for reduced motion)
   shakeUntil: 0, shakeMag: 0,
-  shake(mag, ms) { if (REDUCED_MOTION) return; Art.shakeMag = mag; Art.shakeUntil = performance.now() + ms; },
+  shake(mag, ms) { if (reducedMotion()) return; Art.shakeMag = mag; Art.shakeUntil = performance.now() + ms; },
   shakeOffset() {
     const left = Art.shakeUntil - performance.now();
     if (left <= 0) return [0, 0];
