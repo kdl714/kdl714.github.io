@@ -1,0 +1,1669 @@
+// Card Climber — the game itself: modes (Plan & Run, Endless, Roguelite),
+// drawing, animation, cards UI, drag & drop, editor and wiring.
+
+/* =====================================================================
+   App state & helpers
+   ===================================================================== */
+const $ = (id) => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let uidSeq = 1;
+
+const app = {
+  custom: store.get('cardclimber.custom', []),
+  levelKey: 'b0',          // 'b<i>' built-in, 'c<i>' custom
+  level: null, map: null,
+  mode: store.get('cardclimber.mode', CONFIG.turnMode),
+  run: null,                // roguelite run state (Experiment 2)
+  ta: null,                 // time attack state
+  q: null,                  // shop-run roguelite state
+  cam: 0,                   // camera x (tiles) for maps wider than the screen
+  fails: 0, hintsUsed: 0, hintText: '', hintHtml: null, hintNext: null, hintReveal: 0,
+  flash: null,              // floating text above the player
+  state: null,
+  view: null,               // what the renderer draws (animated)
+  hand: [], seq: [],        // [{uid,id}]
+  played: [], history: [],  // instant-mode
+  cursor: 0,                // plan-mode: next card index when stepping
+  running: false,
+  editing: false, playtesting: false, paint: '#',
+  particles: [],
+};
+
+function allLevels() {
+  return [
+    ...BUILTIN_LEVELS.map((l, i) => ({ key: 'b' + i, level: l })),
+    ...app.custom.map((l, i) => ({ key: 'c' + i, level: l })),
+  ];
+}
+
+function loadLevel(key, levelObj) {
+  app.levelKey = key;
+  app.level = clone(levelObj || allLevels().find((l) => l.key === key)?.level || BUILTIN_LEVELS[0]);
+  app.level.cards = app.level.cards.filter((id) => CARDS[id]);
+  app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id }));
+  app.seq = []; app.played = []; app.history = [];
+  app.fails = 0; app.hintsUsed = 0; app.hintText = ''; app.hintHtml = null; app.hintNext = null; app.hintReveal = 0; app.hintSols = null;
+  resetRun();
+  refreshLevelSelect();
+}
+
+function resetRun() {
+  app.map = parseLevel(app.level);
+  if (app.mode === 'quest' && app.q) app.map.mods = Quest.mods();
+  app.state = initialState(app.map);
+  app.view = { ...clone(app.state), ox: 0, oy: 0 };
+  app.cam = 0;
+  app.cursor = 0; app.particles = [];
+  hideBanner();
+  renderDeck();
+}
+
+/* =====================================================================
+   Animation — plays the event list from runCard on the view
+   ===================================================================== */
+const animSpeed = () => (app.mode === 'time' ? CONFIG.timeAttack.animSpeed : 1);
+const nap = (ms) => sleep(ms * animSpeed());
+function tween(ms, fn) {
+  ms *= animSpeed();
+  return new Promise((res) => {
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - t0) / ms);
+      fn(t);
+      t < 1 ? requestAnimationFrame(tick) : res();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+const ease = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+// ---------------------------------------------------------------------
+// Fluid playback. The rules move in whole tiles; here we turn each card's
+// run of moves into one continuous, curved motion (Catmull-Rom spline through
+// the tiles), with walking at a steady pace and falls accelerating like
+// gravity. Pickups, crate falls and the turn tick fire as the path reaches
+// them instead of stopping the motion. Bumps, turns, waits, death and the
+// win still play as their own little beats.
+// ---------------------------------------------------------------------
+const MOTION = new Set(['move', 'fall', 'push']);
+const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone']);   // happen mid-motion
+
+async function animate(ev) {
+  let i = 0;
+  while (i < ev.length) {
+    if (MOTION.has(ev[i].k)) {
+      const run = [];
+      while (i < ev.length && (MOTION.has(ev[i].k) || ALONG.has(ev[i].k))) run.push(ev[i++]);
+      await glide(run);
+    } else await beat(ev[i++]);
+  }
+}
+
+const groundBelow = (x, y) => y + 1 >= H ? false : wall(app.map, x, y + 1) || app.view.crates.some((c) => !c.gone && Math.round(c.x) === x && Math.round(c.y) === y + 1);
+
+function glide(run) {
+  const v = app.view, speed = animSpeed();
+  const pts = [{ x: v.x, y: v.y }], segs = [], along = [];   // along[j]: events to fire on reaching point j
+  let falls = 0;
+  for (const e of run) {
+    if (!MOTION.has(e.k)) { (along[pts.length - 1] = along[pts.length - 1] || []).push(e); continue; }
+    const from = pts[pts.length - 1];
+    let ms;
+    if (e.k === 'fall') { falls++; ms = CONFIG.gravityMs * (Math.sqrt(falls) - Math.sqrt(falls - 1)); }
+    else { falls = 0; ms = CONFIG.stepMs * (e.k === 'push' ? 1.3 : e.y < from.y ? .95 : 1); }
+    segs.push({ ms: ms * speed, kind: e.k, push: e.k === 'push' ? e : null,
+      ground: e.k !== 'fall' && e.y === from.y && groundBelow(e.x, e.y) && groundBelow(from.x, from.y) });
+    pts.push({ x: e.x, y: e.y });
+  }
+  // the top of a rise slows down, like gravity pulling against it
+  segs.forEach((g, j) => {
+    const up = pts[j + 1].y < pts[j].y, nextUp = segs[j + 1] && pts[j + 2].y < pts[j + 1].y;
+    if (up && !nextUp) { g.ms *= 1.25; g.apex = true; }
+    else if (up && j > 0 && !(pts[j].y < pts[j - 1].y)) g.ms *= .8;     // quick take-off
+  });
+  const total = segs.reduce((a, g) => a + g.ms, 0);
+  // Rounded corners: wherever the path changes direction, swap the sharp corner
+  // for a quadratic curve ~half a tile across (it cuts the corner by ~1/6 tile).
+  const R = .45, dirOf = (a, b) => ({ x: Math.sign(b.x - a.x), y: Math.sign(b.y - a.y) });
+  const corner = (j) => {
+    if (j <= 0 || j >= pts.length - 1) return null;
+    const di = dirOf(pts[j - 1], pts[j]), dout = dirOf(pts[j], pts[j + 1]);
+    if (di.x === dout.x && di.y === dout.y) return null;
+    const P = pts[j];
+    return { A: { x: P.x - di.x * R, y: P.y - di.y * R }, P, B: { x: P.x + dout.x * R, y: P.y + dout.y * R } };
+  };
+  const bez = (c, u) => ({ x: (1 - u) * (1 - u) * c.A.x + 2 * u * (1 - u) * c.P.x + u * u * c.B.x, y: (1 - u) * (1 - u) * c.A.y + 2 * u * (1 - u) * c.P.y + u * u * c.B.y });
+  // Mid-air sideways stretches (e.g. across a gap) get a gentle arc on top,
+  // so a long jump reads as a jump rather than a flat glide.
+  const hump = [];
+  for (let j = 0; j < segs.length;) {
+    const flatAir = (q) => segs[q] && !segs[q].ground && pts[q + 1].y === pts[q].y;
+    if (!flatAir(j)) { j++; continue; }
+    let k = j; while (flatAir(k)) k++;
+    for (let q = j; q < k; q++) hump[q] = { start: j, len: k - j, h: Math.min(.45, .2 + .08 * (k - j)) };
+    j = k;
+  }
+  const at = (j, t) => {
+    const a = pts[j], b = pts[j + 1], cs = corner(j), ce = corner(j + 1);
+    let p;
+    if (cs && t < R) p = bez(cs, .5 + .5 * t / R);                     // leaving the previous corner
+    else if (ce && t > 1 - R) p = bez(ce, .5 * (t - (1 - R)) / R);     // entering the next one
+    else p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    const hm = hump[j];
+    if (hm) p.y -= hm.h * Math.sin(Math.PI * (j - hm.start + t) / hm.len);
+    return p;
+  };
+  const fire = (j) => {
+    const evs = along[j]; along[j] = null;
+    if (!evs) return;
+    const drops = {};
+    for (const e of evs) {
+      if (e.k === 'cfall') drops[e.i] = e;            // a crate falling several tiles: one smooth drop
+      else beatNow(e);
+    }
+    for (const i in drops) dropCrate(+i, drops[i].y);
+  };
+  fire(0);
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let lastSeg = -1, prev = { x: v.x, y: v.y, t: t0 };
+    const frame = (now) => {
+      let el = Math.min(total, now - t0), j = 0;
+      while (j < segs.length - 1 && el > segs[j].ms) { el -= segs[j].ms; j++; }
+      for (let q = lastSeg + 1; q <= j; q++) if (q > 0) {          // reached point q
+        fire(q);
+        if (!segs[q - 1].ground && segs[q].ground) land();          // came down onto solid ground
+      }
+      lastSeg = Math.max(lastSeg, j);
+      const g = segs[j];
+      let t = g.ms ? Math.min(1, el / g.ms) : 1;
+      if (g.apex) t = 1 - (1 - t) * (1 - t);                                     // slowing at the top of a rise
+      else if (j === segs.length - 1 && g.ground) t = 1 - (1 - t) * (1 - t);     // ease to a stop when walking
+      const p = at(j, t);
+      v.x = p.x; v.y = p.y;
+      if (g.push) { const c = v.crates[g.push.i]; c.x = g.push.cx - Math.sign(g.push.cx - g.push.x) * (1 - t); }
+      if (g.ground) v.bob = (v.bob || 0) + Math.abs(p.x - prev.x) * Math.PI;   // footsteps
+      const dt = Math.max(1, now - prev.t) / 1000;
+      v.vx = (p.x - prev.x) / dt; v.vy = (p.y - prev.y) / dt;
+      v.air = !g.ground;
+      prev = { x: p.x, y: p.y, t: now };
+      if (now - t0 < total) return requestAnimationFrame(frame);
+      const end = pts[pts.length - 1];
+      v.x = end.x; v.y = end.y; v.vx = v.vy = 0; v.air = false;
+      fire(pts.length - 1);
+      if (!segs[segs.length - 1].ground && end.y < H && groundBelow(end.x, end.y)) land();
+      resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function land() {
+  const v = app.view;
+  v.landT = performance.now();
+  for (let i = 0; i < 8; i++) {      // a puff of dust at the feet
+    const side = i % 2 ? 1 : -1;
+    app.particles.push({ x: v.x + .5 + side * .2, y: v.y + .95, vx: side * (.02 + Math.random() * .03), vy: -Math.random() * .03, life: .6, color: '#c9b38f' });
+  }
+}
+
+function dropCrate(i, toY) {
+  const c = app.view.crates[i], fy = c.y, n = Math.max(1, toY - fy);
+  tween(CONFIG.gravityMs * Math.sqrt(n), (t) => { c.y = fy + (toY - fy) * t * t; }).then(() => { c.y = toY; });
+}
+
+// Events that just happen (no waiting)
+function beatNow(e) {
+  const v = app.view;
+  if (e.k === 'tick') v.turn = e.turn;
+  else if (e.k === 'cgone') v.crates[e.i].gone = true;
+  else if (e.k === 'cfall') dropCrate(e.i, e.y);
+  else if (e.k === 'double') app.flash = { text: 'Head Start: ×2', t0: performance.now() };
+  else if (e.k === 'collect') {
+    v.got |= 1 << e.i;
+    burst(e.x, e.y, e.t === 'K' ? '#ffcc33' : '#4fd8e8');
+    app.flash = { text: e.t === 'K' ? 'Got the key!' : `Gem! +${CONFIG.score.gem}`, t0: performance.now() };
+  }
+}
+
+// Events that are their own little moment
+async function beat(e) {
+  const v = app.view;
+  if (ALONG.has(e.k)) return beatNow(e);
+  if (e.k === 'bump') {
+    await tween(CONFIG.stepMs * 1.1, (t) => { const k = Math.sin(t * Math.PI) * .18; v.ox = e.dx * k; v.oy = e.dy * k; });
+    v.ox = v.oy = 0; v.landT = performance.now() - 80;     // a little wobble from the knock
+  } else if (e.k === 'turn') {
+    await tween(150, (t) => { v.flip = Math.abs(1 - 2 * t); if (t >= .5) v.dir = e.dir; });
+    v.flip = 1; v.dir = e.dir;
+  } else if (e.k === 'wait') {
+    await tween(CONFIG.stepMs * 2.2, (t) => { v.oy = -Math.abs(Math.sin(t * Math.PI * 2)) * .1; });
+    v.oy = 0;
+  } else if (e.k === 'shield') {
+    app.flash = { text: 'Spike Guard!', t0: performance.now() }; burst(e.x, e.y, '#4fd8e8');
+    await nap(CONFIG.stepMs);
+  } else if (e.k === 'locked') {
+    app.flash = { text: 'Locked — find the key', t0: performance.now() };
+    await nap(CONFIG.stepMs);
+  } else if (e.k === 'echo') {
+    app.flash = { text: e.of ? 'Echo!' : 'Echo: nothing to repeat', t0: performance.now() };
+    await nap(CONFIG.stepMs * 1.2);
+  } else if (e.k === 'die') {
+    v.status = 'dead';
+    burst(e.x, Math.min(e.y, H - 1), '#ff6b6b');
+    await tween(260, (t) => { v.ox = Math.sin(t * Math.PI * 6) * .08 * (1 - t); });   // a shudder
+    v.ox = 0;
+    await nap(250);
+  } else if (e.k === 'win') {
+    v.status = 'won';
+    burst(e.x, e.y, '#ffcc33'); burst(e.x, e.y, '#5cd18b');
+    await tween(420, (t) => { v.oy = -Math.sin(t * Math.PI) * .6; });          // a hop of joy
+    v.oy = 0; v.landT = performance.now();
+    await nap(150);
+  }
+}
+
+async function playCard(id) {
+  const r = runCard(app.map, app.state, id);
+  await animate(r.ev);
+  app.state = r.state;
+  Object.assign(app.view, { x: r.state.x, y: r.state.y, dir: r.state.dir, turn: r.state.turn, status: r.state.status, got: r.state.got, crates: clone(r.state.crates) });
+  return r.state.status;
+}
+
+/* =====================================================================
+   Controllers — one per turn mode
+   ===================================================================== */
+// Plan & Run sequence = fixed slots (one per card in the level). app.seq may
+// contain nulls (empty slots); Play needs the cards to be contiguous from slot 1.
+const Slots = {
+  filled: () => app.seq.filter(Boolean),
+  lastFilled: () => app.seq.map(Boolean).lastIndexOf(true),
+  gap() { const last = Slots.lastFilled(); for (let i = 0; i < last; i++) if (!app.seq[i]) return i; return -1; },
+  trim() { while (app.seq.length && !app.seq[app.seq.length - 1]) app.seq.pop(); },
+  firstEmpty() { const i = app.seq.indexOf(null); return i >= 0 ? i : app.seq.length; },
+  // put a card in slot i; if it's taken, shift cards along into the nearest empty slot
+  place(card, i) {
+    const s = app.seq, n = app.level.cards.length;
+    i = Math.max(0, Math.min(n - 1, i));
+    while (s.length < n) s.push(null);
+    if (!s[i]) s[i] = card;
+    else {
+      let j = s.indexOf(null, i);
+      if (j >= 0) { for (let k = j; k > i; k--) s[k] = s[k - 1]; }
+      else { j = s.lastIndexOf(null, i); for (let k = j; k < i; k++) s[k] = s[k + 1]; }
+      s[i] = card;
+    }
+    Slots.trim();
+  },
+};
+
+const Plan = {
+  clickHand(uid, at = Slots.firstEmpty()) {
+    if (app.running) return;
+    const i = app.hand.findIndex((c) => c.uid === uid);
+    Slots.place(app.hand.splice(i, 1)[0], at);
+    if (app.cursor) resetRun(); else renderDeck();
+  },
+  moveTo(uid, at) {
+    if (app.running) return;
+    const i = app.seq.findIndex((c) => c && c.uid === uid), card = app.seq[i];
+    app.seq[i] = null;
+    Slots.place(card, at);
+    if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
+  },
+  // tapping a planned card takes it back to your hand and leaves its slot empty
+  clickSeq(uid) {
+    if (app.running) return;
+    const i = app.seq.findIndex((c) => c && c.uid === uid);
+    app.hand.push(app.seq[i]); app.seq[i] = null; Slots.trim();
+    app.hand.sort((a, b) => a.uid - b.uid);
+    if (app.cursor) resetRun(); else renderDeck();
+  },
+  async play() {
+    if (app.running || !Slots.filled().length) return;
+    if (Slots.gap() >= 0) { renderDeck(); return; }      // an empty slot between cards: fill it first
+    Slots.trim();
+    hideBanner();
+    if (app.cursor || app.state.status !== 'playing') resetRun();
+    while (app.cursor < app.seq.length && await Plan.step(true) === 'playing') await sleep(CONFIG.pauseBetweenCards);
+  },
+  async step(fromPlay) {
+    if (app.running && !fromPlay) return;
+    if (app.state.status !== 'playing') resetRun();
+    if (app.cursor >= app.seq.length) return;
+    app.running = true; renderDeck();
+    const status = await playCard(app.seq[app.cursor].id);
+    app.cursor++; app.running = false;
+    finishCheck(status, app.cursor >= app.seq.length, app.hand.length);
+    renderDeck();
+    return status;
+  },
+  // Reset = start the level over: cards back in your hand, character back at the start
+  reset() { if (app.running) return; app.hand.push(...Slots.filled()); app.seq = []; app.hand.sort((a, b) => a.uid - b.uid); resetRun(); },
+  actions() {
+    return [
+      ['▶ Play', 'primary', Plan.play, !Slots.filled().length || Slots.gap() >= 0 || app.running],
+      ['↺ Reset', '', Plan.reset, app.running || (!Slots.filled().length && !app.cursor && app.state.status === 'playing')],
+      ...(CONFIG.features.hints && app.fails > 0 ? [[`💡 Hint${CONFIG.features.gems ? ` (−${CONFIG.hints.penalty})` : ''}`, '', Hints.next, app.running]] : []),
+    ];
+  },
+};
+
+// Hints (Plan & Run): unlocked after a failed run, each one costs points.
+// First hint is the level's own nudge (if it has one); after that, compare
+// the player's sequence with the closest solution and reveal one more card.
+const Hints = {
+  available: () => CONFIG.features.hints && app.mode === 'plan' && app.fails > 0 && !app.running,
+  next() {
+    if (!Hints.available()) return;
+    app.hintsUsed++;
+    if (app.hintsUsed === 1 && app.level.hint) { app.hintText = app.level.hint; app.hintHtml = null; renderDeck(); return; }
+    if (!app.hintSols) app.hintSols = solve(app.level, 2000).solutions.sort((a, b) => a.length - b.length);
+    const sols = app.hintSols;
+    if (!sols.length) { app.hintText = "These cards can't reach the flag — the level may need editing."; renderDeck(); return; }
+    const seq = app.seq.map((c) => c && c.id);
+    const prefix = (sol) => { let k = 0; while (k < seq.length && k < sol.length && sol[k] === seq[k]) k++; return k; };
+    const sol = sols.reduce((best, x) => (prefix(x) > prefix(best) ? x : best), sols[0]);
+    const k = prefix(sol);
+    app.hintReveal = Math.min(sol.length, Math.max(k + 1, app.hintReveal + 1));
+    const shown = sol.slice(0, app.hintReveal).map(cardChip);
+    app.hintHtml = (k > 1 ? `Your first ${k} cards are right. ` : k ? 'Your first card is right. ' : seq.length ? 'Your first card is off. ' : '')
+      + `A working start: ${shown.join(' → ')}${app.hintReveal < sol.length ? ' → …' : ' (that\'s the whole solution)'}`;
+    app.hintText = 'cards';
+    app.hintNext = sol[k] || null;
+    renderDeck();
+  },
+};
+
+const Instant = {
+  async clickHand(uid) {
+    if (app.running || app.state.status !== 'playing') return;
+    app.history.push({ state: { ...app.state }, hand: [...app.hand], played: [...app.played] });
+    const i = app.hand.findIndex((c) => c.uid === uid);
+    const card = app.hand.splice(i, 1)[0];
+    app.played.push(card);
+    app.running = true; renderDeck();
+    const status = await playCard(card.id);
+    app.running = false;
+    finishCheck(status, !app.hand.length, 0);
+    renderDeck();
+  },
+  clickSeq() {},
+  undo() {
+    if (app.running || !app.history.length) return;
+    const h = app.history.pop();
+    app.state = h.state; app.hand = h.hand; app.played = h.played;
+    app.view = { ...clone(app.state), ox: 0, oy: 0 }; app.particles = [];
+    hideBanner(); renderDeck();
+  },
+  restart() {
+    if (app.running) return;
+    app.hand.push(...app.played); app.played = []; app.history = [];
+    app.hand.sort((a, b) => a.uid - b.uid);
+    resetRun();
+  },
+  actions() {
+    return [
+      ['↶ Undo', '', Instant.undo, app.running || !app.history.length],
+      ['↺ Restart', '', Instant.restart, app.running || !app.played.length],
+    ];
+  },
+};
+// Endless (Time Attack): endless runner. Cards come from a weighted random pool; you
+// have a few seconds per pick (less the further you get). Too slow or a
+// fatal move costs a heart; dying puts you back where you were before the card.
+const TimeAttack = {
+  start() {
+    const T = CONFIG.timeAttack;
+    app.level = { name: 'Endless', map: [], cards: [] }; app.levelKey = 'time';
+    document.body.classList.remove('paused');
+    app.map = makeEndlessMap();
+    app.map.start.y = app.map.grid.findIndex((r) => r[1] === '#') - 1;
+    app.state = initialState(app.map);
+    app.view = { ...clone(app.state), ox: 0, oy: 0 }; app.cam = 0; app.particles = [];
+    app.ta = { hearts: T.hearts, dist: 0, gems: 0, deadline: null, limitMs: 0, paused: null, over: false, plays: 0, nextHeart: T.heartEvery };
+    $('hand').style.setProperty('--hand', T.handSize);
+    $('hand').style.setProperty('--pic', T.handSize >= 5 ? .92 : 1.25);   // card pictures sized to fit the row
+    app.hand = []; app.played = []; app.seq = [];
+    TimeAttack.fill();
+    renderDeck();
+    showBanner('Endless', `Go as far as you can. Your first ${T.freeCards} moves are free, then you get ${T.startSeconds}s per card, a little less the further you go.\nToo slow or a bad move costs a heart; you win one back every ${T.heartEvery} tiles. Keys 1–${T.handSize} pick cards.`,
+      [['Start', () => { hideBanner(); TimeAttack.arm(); renderDeck(); }]]);
+  },
+  pick() {
+    const pool = Object.entries(CONFIG.timeAttack.pool).filter(([id]) => CARDS[id]);
+    let r = Math.random() * pool.reduce((a, [, w]) => a + w, 0);
+    for (const [id, w] of pool) if ((r -= w) < 0) return id;
+    return pool[0][0];
+  },
+  fill() {
+    while (app.hand.length < CONFIG.timeAttack.handSize) app.hand.push({ uid: uidSeq++, id: TimeAttack.pick() });
+    if (!CONFIG.timeAttack.fairDeal || !app.state) return;
+    // guarantee at least one card that gets you further right without dying
+    const forward = (id) => { const st = runCard(app.map, app.state, id).state; return st.status !== 'dead' && st.x > app.state.x; };
+    if (app.hand.some((c) => forward(c.id))) return;
+    const options = Object.keys(CONFIG.timeAttack.pool).filter((id) => CARDS[id] && forward(id));
+    if (options.length) app.hand[Math.floor(Math.random() * app.hand.length)] = { uid: uidSeq++, id: options[Math.floor(Math.random() * options.length)] };
+  },
+  arm() {
+    const T = CONFIG.timeAttack, ta = app.ta;
+    if (!ta || ta.over) return;
+    ta.limitMs = 1000 * Math.max(T.minSeconds, T.startSeconds - ta.dist / 100 * T.secondsLostPer100Tiles);
+    ta.deadline = ta.plays < T.freeCards ? Infinity : performance.now() + ta.limitMs;   // warm-up picks are untimed
+  },
+  // called every frame from draw(): updates the timer bar, checks for timeouts
+  tick() {
+    const ta = app.ta, bar = $('timerFill');
+    if (!ta) return;
+    const left = ta.paused ?? (ta.deadline ? ta.deadline - performance.now() : 0);
+    const frac = ta.deadline || ta.paused ? Math.max(0, Math.min(1, left / ta.limitMs)) : 0;
+    bar.style.width = (frac * 100) + '%';
+    bar.style.background = frac < .3 ? 'var(--bad)' : 'var(--accent)';
+    if (ta.deadline && !ta.paused && !app.running && left <= 0) TimeAttack.timeout();
+  },
+  timeout() {
+    app.ta.deadline = null;
+    app.flash = { text: 'Too slow! −♥', t0: performance.now() };
+    app.hand = []; TimeAttack.fill();
+    if (TimeAttack.loseHeart()) TimeAttack.arm();
+    renderDeck();
+  },
+  loseHeart() {
+    const ta = app.ta;
+    if (--ta.hearts > 0) return true;
+    ta.over = true; ta.deadline = null;
+    const T = CONFIG.timeAttack, score = ta.dist * T.pointsPerTile + ta.gems * T.pointsPerGem;
+    const best = recordBest('time attack', score);
+    showBanner('Out of hearts', `Distance ${ta.dist} tiles · ${ta.gems} gem${ta.gems === 1 ? '' : 's'}\nScore ${score}` + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`),
+      [['Play again', TimeAttack.start]]);
+    return false;
+  },
+  async clickHand(uid) {
+    const ta = app.ta;
+    if (app.running || !ta || !ta.deadline || ta.paused) return;
+    ta.deadline = null;
+    const card = app.hand.splice(app.hand.findIndex((c) => c.uid === uid), 1)[0];
+    app.played.push(card);
+    const before = clone(app.state);
+    app.running = true; renderDeck();
+    const status = await playCard(card.id);
+    // bank collected gems and drop them from the map (keeps the bitmask small)
+    const got = app.state.got;
+    if (got) {
+      ta.gems += app.map.items.filter((it, i) => got & (1 << i)).length;
+      app.map.items = app.map.items.filter((it, i) => !(got & (1 << i)));
+      app.state.got = app.view.got = 0;
+    }
+    let alive = true;
+    if (status === 'dead') {
+      app.flash = { text: (app.state.why === 'pit' ? 'Fell!' : 'Spiked!') + ' −♥', t0: performance.now() };
+      alive = TimeAttack.loseHeart();
+      if (alive) { app.state = { ...before, got: 0 }; app.view = { ...clone(app.state), ox: 0, oy: 0 }; }
+    }
+    ta.plays++;
+    ta.dist = Math.max(ta.dist, app.state.x - app.map.start.x);
+    const T = CONFIG.timeAttack;
+    if (T.heartEvery && alive) while (ta.dist >= ta.nextHeart) {          // a heart back every N tiles
+      ta.nextHeart += T.heartEvery;
+      if (ta.hearts < T.hearts) { ta.hearts++; app.flash = { text: '+♥', t0: performance.now() }; }
+    }
+    extendTerrain(app.map, app.state.x + W + 6);
+    app.running = false;
+    TimeAttack.fill();
+    if (alive) TimeAttack.arm();
+    renderDeck();
+  },
+  clickSeq() {},
+  // swap the whole hand; the clock keeps running
+  redraw() {
+    if (app.running || !app.ta?.deadline || app.ta.paused) return;
+    app.hand = []; TimeAttack.fill(); renderDeck();
+  },
+  pause() {
+    const ta = app.ta;
+    if (!ta || ta.over || app.running) return;
+    if (ta.paused != null) { ta.deadline = performance.now() + ta.paused; ta.paused = null; hideBanner(); document.body.classList.remove('paused'); }
+    else if (ta.deadline) {
+      ta.paused = ta.deadline - performance.now();
+      document.body.classList.add('paused');            // hide the level and your cards: no planning while paused
+      showBanner('Paused', 'Take a breather.', [['Resume', TimeAttack.pause]]);
+    }
+    renderDeck();
+  },
+  actions() {
+    const ta = app.ta, live = ta && ta.deadline && !ta.paused && !app.running;
+    return [
+      ['↻ Redraw (clock runs)', '', TimeAttack.redraw, !live],
+      [ta?.paused != null ? '▶ Resume' : '⏸ Pause', '', TimeAttack.pause, !ta || ta.over || (!ta.deadline && ta.paused == null)],
+      ['↺ Restart', '', TimeAttack.start, app.running],
+    ];
+  },
+};
+
+// Shop-run roguelite: pick a route (previewed levels), buy a hand of cards
+// with gems, then solve the level Plan & Run style. Perks change the rules.
+const Quest = {
+  start() {
+    const Q = CONFIG.quest;
+    app.q = { depth: 0, cleared: 0, hearts: Q.hearts, maxHearts: Q.hearts, gems: Q.startGems, perks: [], route: null, earned: 0 };
+    app.hand = []; app.seq = []; app.played = [];
+    app.level = { name: 'Roguelite', map: Array(H).fill('.'.repeat(W)), cards: [] }; app.levelKey = 'quest';
+    resetRun();
+    Quest.showRoutes();
+  },
+  has: (p) => !!app.q?.perks.includes(p),
+  mods() { const m = {}; for (const p of app.q.perks) if (CONFIG.quest.perks[p].mod) m[CONFIG.quest.perks[p].mod] = true; return m; },
+  handLimit: () => CONFIG.quest.handLimit + (Quest.has('pockets') ? 2 : 0),
+  owned: () => app.seq.length,
+  basePrices() { const p = {}; for (const [id, c] of Object.entries(CONFIG.quest.prices)) if (CARDS[id]) p[id] = c; return p; },
+  price(id) {
+    let c = CONFIG.quest.prices[id];
+    if (Quest.has('thrifty') && id.startsWith('walk')) c--;
+    if (Quest.has('echoes') && id === 'echo') c = 0;
+    return Math.max(0, c);
+  },
+  makeRoute(kind) {
+    const Q = CONFIG.quest, q = app.q, risky = kind === 'risky';
+    const pool = Object.keys(Quest.basePrices()), deck = pool.flatMap((id) => [id, id, id]);
+    for (let tries = 0; tries < 8; tries++) {
+      const depth = Math.max(1, q.depth + 1 + (risky ? 2 : 0) - Math.floor(tries / 3));
+      const g = generateLevel(depth, deck, Math.random, { skipOdds: true, keepGems: true, extraGems: risky ? 2 : 0 });
+      if (!g) continue;
+      // must be solvable with YOUR perks (Long Legs can make exact steps impossible)…
+      const modded = parseLevel(g.level); modded.mods = Quest.mods();
+      const withPerks = cheapestSolution(modded, Quest.basePrices(), Quest.handLimit());
+      if (!withPerks) continue;
+      // budget = that solution at normal prices: movement perks change HOW you solve,
+      // price perks (Thrifty, Echo Discount) are where the savings come from
+      const cheap = withPerks;
+      const ramp = Math.min(1, q.depth / Q.budgetRamp);
+      const mult = Q.budgetStart + (Q.budgetEnd - Q.budgetStart) * ramp - (risky ? Q.riskyTighter : 0);
+      const budget = Math.max(cheap.cost, Math.ceil(cheap.cost * mult));
+      // drop gems you can't reach with your perks; make sure the shop sells what the reachable ones need
+      const pruned = pruneGems(g.level, Quest.basePrices(), Quest.handLimit(), Quest.mods());
+      const stock = [...new Set([...cheap.seq, ...pruned.routes.flat()])];
+      for (const id of shuffle([...pool])) if (stock.length < Q.shopSize && !stock.includes(id)) stock.push(id);
+      return { kind, level: pruned.level, cheapest: cheap.cost, budget, stock: pool.filter((id) => stock.includes(id)) };
+    }
+    return null;
+  },
+  showRoutes() {
+    const q = app.q, Q = CONFIG.quest;
+    const routes = [Quest.makeRoute('safe'), Quest.makeRoute('risky'), q.hearts < q.maxHearts ? { kind: 'rest' } : { kind: 'shrine' }].filter(Boolean);
+    const box = document.createElement('div'); box.className = 'routes';
+    const info = {
+      safe: (r) => [`Budget +${r.budget}◆`, 'A comfortable margin'],
+      risky: (r) => [`Budget +${r.budget}◆ (tighter)`, `More gems on the map`, '+ a perk if you clear it'],
+      rest: () => ['Heal 1 ♥', 'No level'],
+      shrine: () => [`Pay ${Q.shrineCost}◆ for a perk`, q.gems < Q.shrineCost ? `You have ${q.gems}◆` : 'No level'],
+    };
+    const titles = { safe: 'Safe', risky: 'Risky', rest: 'Rest', shrine: 'Shrine' };
+    for (const r of routes) {
+      const tile = document.createElement('button'); tile.className = 'route ' + r.kind;
+      tile.appendChild(Object.assign(document.createElement('b'), { textContent: titles[r.kind] }));
+      if (r.level) { const m = document.createElement('canvas'); drawMini(r.level, m, 7); tile.appendChild(m); }
+      else tile.appendChild(Object.assign(document.createElement('div'), { className: 'icon', textContent: r.kind === 'rest' ? '♥' : '✦' }));
+      for (const line of info[r.kind](r)) tile.appendChild(Object.assign(document.createElement('small'), { textContent: line }));
+      tile.disabled = r.kind === 'shrine' && q.gems < Q.shrineCost;
+      tile.onclick = () => Quest.enter(r);
+      box.appendChild(tile);
+    }
+    showBanner(q.depth ? 'Choose your next route' : 'Choose your route',
+      `Level ${q.depth + 1}  ·  ${'♥'.repeat(q.hearts)}${'♡'.repeat(q.maxHearts - q.hearts)}  ·  ◆ ${q.gems}`, [['Give up run', Quest.over, true]], box);
+  },
+  enter(r) {
+    const q = app.q;
+    if (r.kind === 'rest') { q.hearts = Math.min(q.maxHearts, q.hearts + 1); return Quest.showRoutes(); }
+    if (r.kind === 'shrine') { q.gems -= CONFIG.quest.shrineCost; return Quest.perkChoice(Quest.showRoutes); }
+    q.route = r; q.depth++; q.gems += r.budget;
+    app.level = { ...r.level, name: `Level ${q.depth}`, cards: [] };
+    app.hand = []; app.seq = []; app.played = [];
+    resetRun();
+    app.flash = { text: `Budget +${r.budget}◆`, t0: performance.now() };
+  },
+  buy(id, at = app.seq.length) {
+    const q = app.q, price = Quest.price(id);
+    if (app.running || q.gems < price || Quest.owned() >= Quest.handLimit()) return;
+    q.gems -= price;
+    app.seq.splice(at, 0, { uid: uidSeq++, id, paid: price });   // straight into your plan (end, or where you dropped it)
+    if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
+  },
+  // clicking a planned card sells it back for what you paid
+  sell(uid) {
+    if (app.running) return;
+    const i = app.seq.findIndex((c) => c.uid === uid);
+    app.q.gems += app.seq[i].paid;
+    app.seq.splice(i, 1);
+    if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
+  },
+  moveTo(uid, at) {                                   // the shop plan has no fixed slots: just reorder
+    if (app.running) return;
+    const card = app.seq.splice(app.seq.findIndex((c) => c.uid === uid), 1)[0];
+    app.seq.splice(at, 0, card);
+    if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
+  },
+  sellAll() {
+    if (app.running) return;
+    app.q.gems += app.seq.reduce((a, c) => a + c.paid, 0); app.seq = []; resetRun();
+  },
+  clickHand() {},
+  clickSeq: (uid) => Quest.sell(uid),
+  finish(status, outOfCards) {
+    const q = app.q, Q = CONFIG.quest;
+    if (status === 'won') {
+      const gems = gemCount(app.map, app.state), pickup = gems * Q.gemValue * (Quest.has('magnet') ? 2 : 1);
+      const unused = Quest.owned() - app.cursor;
+      q.gems += pickup;
+      const piggy = Quest.has('piggy') && q.gems >= 5 ? 2 : 0;
+      q.gems += piggy; q.cleared++;
+      const lines = [`Cleared with ${app.cursor} card${app.cursor === 1 ? '' : 's'}.`];
+      if (pickup) lines.push(`Gems picked up: +${pickup}◆`);
+      if (piggy) lines.push('Piggy Bank: +2◆');
+      if (unused) lines.push(`${unused} unused card${unused > 1 ? 's' : ''} left behind.`);
+      if (q.gems > Q.carryCap) { lines.push(`You can only carry ${Q.carryCap}◆ (${q.gems - Q.carryCap}◆ left behind).`); q.gems = Q.carryCap; }
+      lines.push(`You carry ${q.gems}◆ to the next route.`);
+      const nextStep = q.route.kind === 'risky' ? ['Choose a perk →', () => Quest.perkChoice(Quest.showRoutes)] : ['Choose next route →', Quest.showRoutes];
+      showBanner(`Level ${q.depth} cleared!`, lines.join('\n'), [nextStep]);
+    } else if (status === 'dead' || outOfCards) {
+      q.hearts--;
+      if (q.hearts <= 0) return Quest.over();
+      const why = status === 'dead' ? (app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!')
+        : app.map.keyMask && !hasAllKeys(app.map, app.state) ? 'The door stayed locked' : "Didn't reach the flag";
+      showBanner(why, `−1 ♥ (${q.hearts} left). Your cards are still in your plan: drag to reorder, tap to sell, or buy more, then press Play again.`, [['Try again', resetRun]]);
+    }
+  },
+  perkChoice(then) {
+    const q = app.q, all = CONFIG.quest.perks;
+    const offers = shuffle(Object.keys(all).filter((p) => !q.perks.includes(p))).slice(0, 3);
+    if (!offers.length) return then();
+    const box = document.createElement('div'); box.className = 'routes';
+    for (const p of offers) {
+      const tile = document.createElement('button'); tile.className = 'route perk';
+      tile.append(Object.assign(document.createElement('b'), { textContent: all[p].name }), Object.assign(document.createElement('small'), { textContent: all[p].desc }));
+      tile.onclick = () => {
+        q.perks.push(p);
+        if (p === 'heart') { q.maxHearts++; q.hearts = q.maxHearts; }
+        then();
+      };
+      box.appendChild(tile);
+    }
+    showBanner('Choose a perk', 'Perks last for the rest of the run.', [['Skip', then]], box);
+  },
+  over() {
+    const q = app.q, score = q.cleared * 100 + q.gems;
+    const best = recordBest('shop run', score);
+    showBanner('Run over', `You cleared ${q.cleared} level${q.cleared === 1 ? '' : 's'} with ${q.perks.length} perk${q.perks.length === 1 ? '' : 's'}.\nScore ${score}`
+      + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`), [['New run', Quest.start]]);
+  },
+  actions() {
+    return [
+      ['▶ Play', 'primary', Plan.play, !app.seq.length || app.running],
+      ['↺ Reset', '', resetRun, app.running],              // back to the start; your cards stay in the plan
+      ['Sell all', '', Quest.sellAll, app.running || !app.seq.length],
+      ['Give up run', '', () => { if (!app.running && confirm('Give up this run?')) Quest.over(); }, app.running]];
+  },
+};
+
+// Experiment 2: roguelite run. Deck → shuffled draw pile → hand of N.
+// Playing a card plays it immediately and draws a replacement. Each level
+// has a step budget (shortest solution + spare). Die or run out of steps →
+// lose a heart. Clear a level → pick a new card for the deck.
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const Run = {
+  start() {
+    app.run = { depth: 0, cleared: 0, hearts: CONFIG.run.hearts, score: 0, cycling: false, nextGen: null,
+      deck: CONFIG.run.startingDeck.filter((id) => CARDS[id]).map((id) => ({ uid: uidSeq++, id })) };
+    Run.next();
+  },
+  next() {
+    const r = app.run;
+    r.depth++;
+    const types = [...new Set(r.deck.map((c) => c.id))];
+    // use the previewed level if there was one (its par may change with the new deck)
+    const path = r.nextGen && shortestPath(r.nextGen.level, types, 14);
+    r.gen = path ? { ...r.nextGen, par: path.length, path } : generateLevel(r.depth, r.deck.map((c) => c.id));
+    r.nextGen = null;
+    if (!r.gen) { showBanner('Could not build a level', 'The generator gave up — try a new run.', [['New run', Run.start]]); return; }
+    app.level = r.gen.level; app.levelKey = 'run';
+    Run.retry();
+  },
+  retry() {
+    const r = app.run;
+    r.draw = shuffle([...r.deck]); r.discard = [];
+    r.steps = r.gen.par + CONFIG.run.spareSteps;
+    r.swaps = CONFIG.run.freeSwaps; r.cycling = false;
+    app.hand = []; app.played = []; app.seq = []; app.history = [];
+    Run.fill(); resetRun();
+  },
+  fill() {
+    const r = app.run;
+    while (app.hand.length < CONFIG.run.handSize) {
+      if (!r.draw.length) { if (!r.discard.length) break; r.draw = shuffle(r.discard); r.discard = []; }
+      app.hand.push(r.draw.pop());
+    }
+  },
+  async clickHand(uid) {
+    const r = app.run;
+    if (app.running || app.state.status !== 'playing' || r.steps <= 0) return;
+    if (r.cycling) return Run.cycle(uid);
+    const card = app.hand.splice(app.hand.findIndex((c) => c.uid === uid), 1)[0];
+    app.played.push(card); r.discard.push(card); r.steps--;
+    app.running = true; renderDeck();
+    const status = await playCard(card.id);
+    app.running = false;
+    Run.fill(); Run.after(status);
+  },
+  clickSeq() {},
+  // Swap one card from your hand for the next one in the draw pile. Free, a few times per level.
+  cycle(uid) {
+    const r = app.run;
+    r.cycling = false; r.swaps--;
+    r.discard.push(app.hand.splice(app.hand.findIndex((c) => c.uid === uid), 1)[0]);
+    Run.fill(); renderDeck();
+  },
+  toggleCycle() {
+    const r = app.run;
+    if (app.running || app.state.status !== 'playing' || r.swaps <= 0) return;
+    r.cycling = !r.cycling; renderDeck();
+  },
+  // Throw the hand away and draw a new one. Costs a step and a turn.
+  async mulligan() {
+    const r = app.run;
+    if (app.running || app.state.status !== 'playing' || r.steps <= 0) return;
+    r.discard.push(...app.hand); app.hand = []; r.steps--;
+    app.running = true; renderDeck();
+    const last = app.state.last;
+    const status = await playCard('wait');
+    app.state.last = last;      // a mulligan isn't something Echo can repeat
+    app.running = false;
+    Run.fill(); Run.after(status);
+  },
+  after(status) {
+    const r = app.run;
+    if (status === 'won') Run.reward();
+    else if (status === 'dead') Run.loseHeart(app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!');
+    else if (r.steps <= 0) Run.loseHeart('Out of steps');
+    else if (status === 'playing' && !canFinish(app.map, app.state, [...new Set(r.deck.map((c) => c.id))], r.steps)) {
+      // soft-lock: no combination of your cards reaches the flag any more, so say so now
+      const noKey = app.map.keyMask && !hasAllKeys(app.map, app.state);
+      Run.loseHeart('Stuck!', noKey ? "You can't get back to the key from here." : "You can't reach the flag from here any more.");
+    }
+    renderDeck();
+  },
+  loseHeart(title, why = '') {
+    const r = app.run;
+    r.hearts--;
+    r.cycling = false;
+    if (r.hearts <= 0) {
+      let text = `You made it to level ${r.depth} with a ${r.deck.length}-card deck.`;
+      if (CONFIG.features.gems) {
+        const best = recordBest('roguelite run', r.score);
+        text += `\nScore: ${r.score}` + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`);
+      }
+      showBanner('Run over', text, [['New run', Run.start]]);
+    }
+    else showBanner(title, (why ? why + '\n' : '') + `${r.hearts} heart${r.hearts === 1 ? '' : 's'} left. The level stays the same; your deck is reshuffled.`, [['Retry level', Run.retry]]);
+  },
+  reward() {
+    const r = app.run, C = CONFIG.run;
+    r.cleared++;
+    let text = '';
+    if (CONFIG.features.gems) {
+      const sc = scoreFor(app.map, app.state, r.steps);
+      r.score += sc.points;
+      text += `${sc.text}\nRun total: ${r.score}\n`;
+    }
+    if (C.healEvery && r.cleared % C.healEvery === 0 && r.hearts < C.hearts) { r.hearts++; text += '+1 ♥ for clearing ' + C.healEvery + ' levels!\n'; }
+    if (C.preview) r.nextGen = generateLevel(r.depth + 1, r.deck.map((c) => c.id));
+    r.rewardText = text;
+    r.addPicks = shuffle(C.rewardPool.filter((id) => CARDS[id])).slice(0, 3);
+    if (C.rewardStyle === 'trade') { r.offers = Run.pickOffers(); Run.tradeView(); }
+    else Run.rewardView('add');
+  },
+  // Steps the next level needs with these cards (null = impossible)
+  parWith(ids) {
+    const n = app.run.nextGen;
+    const p = n && shortestPath(n.level, [...new Set(ids)], 14);
+    return p ? p.length : null;
+  },
+  // What a card would do for the next level, in plain words
+  offerNote(id) {
+    const ids = app.run.deck.map((c) => c.id);
+    if (!app.run.nextGen) return ids.includes(id) ? 'More copies = drawn more often' : 'New move for your deck';
+    const base = Run.parWith(ids), withIt = Run.parWith([...ids, id]);
+    if (base == null && withIt != null) return 'Makes the next level possible!';
+    if (withIt != null && withIt < base) return `Next level: ${base - withIt} step${base - withIt > 1 ? 's' : ''} shorter`;
+    return ids.includes(id) ? 'More copies = drawn more often' : 'Not needed for the next level';
+  },
+  // Three offers; at least one helps the next level if any card can
+  pickOffers() {
+    const pool = shuffle(CONFIG.run.rewardPool.filter((id) => CARDS[id]));
+    const ids = app.run.deck.map((c) => c.id), base = Run.parWith(ids);
+    const helpful = pool.filter((id) => { const w = Run.parWith([...ids, id]); return w != null && (base == null || w < base); });
+    const offers = helpful.slice(0, 1);
+    for (const id of pool) if (offers.length < 3 && !offers.includes(id)) offers.push(id);
+    return shuffle(offers);
+  },
+  // 'trade' reward screen: pick a card; if the deck is full, then pick one to give up
+  tradeView(pickId) {
+    const r = app.run, C = CONFIG.run;
+    const ids = r.deck.map((c) => c.id), types = [...new Set(ids)];
+    const box = document.createElement('div'); box.className = 'reward';
+    const label = (t) => box.appendChild(Object.assign(document.createElement('div'), { className: 'label', innerHTML: t }));
+    if (r.nextGen) { const m = document.createElement('canvas'); drawMini(r.nextGen.level, m); label('Next level:'); box.appendChild(m); }
+    label(`Your deck (${ids.length}/${C.deckLimit}): ` + types.map((t) => cardChip(t) + (ids.filter((x) => x === t).length > 1 ? `×${ids.filter((x) => x === t).length}` : '')).join(' '));
+    const row = document.createElement('div'); row.className = 'extra';
+    const offer = (id, note, ok, fn, why) => {
+      const wrap = document.createElement('div'); wrap.className = 'offer';
+      const el = cardEl({ id });
+      if (ok) el.onclick = fn; else { el.style.opacity = .35; el.style.cursor = 'not-allowed'; }
+      wrap.append(el, Object.assign(document.createElement('small'), { textContent: ok ? note : why }));
+      row.appendChild(wrap);
+    };
+    let buttons;
+    if (!pickId) {
+      const full = ids.length >= C.deckLimit;
+      label(full ? 'Your deck is full: pick a card, then choose one to give up for it.' : 'Pick a card to add:');
+      for (const id of r.offers) offer(id, Run.offerNote(id), true, () => {
+        if (!full) { r.deck.push({ uid: uidSeq++, id }); Run.next(); } else Run.tradeView(id);
+      });
+      buttons = [['Skip', Run.next]];
+    } else {
+      label(`Give up one card for ${cardChip(pickId)}:`);
+      for (const t of types) {
+        if (t === pickId) continue;
+        const rest = [...ids]; rest.splice(rest.indexOf(t), 1); rest.push(pickId);
+        const n = ids.filter((x) => x === t).length;
+        offer(t, `You have ${n}`, Run.parWith(rest) != null || !r.nextGen, () => {
+          r.deck.find((c) => c.id === t).id = pickId; Run.next();
+        }, 'Needed for the next level');
+      }
+      buttons = [['← Back', () => Run.tradeView()]];
+    }
+    box.appendChild(row);
+    showBanner(`Level ${r.depth} cleared!`, r.rewardText, buttons, box);
+  },
+  // Reward screen: add one of three cards, or (deckEditing) remove / upgrade one.
+  rewardView(view) {
+    const r = app.run, C = CONFIG.run;
+    const box = document.createElement('div'); box.className = 'reward';
+    if (r.nextGen) {
+      const cv2 = document.createElement('canvas'); drawMini(r.nextGen.level, cv2);
+      box.append(Object.assign(document.createElement('div'), { className: 'label', textContent: 'Next level:' }), cv2);
+    }
+    const row = document.createElement('div'); row.className = 'extra';
+    const deckIds = r.deck.map((c) => c.id), types = [...new Set(deckIds)];
+    // a removal/upgrade is only offered if the next level can still be finished
+    const stillOk = (newIds) => !r.nextGen || !!shortestPath(r.nextGen.level, [...new Set(newIds)], 14);
+    const add = (el, ok, fn, note) => {
+      if (!ok) { el.style.opacity = .35; el.style.cursor = 'not-allowed'; el.title = note; } else el.onclick = fn;
+      row.appendChild(el);
+    };
+    let label = 'Add a card to your deck:', buttons = [];
+    if (view === 'add') {
+      for (const id of r.addPicks) add(cardEl({ id }), true, () => { r.deck.push({ uid: uidSeq++, id }); Run.next(); });
+      if (C.rewardStyle === 'edit') buttons.push(['Remove a card…', () => Run.rewardView('remove')], ['Upgrade a card…', () => Run.rewardView('upgrade')]);
+      buttons.push(['Skip', Run.next]);
+    } else if (view === 'remove') {
+      label = `Remove one card (deck: ${r.deck.length}):`;
+      for (const id of types) {
+        const rest = [...deckIds]; rest.splice(rest.indexOf(id), 1);
+        const el = cardEl({ id }); el.insertAdjacentHTML('afterbegin', `<span class="key">×${deckIds.filter((x) => x === id).length}</span>`);
+        add(el, r.deck.length > C.minDeck && stillOk(rest), () => { r.deck.splice(r.deck.findIndex((c) => c.id === id), 1); Run.next(); },
+          r.deck.length <= C.minDeck ? 'Deck is already at its minimum size' : 'You need this card for the next level');
+      }
+      buttons.push(['← Back', () => Run.rewardView('add')]);
+    } else {
+      label = 'Upgrade one card:';
+      for (const id of types.filter((t) => CARDS[C.upgrades[t]])) {
+        const to = C.upgrades[id], rest = deckIds.map((x, i) => (i === deckIds.indexOf(id) ? to : x));
+        const el = cardEl({ id: to }); el.insertAdjacentHTML('afterbegin', `<span class="key">from ${cardChip(id)}</span>`);
+        add(el, stillOk(rest), () => { r.deck.find((c) => c.id === id).id = to; Run.next(); }, 'You need this card for the next level');
+      }
+      buttons.push(['← Back', () => Run.rewardView('add')]);
+    }
+    box.append(Object.assign(document.createElement('div'), { className: 'label', textContent: label }), row);
+    showBanner(`Level ${r.depth} cleared!`, r.rewardText, buttons, box);
+  },
+  actions() {
+    const r = app.run, busy = app.running || app.state.status !== 'playing';
+    return [
+      ...(CONFIG.run.freeSwaps ? [[r?.cycling ? '✕ Cancel swap' : `♻ Swap a card (${r?.swaps ?? 0} free)`, r?.cycling ? 'primary' : '', Run.toggleCycle, busy || !r || r.swaps <= 0]] : []),
+      ['Mulligan (−1 step)', '', Run.mulligan, busy || !r || r.steps <= 0],
+      ['New run', '', () => { if (!app.running && confirm('Abandon this run?')) Run.start(); }, app.running],
+    ];
+  },
+};
+const ctrl = () => (app.mode === 'quest' ? Quest : app.mode === 'run' ? Run : app.mode === 'time' ? TimeAttack : app.mode === 'instant' ? Instant : Plan);
+
+// Score = (flag + gems + spare cards/steps) × multiplier if every gem was collected.
+function scoreFor(map, st, spare, hints = 0) {
+  const sc = CONFIG.score, gems = gemCount(map, st), total = gemTotal(map);
+  const parts = [['Flag', sc.clear]];
+  if (gems) parts.push([`${gems} gem${gems > 1 ? 's' : ''}`, gems * sc.gem]);
+  if (spare > 0) parts.push([`${spare} spare`, spare * sc.spare]);
+  const mult = total && gems === total ? sc.allGemsMultiplier : 1;
+  const penalty = hints * CONFIG.hints.penalty;
+  const points = Math.max(0, parts.reduce((a, [, v]) => a + v, 0) * mult - penalty);
+  const text = parts.map(([k, v]) => `${k} ${v}`).join(' + ') + (mult > 1 ? ` × ${mult} (all gems!)` : '')
+    + (penalty ? ` − ${penalty} for ${hints} hint${hints > 1 ? 's' : ''}` : '') + ` = ${points}`;
+  return { points, text, gems, total };
+}
+function recordBest(name, points) {
+  const best = store.get('cardclimber.best', {});
+  const prev = best[name] || 0;
+  if (points > prev) { best[name] = points; store.set('cardclimber.best', best); }
+  return { prev, isNew: points > prev };
+}
+
+function finishCheck(status, outOfCards, unused) {
+  if (app.mode === 'quest') return Quest.finish(status, outOfCards);
+  const retry = app.mode === 'instant' ? [['↶ Undo', Instant.undo], ['↺ Restart', Instant.restart]] : [['↺ Try again', resetRun]];
+  if (status === 'won') {
+    const all = allLevels(), idx = all.findIndex((l) => l.key === app.levelKey);
+    const next = all[idx + 1];
+    const used = app.mode === 'instant' ? app.played.length : app.cursor;
+    let text = `Reached the flag in ${used} card${used === 1 ? '' : 's'}.`;
+    if (CONFIG.features.gems) {
+      const sc = scoreFor(app.map, app.state, app.level.cards.length - used, app.mode === 'plan' ? app.hintsUsed : 0);
+      const best = app.playtesting ? null : recordBest(app.level.name, sc.points);
+      text = `${sc.text}` + (sc.total > sc.gems ? `\n${sc.total - sc.gems} gem${sc.total - sc.gems > 1 ? 's' : ''} left behind — there's a harder way.` : '')
+        + (best ? (best.isNew ? (best.prev ? `\nNew best! (was ${best.prev})` : '') : `\nBest: ${best.prev}`) : '');
+    }
+    showBanner('Level complete!', text,
+      next && !app.playtesting ? [['Next level →', () => loadLevel(next.key)], ['Replay', retry[retry.length - 1][1]]] : [['Replay', retry[retry.length - 1][1]]]);
+  } else if (status === 'dead') {
+    if (app.mode === 'plan') app.fails++;
+    const hint = Hints.available() ? [[`💡 Hint`, () => { hideBanner(); Hints.next(); }]] : [];
+    showBanner(app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!', 'Rearrange your cards and try again.' + (hint.length ? '\nStuck? A hint is available (optional).' : ''), [...retry, ...hint]);
+  } else if (outOfCards) {
+    if (app.mode === 'plan') app.fails++;
+    const hint = Hints.available() ? [[`💡 Hint`, () => { hideBanner(); Hints.next(); }]] : [];
+    const locked = app.map.keyMask && !hasAllKeys(app.map, app.state);
+    showBanner('Out of cards', (locked ? "You never picked up the key, so the door stayed locked. " : "You haven't reached the flag. ") + (unused ? `${unused} card(s) still in your hand.` : '')
+      + (hint.length ? '\nStuck? A hint is available (optional).' : ''), [...retry, ...hint]);
+  }
+}
+
+/* =====================================================================
+   Rendering — canvas world
+   ===================================================================== */
+let TS = 40; // tile size in CSS px
+function resize() {
+  const st = $('stage'), cs = getComputedStyle(st);
+  const aw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  // In phone portrait the stage hugs the canvas, so size against the screen instead
+  const ah = matchMedia('(max-width: 600px)').matches ? innerHeight * .5
+    : st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  TS = Math.max(8, Math.floor(Math.min(aw / W, ah / H)));
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = TS * W + 'px'; cv.style.height = TS * H + 'px';
+  cv.width = TS * W * dpr; cv.height = TS * H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function burst(x, y, color) {
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3;
+    app.particles.push({ x: x + .5, y: y + .5, vx: Math.cos(a) * sp / 40, vy: Math.sin(a) * sp / 40 - .05, life: 1, color });
+  }
+}
+
+function draw() {
+  const map = app.editing ? parseLevel(app.level) : app.map;
+  const v = app.view;
+  const turn = app.editing ? 0 : v.turn;
+  // sky
+  const g = ctx.createLinearGradient(0, 0, 0, H * TS);
+  g.addColorStop(0, '#7ec8f7'); g.addColorStop(1, '#d8f0ff');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W * TS, H * TS);
+  // clouds (decor)
+  ctx.fillStyle = '#ffffffaa';
+  [[2, 1.2], [9, .8], [13, 2]].forEach(([cx, cy]) => {
+    ctx.beginPath(); ctx.ellipse(cx * TS, cy * TS, TS * .9, TS * .3, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse((cx + .5) * TS, (cy - .2) * TS, TS * .6, TS * .3, 0, 0, 7); ctx.fill();
+  });
+  // camera: follows the player on maps wider than the screen (Time Attack)
+  const camTarget = Math.max(0, Math.min(map.w - W, (app.editing ? 0 : v.x) - 4));
+  app.cam += (camTarget - app.cam) * .12;
+  if (Math.abs(camTarget - app.cam) < .01) app.cam = camTarget;
+  const x0 = Math.floor(app.cam), x1 = Math.min(map.w, x0 + W + 1);
+  ctx.save(); ctx.translate(-app.cam * TS, 0);
+  // grid lines (helps planning)
+  ctx.strokeStyle = '#0000000d'; ctx.lineWidth = 1;
+  for (let x = x0 + 1; x < x1; x++) { ctx.beginPath(); ctx.moveTo(x * TS + .5, 0); ctx.lineTo(x * TS + .5, H * TS); ctx.stroke(); }
+  for (let y = 1; y < H; y++) { ctx.beginPath(); ctx.moveTo(x0 * TS, y * TS + .5); ctx.lineTo(x1 * TS, y * TS + .5); ctx.stroke(); }
+
+  for (let y = 0; y < H; y++) for (let x = x0; x < x1; x++) {
+    const c = map.grid[y][x], px = x * TS, py = y * TS;
+    if (c === '#') {
+      ctx.fillStyle = '#8b5a2b'; ctx.fillRect(px, py, TS, TS);
+      ctx.fillStyle = '#7a4d23'; ctx.fillRect(px + TS * .15, py + TS * .5, TS * .2, TS * .15); ctx.fillRect(px + TS * .6, py + TS * .75, TS * .2, TS * .12);
+      if (y === 0 || map.grid[y - 1][x] !== '#') { ctx.fillStyle = '#5cb85c'; ctx.fillRect(px, py, TS, TS * .22); ctx.fillStyle = '#4a9e4a'; ctx.fillRect(px, py + TS * .18, TS, TS * .05); }
+    } else if (c === '^' || c === 't') {
+      const up = c === '^' || turn % 2 === 1;
+      const h = up ? .55 : .14;
+      ctx.fillStyle = c === '^' ? '#cfd5df' : (up ? '#ff8c42' : '#c9774a');
+      ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = Math.max(1, TS / 30);
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(px + TS * (i / 3), py + TS); ctx.lineTo(px + TS * (i / 3 + 1 / 6), py + TS * (1 - h)); ctx.lineTo(px + TS * ((i + 1) / 3), py + TS);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      if (c === 't') { ctx.fillStyle = '#3a3f4b'; ctx.font = `${Math.floor(TS * .28)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(up ? 'UP' : 'down', px + TS / 2, py + TS * .3); }
+    }
+  }
+  // keys and gems (collected ones disappear)
+  const got = app.editing ? 0 : v.got;
+  const bob = Math.sin(performance.now() / 300) * TS * .05;
+  map.items.forEach((it, i) => { if (!(got & (1 << i))) (it.t === 'K' ? drawKey : drawGem)(it.x * TS, it.y * TS + bob); });
+  // goal: a locked door while keys are missing, otherwise the flag
+  if (map.goal.x >= 0 && map.keyMask && !hasAllKeys(map, { got })) drawDoor(map.goal.x * TS, map.goal.y * TS);
+  else if (map.goal.x >= 0) {
+    const gx = map.goal.x * TS, gy = map.goal.y * TS;
+    ctx.fillStyle = '#555'; ctx.fillRect(gx + TS * .3, gy + TS * .08, TS * .07, TS * .92);
+    const wave = Math.sin(performance.now() / 250) * TS * .04;
+    ctx.fillStyle = '#e8434b'; ctx.beginPath();
+    ctx.moveTo(gx + TS * .37, gy + TS * .1); ctx.lineTo(gx + TS * .85, gy + TS * .25 + wave); ctx.lineTo(gx + TS * .37, gy + TS * .42); ctx.fill();
+  }
+  // crates
+  for (const c of (app.editing ? map.crates : v.crates)) if (!c.gone) drawCrate(c.x, c.y);
+  // player
+  if (app.editing) drawPlayer(map.start.x, map.start.y, 1, 'playing', .9);
+  else drawPlayer(v.x + v.ox, v.y + v.oy, v.dir, v.status, 1, playerFx(v));
+
+  // particles
+  app.particles = app.particles.filter((p) => p.life > 0);
+  for (const p of app.particles) {
+    p.x += p.vx; p.y += p.vy; p.vy += .006; p.life -= .02;
+    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
+    ctx.fillRect(p.x * TS - 3, p.y * TS - 3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+
+  // floating text (e.g. what Echo repeated)
+  if (app.flash && !app.editing) {
+    const age = (performance.now() - app.flash.t0) / 1100;
+    if (age >= 1) app.flash = null;
+    else {
+      ctx.globalAlpha = 1 - age * age; ctx.fillStyle = '#5b3fd1'; ctx.font = `bold ${Math.floor(TS * .34)}px system-ui`; ctx.textAlign = 'center';
+      const half = ctx.measureText(app.flash.text).width / 2 + 4;   // keep the text on screen near the edges
+      const fx = Math.max(app.cam * TS + half, Math.min((app.cam + W) * TS - half, (v.x + .5) * TS));
+      ctx.fillText(app.flash.text, fx, Math.max(TS * .4, (v.y - .25 - age * .6) * TS)); ctx.globalAlpha = 1;
+    }
+  }
+  // editor hover cell
+  if (app.editing && hover) {
+    ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 2; ctx.strokeRect(hover.x * TS + 1, hover.y * TS + 1, TS - 2, TS - 2);
+  }
+  ctx.restore();
+  const run = app.mode === 'run' && app.run, ta = app.mode === 'time' && app.ta, q = app.mode === 'quest' && app.q;
+  if (ta) {
+    TimeAttack.tick();
+    // the timer lives on the game itself, so it's visible however the page is laid out
+    if (ta.deadline || ta.paused != null) {
+      const left = ta.paused ?? (ta.deadline - performance.now()), frac = Math.max(0, Math.min(1, left / ta.limitMs));
+      const low = frac < .3;
+      ctx.fillStyle = '#0006'; ctx.fillRect(0, 0, W * TS, Math.max(6, TS * .18));
+      ctx.fillStyle = low ? '#ff4d4d' : '#ffcc33'; ctx.fillRect(0, 0, W * TS * frac, Math.max(6, TS * .18));
+      if (low && !ta.paused) {                       // pulsing red edge as a second warning
+        ctx.strokeStyle = `rgba(255,77,77,${.45 + .4 * Math.sin(performance.now() / 70)})`; ctx.lineWidth = Math.max(4, TS * .15);
+        ctx.strokeRect(0, 0, W * TS, H * TS);
+      }
+    }
+  }
+  $('hud').textContent = app.editing ? 'Editing — click/drag to paint'
+    : q ? `Level ${q.depth}  ·  ${'♥'.repeat(q.hearts)}${'♡'.repeat(Math.max(0, q.maxHearts - q.hearts))}  ·  ◆ ${q.gems}`
+        + (app.map.keyMask ? (hasAllKeys(app.map, v) ? '  ·  🔑 ✓' : '  ·  🔑 needed') : '') + (gemTotal(map) ? `  ·  gems ${gemCount(map, v)}/${gemTotal(map)}` : '')
+    : ta ? (ta.deadline === Infinity ? `Free moves: ${CONFIG.timeAttack.freeCards - ta.plays}  ·  ` : '') + `Distance ${ta.dist}  ·  ${'♥'.repeat(Math.max(0, ta.hearts))}${'♡'.repeat(Math.max(0, CONFIG.timeAttack.hearts - ta.hearts))}  ·  ◆ ${ta.gems}  ·  Score ${ta.dist * CONFIG.timeAttack.pointsPerTile + ta.gems * CONFIG.timeAttack.pointsPerGem}`
+    : (run ? `Level ${run.depth}  ·  ${'♥'.repeat(run.hearts)}${'♡'.repeat(Math.max(0, CONFIG.run.hearts - run.hearts))}  ·  Steps left ${run.steps}  ·  `
+        + (CONFIG.features.gems ? `Score ${run.score}  ·  ` : '') : '')
+      + (map.keyMask ? (hasAllKeys(map, v) ? '🔑 ✓  ·  ' : '🔑 needed  ·  ') : '')
+      + (gemTotal(map) ? `◆ ${gemCount(map, v)}/${gemTotal(map)}  ·  ` : '')
+      + `Turn ${v.turn}  ·  facing ${v.dir > 0 ? '→' : '←'}`;
+  requestAnimationFrame(draw);
+}
+
+// Squash/stretch, lean and idle life for the player, from the animated view
+function playerFx(v) {
+  const now = performance.now(), clamp = (a, lo, hi) => Math.max(lo, Math.min(hi, a));
+  let sx = 1, sy = 1, rot = 0, lift = 0, blink = false;
+  if (v.air) { const st = clamp(Math.abs(v.vy || 0) * .02, 0, .2); sy += st; sx -= st * .6; }     // stretch in the air
+  const ls = clamp(1 - (now - (v.landT || 0)) / 240, 0, 1);                                         // squash on landing
+  if (ls) { const w = Math.sin(ls * Math.PI) * ls; sy -= .26 * w; sx += .2 * w; }
+  rot = clamp((v.vx || 0) * .025, -.16, .16);                                                      // lean into the move
+  if (!v.air && v.bob) lift = Math.abs(Math.sin(v.bob)) * .07;                                      // footsteps
+  if (!app.running && v.status === 'playing') {
+    sy += Math.sin(now / 520) * .018; sx -= Math.sin(now / 520) * .01;                              // breathing
+    blink = now % 3400 < 120;
+  }
+  sx *= Math.max(.15, v.flip ?? 1);                                                                 // turning around
+  return { sx, sy, rot, lift, blink };
+}
+
+function drawPlayer(x, y, dir, status, alpha, fx = { sx: 1, sy: 1, rot: 0, lift: 0 }) {
+  const s = TS * .72;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate((x + .5) * TS, (y + 1 - fx.lift) * TS);   // pivot at the feet
+  ctx.rotate(fx.rot); ctx.scale(fx.sx, fx.sy);
+  ctx.fillStyle = status === 'dead' ? '#ff6b6b' : '#ffcc33';
+  ctx.strokeStyle = '#3a2e10'; ctx.lineWidth = Math.max(1.5, TS / 20);
+  roundRect(-s / 2, -s, s, s, TS * .14); ctx.fill(); ctx.stroke();
+  // eyes look in facing direction
+  const ex = dir * s * .14, ey = -s * .62;
+  ctx.fillStyle = '#3a2e10';
+  if (status === 'dead') {
+    ctx.font = `bold ${Math.floor(TS * .25)}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText('x x', ex, ey + TS * .08);
+  } else {
+    const eh = fx.blink ? s * .03 : s * .2;
+    ctx.fillRect(ex - s * .2, ey - eh / 2, s * .1, eh);
+    ctx.fillRect(ex + s * .08, ey - eh / 2, s * .1, eh);
+    if (status === 'won') { ctx.beginPath(); ctx.arc(ex, ey + s * .22, s * .14, 0, Math.PI); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+// Small static picture of a level (used for the roguelite "next level" preview).
+function drawMini(level, canvas, t = 9) {
+  const m = parseLevel(level), c = canvas.getContext('2d');
+  canvas.width = W * t; canvas.height = H * t; canvas.className = 'mini';
+  c.fillStyle = '#9fd6fa'; c.fillRect(0, 0, W * t, H * t);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ch = m.grid[y][x];
+    if (ch === '#') { c.fillStyle = y && m.grid[y - 1][x] !== '#' ? '#5cb85c' : '#8b5a2b'; c.fillRect(x * t, y * t, t, t); }
+    if (ch === '^' || ch === 't') { c.fillStyle = ch === '^' ? '#cfd5df' : '#ff8c42'; c.beginPath(); c.moveTo(x * t, y * t + t); c.lineTo(x * t + t / 2, y * t + t * .3); c.lineTo(x * t + t, y * t + t); c.fill(); }
+  }
+  const dot = (x, y, col) => { c.fillStyle = col; c.fillRect(x * t + t * .2, y * t + t * .2, t * .6, t * .6); };
+  m.crates.forEach((k) => dot(k.x, k.y, '#c68a3f'));
+  m.items.forEach((it) => dot(it.x, it.y, it.t === 'K' ? '#ffcc33' : '#4fd8e8'));
+  dot(m.goal.x, m.goal.y, m.keyMask ? '#7a4d23' : '#e8434b');
+  dot(m.start.x, m.start.y, '#ffcc33');
+}
+function drawKey(px, py) {
+  ctx.strokeStyle = '#8a6400'; ctx.fillStyle = '#ffcc33'; ctx.lineWidth = Math.max(1.5, TS / 18);
+  ctx.beginPath(); ctx.arc(px + TS * .32, py + TS * .5, TS * .16, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillRect(px + TS * .46, py + TS * .45, TS * .38, TS * .1); ctx.strokeRect(px + TS * .46, py + TS * .45, TS * .38, TS * .1);
+  ctx.fillRect(px + TS * .66, py + TS * .55, TS * .07, TS * .14); ctx.fillRect(px + TS * .77, py + TS * .55, TS * .07, TS * .1);
+  ctx.fillStyle = '#8a6400'; ctx.beginPath(); ctx.arc(px + TS * .32, py + TS * .5, TS * .06, 0, 7); ctx.fill();
+}
+function drawGem(px, py) {
+  const cx = px + TS / 2, cy = py + TS / 2, r = TS * .26;
+  ctx.fillStyle = '#4fd8e8'; ctx.strokeStyle = '#1b6f7a'; ctx.lineWidth = Math.max(1.5, TS / 20);
+  ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r * .8, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r * .8, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffffffcc'; ctx.beginPath(); ctx.moveTo(cx - r * .3, cy - r * .3); ctx.lineTo(cx, cy - r * .7); ctx.lineTo(cx + r * .1, cy - r * .3); ctx.closePath(); ctx.fill();
+}
+function drawDoor(px, py) {
+  ctx.fillStyle = '#7a4d23'; ctx.strokeStyle = '#3a2410'; ctx.lineWidth = Math.max(1.5, TS / 18);
+  ctx.beginPath(); ctx.moveTo(px + TS * .18, py + TS); ctx.lineTo(px + TS * .18, py + TS * .3);
+  ctx.arc(px + TS * .5, py + TS * .3, TS * .32, Math.PI, 0); ctx.lineTo(px + TS * .82, py + TS); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffcc33'; ctx.fillRect(px + TS * .4, py + TS * .5, TS * .2, TS * .16);                      // padlock body
+  ctx.strokeStyle = '#ffcc33'; ctx.beginPath(); ctx.arc(px + TS * .5, py + TS * .5, TS * .07, Math.PI, 0); ctx.stroke(); // shackle
+}
+function drawCrate(x, y) {
+  const px = x * TS, py = y * TS, i = TS * .06;
+  ctx.fillStyle = '#c68a3f'; ctx.strokeStyle = '#6b4416'; ctx.lineWidth = Math.max(1.5, TS / 18);
+  ctx.fillRect(px + i, py + i, TS - 2 * i, TS - 2 * i); ctx.strokeRect(px + i, py + i, TS - 2 * i, TS - 2 * i);
+  ctx.beginPath(); ctx.moveTo(px + i, py + i); ctx.lineTo(px + TS - i, py + TS - i); ctx.moveTo(px + TS - i, py + i); ctx.lineTo(px + i, py + TS - i); ctx.stroke();
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+/* =====================================================================
+   Rendering — cards (DOM)
+   ===================================================================== */
+function cardIcon(id, card = CARDS[id]) {
+  if (card.echo) return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M32 12a12 12 0 1 0 3 10" fill="none" stroke="#5b3fd1" stroke-width="3" stroke-linecap="round"/><path d="M34 4v9h-9" fill="none" stroke="#5b3fd1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="22" y="25" font-size="10" font-weight="700" text-anchor="middle" fill="#5b3fd1">×2</text></svg>';
+  if (card.moves[0].type === 'turn') return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M10 14h22l-6-6M34 26H12l6 6" fill="none" stroke="#2a2a2a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if (card.moves[0].type === 'wait') return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M14 6h16M14 34h16M16 6c0 10 12 10 12 14S16 24 16 34M28 6c0 10-12 10-12 14s12 4 12 14" fill="none" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  // trace the path on a mini grid
+  const pts = [[0, 0]]; let x = 0, y = 0;
+  for (const m of card.moves) for (const [dx, dy] of m.path) { x += dx; y += dy; pts.push([x, y]); }
+  const minY = Math.min(...pts.map((p) => p[1])), maxX = Math.max(...pts.map((p) => p[0]));
+  const cols = maxX + 1, rows = -minY + 1, c = Math.min(17, 64 / cols, 52 / rows);
+  const wpx = cols * c, hpx = rows * c;
+  let cells = '';
+  pts.forEach(([px, py], i) => {
+    cells += `<rect x="${px * c + 1}" y="${(py - minY) * c + 1}" width="${c - 2}" height="${c - 2}" rx="2" fill="${i === 0 ? '#ffcc33' : '#d8cfb8'}"/>`;
+  });
+  const line = pts.map(([px, py]) => `${px * c + c / 2},${(py - minY) * c + c / 2}`).join(' ');
+  const [lx, ly] = pts[pts.length - 1];
+  return `<svg width="${wpx}" height="${hpx}" viewBox="0 0 ${wpx} ${hpx}">${cells}
+    <polyline points="${line}" fill="none" stroke="#2a2a2a" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${lx * c + c / 2}" cy="${(ly - minY) * c + c / 2}" r="3" fill="#2a2a2a"/></svg>`;
+}
+
+// What a card does once perks are applied (shop-run roguelite); plain CARDS otherwise
+function effectiveCard(id) {
+  const d = CARDS[id], mods = app.mode === 'quest' && app.q ? Quest.mods() : {};
+  if (mods.walkExtra && id.startsWith('walk')) return { ...d, moves: [...d.moves, step], boosted: true };
+  if (mods.jumpExtra && id === 'jump') return { ...d, moves: [{ path: [...d.moves[0].path, [1, 0]] }], boosted: true };
+  return d;
+}
+// A tiny inline picture of a card, for text that refers to specific cards
+const cardChip = (id) => `<span class="chip" title="${CARDS[id].name}">${cardIcon(id, effectiveCard(id))}</span>`;
+function cardEl(c, cls = '', idx) {
+  const d = effectiveCard(c.id);
+  const el = document.createElement('div');
+  el.className = 'card ' + cls;
+  el.innerHTML = `${idx != null ? `<span class="idx">${idx}</span>` : ''}<div class="nm">${d.name}${d.boosted ? ' +' : ''}</div><div class="pic">${cardIcon(c.id, d)}</div>`;
+  return el;
+}
+
+function renderDeck() {
+  const seqBox = $('seq'), handBox = $('hand'), act = $('seqActions');
+  seqBox.innerHTML = ''; handBox.innerHTML = ''; act.innerHTML = '';
+  const C = ctrl();
+  const quest = app.mode === 'quest';
+  const instant = app.mode !== 'plan' && !quest;
+  const time = app.mode === 'time';
+  $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>`
+    : instant ? 'Played'
+    : 'Sequence' + (Slots.gap() >= 0 ? '<small class="warn">fill the empty slot to play</small>' : '<small>tap a card to remove · drag to move</small>');
+  const r = app.mode === 'run' && app.run;
+  const peekN = r && r.draw ? CONFIG.run.peek : 0;
+  const peek = peekN ? r.draw.slice(-peekN).reverse().map((c) => cardChip(c.id)) : [];
+  while (peek.length < peekN) peek.push('<b>?</b>');   // will come from a reshuffle
+  if (quest) $('handLabel').innerHTML = `Hand<small>${Quest.owned()}/${Quest.handLimit()} cards</small>`;
+  else if (app.mode === 'plan') $('handLabel').innerHTML = 'Hand<small>tap or drag into a slot</small>';
+  else $('handLabel').innerHTML = r && r.draw
+    ? `Hand<small>draw ${r.draw.length} · discard ${r.discard.length} · deck ${r.deck.length}</small>`
+      + (peekN ? `<small>Next up:</small><span class="peek">${peek.join('')}</span>` : '')
+      + (r.cycling ? '<small style="color:var(--bad)">Tap the card to swap out</small>' : '')
+    : 'Hand';
+  $('levelSel').style.visibility = app.mode === 'run' || time || quest ? 'hidden' : '';
+  $('editBtn').disabled = app.mode === 'run' || time || quest;
+  const list = time ? app.played.slice(-1) : instant ? app.played : app.seq;   // time attack: just the last card
+  if (app.mode === 'plan') {
+    // fixed slots: cards where you put them, dashed outlines for empty ones (red if it's a gap)
+    const gapBefore = Slots.gap() >= 0 ? Slots.lastFilled() : -1;
+    for (let i = 0; i < app.level.cards.length; i++) {
+      const c = app.seq[i];
+      if (!c) {
+        const sl = Object.assign(document.createElement('div'), { className: 'slot' + (i < gapBefore ? ' gap' : '') });
+        sl.dataset.slot = i; seqBox.appendChild(sl); continue;
+      }
+      let cls = '';
+      if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
+      if (app.running && i === app.cursor) cls = 'active';
+      const el = cardEl(c, cls, i + 1);
+      el.dataset.slot = i;
+      el.onclick = Drag.tap(() => C.clickSeq(c.uid));
+      Drag.attach(el, { src: 'seq', uid: c.uid, id: c.id });
+      seqBox.appendChild(el);
+    }
+  } else list.forEach((c, i) => {
+    let cls = '';
+    if (!instant) {
+      if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
+      if (app.running && i === app.cursor) cls = 'active';
+    } else if (app.running && i === list.length - 1) cls = 'active';
+    const el = cardEl(c, cls, time ? app.played.length : i + 1);
+    el.onclick = Drag.tap(() => C.clickSeq(c.uid));
+    Drag.attach(el, { src: 'seq', uid: c.uid, id: c.id });
+    seqBox.appendChild(el);
+  });
+  if (time && app.played.length > 1) seqBox.appendChild(Object.assign(document.createElement('span'), { className: 'played-count', textContent: `${app.played.length} cards played` }));
+  $('timer').style.display = time ? 'block' : 'none';
+  document.body.classList.toggle('endless', time);
+  $('hintBox').style.display = app.mode === 'plan' && app.hintText ? 'block' : 'none';
+  if (app.hintHtml && app.hintText === 'cards') $('hintBox').innerHTML = `💡 ${app.hintHtml}`;
+  else $('hintBox').textContent = app.hintText ? `💡 ${app.hintText}` : '';
+  if (quest && !list.length) seqBox.innerHTML = '<span style="color:var(--muted)">Tap or drag cards from the shop to add them to your plan.</span>';
+  if (quest) seqBox.querySelectorAll('.card').forEach((el, i) => {
+    const c = list[i];
+    el.insertAdjacentHTML('afterbegin', `<span class="price">${c.paid}◆</span>`);
+    el.title = `${el.title}\nDrag to reorder · tap or drag off to sell back for ${c.paid}◆`;
+  });
+  app.hand.forEach((c, i) => {
+    const el = cardEl(c, app.mode === 'plan' && c.id === app.hintNext && app.hand.findIndex((h) => h.id === c.id) === i ? 'hinted'
+      : app.mode === 'run' && app.run?.cycling ? 'cycling' : '');
+    if (time) el.insertAdjacentHTML('afterbegin', `<span class="key">${i + 1}</span>`);
+    el.onclick = Drag.tap(() => C.clickHand(c.uid)); handBox.appendChild(el);
+    Drag.attach(el, { src: 'hand', uid: c.uid, id: c.id });
+    if (quest && !app.running) {
+      const sell = Object.assign(document.createElement('span'), { className: 'sell', textContent: `sell ${c.paid}◆` });
+      sell.onclick = (e) => { e.stopPropagation(); Quest.sell(c.uid); };
+      el.appendChild(sell);
+    }
+  });
+  // shop lane + perks (shop-run roguelite)
+  $('shopLane').style.display = quest && app.q?.route ? 'flex' : 'none';
+  $('shopLane').style.order = quest ? -2 : '';   // shop → hand → sequence, in the order you use them
+  $('handLane').style.order = quest ? -1 : '';
+  $('handLane').style.display = quest ? 'none' : '';   // shop run: cards go straight into the plan
+  $('perkBar').style.display = quest && app.q?.perks.length ? 'flex' : 'none';
+  if (quest && app.q) {
+    const q = app.q, shop = $('shop'); shop.innerHTML = '';
+    for (const id of q.route?.stock || []) {
+      const price = Quest.price(id), ok = q.gems >= price && Quest.owned() < Quest.handLimit() && !app.running;
+      const el = cardEl({ id }, ok ? '' : 'cant');
+      el.insertAdjacentHTML('afterbegin', `<span class="price">${price}◆</span>`);
+      el.onclick = Drag.tap(() => Quest.buy(id));
+      if (ok) Drag.attach(el, { src: 'shop', id });
+      shop.appendChild(el);
+    }
+    $('shopLabel').innerHTML = `Shop<small>◆ ${q.gems} to spend</small>`;
+    $('perkBar').innerHTML = 'Perks: ' + q.perks.map((p) => `<span title="${CONFIG.quest.perks[p].desc}">${CONFIG.quest.perks[p].name}</span>`).join('');
+  }
+  if (!app.hand.length) handBox.innerHTML = `<span style="color:var(--muted)">${quest && !Quest.owned() ? 'Buy cards from the shop below.' : 'No cards left in hand.'}</span>`;
+  $('play').classList.toggle('locked', app.running);
+  for (const [label, cls, fn, disabled] of C.actions()) {
+    const b = document.createElement('button'); b.textContent = label; b.className = cls; b.disabled = disabled; b.onclick = fn; act.appendChild(b);
+  }
+  if (app.playtesting) { const b = document.createElement('button'); b.textContent = '✎ Back to editor'; b.onclick = () => setEditing(true); act.appendChild(b); }
+  document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mode === app.mode));
+}
+
+/* =====================================================================
+   Drag & drop for cards (Plan & Run and shop-run Roguelite)
+   Pointer events, so mouse and touch behave the same. On touch a card lifts
+   after a short hold, so a quick swipe still scrolls the card area.
+   - hand/shop → plan: add (buy) at the drop position
+   - plan → plan: reorder
+   - plan → anywhere else: back to hand (Plan) / sell (Roguelite)
+   Taps still work; a tap right after a drag is ignored.
+   ===================================================================== */
+const Drag = {
+  HOLD_MS: 150, MOVE_PX: 6, lastDrop: 0,
+  cur: null,
+  attach(el, info) {
+    if (!(app.mode === 'plan' || app.mode === 'quest') || app.running) return;
+    el.addEventListener('pointerdown', (e) => Drag.down(e, el, info));
+  },
+  // wraps a tap handler so the click that follows a drop is ignored
+  tap: (fn) => () => { if (performance.now() - Drag.lastDrop > 350) fn(); },
+  down(e, el, info) {
+    if (e.button > 0 || Drag.cur) return;
+    const d = Drag.cur = { el, info, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse', live: false, id: e.pointerId };
+    if (d.touch) d.timer = setTimeout(() => Drag.cur === d && Drag.lift(), Drag.HOLD_MS);
+  },
+  move(e) {
+    const d = Drag.cur;
+    if (!d || e.pointerId !== d.id) return;
+    d.x = e.clientX; d.y = e.clientY;
+    const dist = Math.hypot(d.x - d.x0, d.y - d.y0);
+    if (!d.live) {
+      if (d.touch) { if (dist > 10) Drag.cancel(); }            // moved before the hold finished: it's a scroll
+      else if (dist > Drag.MOVE_PX) Drag.lift();
+      return;
+    }
+    Drag.position();
+  },
+  lift() {
+    const d = Drag.cur, r = d.el.getBoundingClientRect();
+    d.live = true; d.dx = d.x0 - r.left; d.dy = d.y0 - r.top + (d.touch ? 56 : 0);   // on touch, float the card above your finger
+    d.ghost = d.el.cloneNode(true);
+    d.ghost.classList.add('drag-ghost');
+    const planned = app.seq.find((c) => c && c.uid === d.info.uid);
+    d.ghost.dataset.out = app.mode === 'quest' ? `Sell ${planned?.paid ?? ''}◆` : 'Back to hand';   // shown when dragged off the plan
+    Object.assign(d.ghost.style, { width: r.width + 'px', height: r.height + 'px' });
+    document.body.appendChild(d.ghost);
+    d.el.classList.add('dragging');
+    if (navigator.vibrate) navigator.vibrate(10);
+    // keep scrolling the plan row while the card is held near its left/right edge (phones)
+    d.auto = setInterval(() => {
+      const row = $('seq'), r = row.getBoundingClientRect();
+      if (d.y < r.top - 30 || d.y > r.bottom + 30) return;
+      const dx = d.x < r.left + 36 ? -8 : d.x > r.right - 36 ? 8 : 0;
+      if (dx) { row.scrollLeft += dx; Drag.position(); }
+    }, 16);
+    Drag.position();
+  },
+  // where in the plan would the card land? (index among the other planned cards)
+  slot() {
+    const d = Drag.cur, lane = $('seq').getBoundingClientRect();
+    const over = d.x >= lane.left - 20 && d.x <= lane.right + 20 && d.y >= lane.top - 30 && d.y <= lane.bottom + 30;
+    if (!over) return null;
+    if (app.mode === 'plan') {      // fixed slots: the slot (card or empty outline) nearest the finger
+      let best = null, bd = Infinity;
+      for (const el of $('seq').querySelectorAll('[data-slot]')) {
+        const r = el.getBoundingClientRect(), dist = Math.hypot(d.x - (r.left + r.width / 2), d.y - (r.top + r.height / 2));
+        if (dist < bd) { bd = dist; best = el; }
+      }
+      return best && { at: +best.dataset.slot, el: best };
+    }
+    const cards = [...$('seq').querySelectorAll('.card')].filter((c) => c !== d.el);
+    let at = 0;
+    for (const c of cards) {
+      const r = c.getBoundingClientRect();
+      if (d.y > r.bottom + 4 || (d.y >= r.top - 4 && d.x > r.left + r.width / 2)) at++;
+    }
+    return { at, cards };
+  },
+  position() {
+    const d = Drag.cur, marker = $('dropMarker');
+    d.ghost.style.left = (d.x - d.dx) + 'px'; d.ghost.style.top = (d.y - d.dy) + 'px';
+    const s = Drag.slot();
+    $('seq').classList.toggle('drop-target', !!s);
+    d.ghost.classList.toggle('out', !s && d.info.src === 'seq');
+    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
+    if (!s) { marker.style.display = 'none'; return; }
+    if (s.el) { marker.style.display = 'none'; s.el.classList.add('drop-here'); return; }   // Plan & Run: highlight the slot
+    // marker: before the card at `at`, or after the last one
+    const ref = s.cards[s.at] || s.cards[s.at - 1];
+    const lane = $('seq').getBoundingClientRect();
+    let x = lane.left + 4, top = lane.top, h = 80;
+    if (ref) { const r = ref.getBoundingClientRect(); x = s.cards[s.at] ? r.left - 5 : r.right + 3; top = r.top; h = r.height; }
+    Object.assign(marker.style, { display: 'block', left: x + 'px', top: top + 'px', height: h + 'px' });
+  },
+  up(e) {
+    const d = Drag.cur;
+    if (!d || e.pointerId !== d.id) return;
+    clearTimeout(d.timer);
+    if (!d.live) { Drag.cur = null; return; }    // never lifted: let the normal tap happen
+    const s = Drag.slot(), { src, uid, id } = d.info;
+    Drag.cleanup();
+    Drag.lastDrop = performance.now();
+    if (src === 'seq') {
+      if (s) (app.mode === 'quest' ? Quest.moveTo : Plan.moveTo)(uid, s.at);
+      else app.mode === 'quest' ? Quest.sell(uid) : Plan.clickSeq(uid);
+    } else if (s) {
+      if (src === 'shop') Quest.buy(id, s.at); else Plan.clickHand(uid, s.at);
+    }
+  },
+  cancel() { clearTimeout(Drag.cur?.timer); Drag.cleanup(); },
+  cleanup() {
+    const d = Drag.cur;
+    if (d) { clearInterval(d.auto); d.ghost?.remove(); d.el.classList.remove('dragging'); }
+    $('dropMarker').style.display = 'none'; $('seq').classList.remove('drop-target');
+    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
+    Drag.cur = null;
+  },
+};
+document.addEventListener('pointermove', Drag.move);
+document.addEventListener('pointerup', Drag.up);
+document.addEventListener('pointercancel', () => Drag.cancel());   // the browser took over (e.g. started scrolling): put the card back
+// while a card is lifted, stop the page from scrolling under your finger (iOS needs a non-passive listener)
+document.addEventListener('touchmove', (e) => { if (Drag.cur?.live) e.preventDefault(); }, { passive: false });
+
+function showBanner(title, text, buttons, extra) {
+  const b = $('banner');
+  b.querySelector('h2').textContent = title; b.querySelector('p').textContent = text;
+  b.querySelectorAll(':scope > .extra, :scope > .reward, :scope > .routes').forEach((n) => n.remove());
+  if (extra) b.querySelector('.row').before(extra);
+  b.classList.toggle('wide', !!extra);   // card choices get the whole screen, not just the game area
+  const row = b.querySelector('.row'); row.innerHTML = '';
+  buttons.forEach(([label, fn, plain], i) => { const btn = document.createElement('button'); btn.textContent = label; if (!i && !plain) btn.className = 'primary'; btn.onclick = fn; row.appendChild(btn); });
+  b.style.display = 'block';
+}
+function hideBanner() { $('banner').style.display = 'none'; }
+
+function refreshLevelSelect() {
+  const sel = $('levelSel'); sel.innerHTML = '';
+  for (const { key, level } of allLevels()) {
+    const o = document.createElement('option'); o.value = key; o.textContent = (key[0] === 'c' ? '★ ' : '') + level.name; sel.appendChild(o);
+  }
+  sel.value = app.levelKey;
+}
+
+/* =====================================================================
+   Editor
+   ===================================================================== */
+const TILES = [
+  ['.', 'Empty', '#7ec8f7'], ['#', 'Ground', '#8b5a2b'], ['^', 'Spikes', '#cfd5df'],
+  ['t', 'Timed spikes', '#ff8c42'], ['P', 'Player start', '#ffcc33'], ['G', 'Goal', '#e8434b'],
+  ...(CONFIG.features.crates ? [['C', 'Crate', '#c68a3f']] : []),
+  ...(CONFIG.features.keys ? [['K', 'Key', '#ffcc33']] : []),
+  ...(CONFIG.features.gems ? [['*', 'Gem', '#4fd8e8']] : []),
+];
+let hover = null, painting = false;
+function setEditing(on) {
+  app.editing = on; app.playtesting = false;
+  $('play').style.display = on ? 'none' : '';
+  $('editor').style.display = on ? 'flex' : 'none';
+  $('editBtn').innerHTML = on ? '✕<span class="lg"> Close editor</span>' : '✎<span class="lg"> Editor</span>';
+  if (on) { hideBanner(); renderEditor(); }
+  else { app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id })); app.seq = []; app.played = []; app.history = []; resetRun(); }
+}
+function playtest() {
+  setEditing(false);
+  app.playtesting = true; // shows a "back to editor" button
+  renderDeck();
+}
+
+function renderEditor() {
+  $('edName').value = app.level.name;
+  const tiles = $('edTiles'); tiles.innerHTML = '';
+  for (const [ch, label, col] of TILES) {
+    const b = document.createElement('button');
+    b.innerHTML = `<i style="background:${col}"></i>${label}`;
+    b.classList.toggle('on', app.paint === ch);
+    b.onclick = () => { app.paint = ch; renderEditor(); };
+    tiles.appendChild(b);
+  }
+  const cc = $('edCards'); cc.innerHTML = '';
+  for (const id in CARDS) {
+    const n = app.level.cards.filter((c) => c === id).length;
+    const name = document.createElement('span'); name.textContent = CARDS[id].label;
+    const minus = document.createElement('button'); minus.textContent = '−';
+    const num = document.createElement('span'); num.className = 'n'; num.textContent = n;
+    const plus = document.createElement('button'); plus.textContent = '+';
+    minus.onclick = () => { const i = app.level.cards.lastIndexOf(id); if (i >= 0) app.level.cards.splice(i, 1); renderEditor(); };
+    plus.onclick = () => { if (app.level.cards.length < 12) app.level.cards.push(id); renderEditor(); };
+    cc.append(name, minus, num, plus);
+  }
+  $('edDelete').disabled = app.levelKey[0] !== 'c';
+}
+
+function paintAt(x, y) {
+  const rows = app.level.map.map((r) => r.padEnd(W, '.').slice(0, W).split(''));
+  while (rows.length < H) rows.push('.'.repeat(W).split(''));
+  if (app.paint === 'P' || app.paint === 'G') rows.forEach((r) => r.forEach((c, i) => { if (c === app.paint) r[i] = '.'; }));
+  rows[y][x] = app.paint;
+  app.level.map = rows.map((r) => r.join(''));
+  $('solveOut').textContent = '';
+}
+function cellFromEvent(e) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / TS), y = Math.floor((e.clientY - r.top) / TS);
+  return x >= 0 && x < W && y >= 0 && y < H ? { x, y } : null;
+}
+cv.addEventListener('pointerdown', (e) => { if (!app.editing) return; painting = true; cv.setPointerCapture(e.pointerId); const c = cellFromEvent(e); if (c) paintAt(c.x, c.y); });
+cv.addEventListener('pointermove', (e) => {
+  if (!app.editing) { hover = null; return; }
+  hover = cellFromEvent(e); if (painting && hover) paintAt(hover.x, hover.y);
+});
+cv.addEventListener('pointerup', () => { painting = false; });
+cv.addEventListener('pointerleave', () => { hover = null; });
+
+$('edName').oninput = (e) => { app.level.name = e.target.value; };
+$('edPlay').onclick = playtest;
+$('edSolve').onclick = () => {
+  const t0 = performance.now();
+  const { solutions, explored, gemTotal: gems } = solve(app.level);
+  const ms = Math.round(performance.now() - t0);
+  const names = (s) => s.map((id) => CARDS[id].label).join(' → ') + (gems ? `  (◆${s.gems})` : '');
+  solutions.sort((a, b) => b.gems - a.gems || a.length - b.length);   // gem routes first
+  const allGems = solutions.filter((x) => x.gems === gems).length;
+  $('solveOut').textContent = solutions.length
+    ? `${solutions.length}${solutions.length >= 200 ? '+' : ''} solution(s) (${explored} card plays checked, ${ms}ms).\n` +
+      (gems ? `${allGems} of them collect all ${gems} gem(s)${allGems && allGems < solutions.length ? ' — a proper "hard way"' : allGems ? ' — gems are unavoidable, so no challenge' : ' — gems are unreachable'}.\n` : '') +
+      solutions.slice(0, 4).map((s, i) => `${i + 1}. ${names(s)}`).join('\n') + (solutions.length > 4 ? '\n…' : '')
+    : `No solution found (${explored} card plays checked).`;
+};
+$('edSave').onclick = () => {
+  if (app.levelKey[0] === 'c') app.custom[+app.levelKey.slice(1)] = clone(app.level);
+  else { if (BUILTIN_LEVELS.some((l) => l.name === app.level.name)) app.level.name += ' (copy)'; app.custom.push(clone(app.level)); app.levelKey = 'c' + (app.custom.length - 1); }
+  store.set('cardclimber.custom', app.custom);
+  refreshLevelSelect(); renderEditor();
+  $('solveOut').textContent = 'Saved to this browser.';
+};
+$('edNew').onclick = () => {
+  app.level = { name: 'My Level', map: [...Array(H - 2).fill('.'.repeat(W)), 'P.............G.', '#'.repeat(W)], cards: ['walk3'] };
+  app.levelKey = 'new'; refreshLevelSelect(); renderEditor();
+};
+$('edDelete').onclick = () => {
+  if (app.levelKey[0] !== 'c' || !confirm(`Delete "${app.level.name}"?`)) return;
+  app.custom.splice(+app.levelKey.slice(1), 1); store.set('cardclimber.custom', app.custom);
+  loadLevel('b0'); renderEditor();
+};
+$('edIO').onclick = () => {
+  $('ioText').value = JSON.stringify(app.level, null, 1).replace(/\n\s+"(?=[^\n]*",?\n)/g, '\n  "').replace(/\[\n\s+/g, '[\n  ');
+  $('ioDlg').showModal();
+};
+$('ioClose').onclick = () => $('ioDlg').close();
+$('ioCopy').onclick = () => { navigator.clipboard?.writeText($('ioText').value); };
+$('ioImport').onclick = () => {
+  try {
+    const l = JSON.parse($('ioText').value);
+    if (!Array.isArray(l.map) || !Array.isArray(l.cards)) throw new Error('needs "map" and "cards" arrays');
+    const bad = l.cards.find((c) => !CARDS[c]); if (bad) throw new Error('unknown card "' + bad + '"');
+    app.level = { name: l.name || 'Imported', map: l.map, cards: l.cards };
+    app.levelKey = 'new'; refreshLevelSelect(); renderEditor(); $('ioDlg').close();
+  } catch (err) { alert('Could not import: ' + err.message); }
+};
+
+/* =====================================================================
+   Wiring
+   ===================================================================== */
+$('levelSel').onchange = (e) => { app.playtesting = false; loadLevel(e.target.value); if (app.editing) setEditing(true); };
+$('editBtn').onclick = () => setEditing(!app.editing);
+document.querySelectorAll('#modeSeg button').forEach((b) => b.onclick = () => {
+  if (app.running) return;
+  const was = app.mode;
+  app.mode = b.dataset.mode; store.set('cardclimber.mode', app.mode);
+  if (was === 'time') { app.ta = null; document.body.classList.remove('paused'); }
+  if (app.mode === 'run') return Run.start();
+  if (app.mode === 'time') return TimeAttack.start();
+  if (app.mode === 'quest') return Quest.start();
+  if (was === 'run' || was === 'time' || was === 'quest') return loadLevel(BUILTIN_LEVELS.length ? 'b0' : 'c0');
+  app.hand = app.level.cards.map((id) => ({ uid: uidSeq++, id })); app.seq = []; app.played = []; app.history = [];
+  resetRun();
+});
+document.querySelector(CONFIG.features.shopRun ? '[data-mode=run]' : '[data-mode=quest]').remove();
+if (!CONFIG.features.runMode) document.querySelector('[data-mode=run], [data-mode=quest]')?.remove();
+document.querySelector(CONFIG.features.timeAttack ? '[data-mode=instant]' : '[data-mode=time]').remove();
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea') || app.editing) return;
+  if (e.key === 'Enter' && app.mode === 'plan') Plan.play();
+  if (e.key === 'r' && (app.mode === 'plan' || app.mode === 'instant')) app.mode === 'plan' ? Plan.reset() : Instant.restart();
+  if (app.mode === 'time') {
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && app.hand[n - 1]) TimeAttack.clickHand(app.hand[n - 1].uid);
+    if (e.key === ' ') { e.preventDefault(); TimeAttack.redraw(); }
+    if (e.key === 'p' || e.key === 'Escape') TimeAttack.pause();
+  }
+  if (e.key === 'Backspace' && app.mode === 'plan' && Slots.filled().length) Plan.clickSeq(app.seq[Slots.lastFilled()].uid);
+  if ((e.key === 'z' || e.key === 'u') && app.mode === 'instant') Instant.undo();
+});
+new ResizeObserver(resize).observe($('stage'));
+
+if (((app.mode === 'run' || app.mode === 'quest') && !CONFIG.features.runMode) || (app.mode === 'time' && !CONFIG.features.timeAttack)
+  || (app.mode === 'run' && CONFIG.features.shopRun) || (app.mode === 'quest' && !CONFIG.features.shopRun)
+  || (app.mode === 'instant' && CONFIG.features.timeAttack)) app.mode = CONFIG.turnMode;
+loadLevel('b0');
+if (app.mode === 'run') Run.start();
+if (app.mode === 'time') TimeAttack.start();
+if (app.mode === 'quest') Quest.start();
+resize();
+requestAnimationFrame(draw);

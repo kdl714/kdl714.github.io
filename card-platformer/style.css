@@ -1,0 +1,191 @@
+/* Card Climber — styles. Phone layouts are at the bottom. */
+
+:root {
+  --bg: #1d2333; --panel: #262d40; --panel2: #2f3750; --text: #eef1f8; --muted: #9aa3bb;
+  --accent: #ffcc33; --good: #5cd18b; --bad: #ff6b6b; --line: #3c4562;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+button, .card { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+@media (hover: hover) { button:hover:not(:disabled) { border-color: var(--accent); } }
+button:active:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: #1d2333; border-color: var(--accent); font-weight: 600; }
+select, input, textarea { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+
+header { display: flex; gap: 10px; align-items: center;
+  padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 16px; margin: 0 8px 0 0; color: var(--accent); }
+header .spacer { flex: 1; }
+.sm { display: none; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button.on { background: var(--accent); color: #1d2333; font-weight: 600; }
+
+#stage { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; padding: 8px 16px; }
+#cv { display: block; border-radius: 8px; box-shadow: 0 4px 20px #0006; touch-action: none; }
+#banner { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: #1d2333ee; border: 2px solid var(--accent);
+  border-radius: 10px; padding: 16px 24px; text-align: center; display: none; min-width: 240px; }
+#banner h2 { margin: 0 0 6px; font-size: 20px; }
+#banner p { margin: 0 0 12px; color: var(--muted); white-space: pre-line; }
+#banner .row { display: flex; gap: 8px; justify-content: center; }
+#rotateHint { display: none; color: var(--muted); font-size: 11px; text-align: center; }
+#hud { position: absolute; left: 24px; top: 14px; font-size: 12px; background: #0007; padding: 3px 8px; border-radius: 4px; pointer-events: none; }
+
+#deck { flex: 0 0 auto; max-height: 45vh; background: var(--panel); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+#play { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; }
+#play .lanes { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#seqActions { flex-direction: column; justify-content: center; }
+#seqActions button { width: 100%; }
+.lane { display: flex; align-items: center; gap: 10px; }
+.lane-label { width: 72px; flex-shrink: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.cards { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-height: 94px; align-items: center; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.card { width: 80px; height: 92px; background: #f6f1e4; color: #2a2a2a; border-radius: 8px; border: 2px solid #d8cfb8; display: flex; flex-direction: column;
+  align-items: center; justify-content: space-between; padding: 5px 3px; cursor: pointer; user-select: none; position: relative; transition: transform .1s; }
+@media (hover: hover) { .card:hover { transform: translateY(-3px); border-color: var(--accent); } }
+.card:active { transform: translateY(-3px); border-color: var(--accent); }
+.card .nm { font-weight: 700; font-size: 12px; white-space: nowrap; }
+.card .pic { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.card .pic svg { max-width: 100%; max-height: 100%; }
+.chip { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; background: #f6f1e4; border-radius: 4px;
+  padding: 2px 4px; margin: 0 1px; height: 24px; }
+.chip svg { height: 18px; width: auto; }
+.card svg { display: block; }
+.card .idx { position: absolute; top: -8px; left: -8px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 50%;
+  width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+.card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+.card.hinted { border-color: #4fd8e8; box-shadow: 0 0 0 3px #4fd8e8; }
+.card .key { position: absolute; top: 2px; right: 4px; font-size: 9px; color: #9a917c; }
+#hintBox { display: none; background: #4fd8e81a; border: 1px solid #4fd8e866; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+#timer { display: none; height: 6px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+#timer i { display: block; height: 100%; width: 0; background: var(--accent); }
+.card.cycling { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad); }
+.peek { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.peek b { font-weight: 600; font-size: 10px; background: #f6f1e4; color: #2a2a2a; border-radius: 4px; padding: 1px 5px; text-transform: none; letter-spacing: 0; }
+#banner .reward { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; }
+#banner .reward .label { font-size: 12px; color: var(--muted); }
+#banner .reward .extra { margin-bottom: 0; flex-wrap: wrap; }
+canvas.mini { border-radius: 4px; max-width: 100%; }
+.offer { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px; }
+.offer small { font-size: 10.5px; color: var(--muted); text-align: center; line-height: 1.2; }
+#banner { max-height: calc(100% - 8px); overflow: auto; }
+#banner.wide { position: fixed; z-index: 10; width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-shadow: 0 10px 40px #000a; }
+#shopLane { display: none; }
+.card .price { position: absolute; top: -8px; right: -8px; background: #4fd8e8; color: #10333a; font-weight: 700; font-size: 11px; border-radius: 10px; padding: 1px 6px; }
+.card .sell { position: absolute; bottom: -8px; right: -6px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-size: 10px; border-radius: 10px; padding: 1px 6px; cursor: pointer; }
+.card.cant { opacity: .4; cursor: not-allowed; }
+body.paused #cv { filter: blur(16px) brightness(.6); }
+body.endless #hud { margin-top: 8px; }    /* leave room for the timer strip on the canvas */
+body.paused #hud, body.paused #hand .card, body.paused #seq .card { visibility: hidden; }
+.drag-ghost { position: fixed; z-index: 50; pointer-events: none; margin: 0; transform: scale(1.08) rotate(-2deg);
+  box-shadow: 0 12px 28px #000a; border-color: var(--accent); transition: none; }
+.drag-ghost.out { border-color: var(--bad); opacity: .85; }
+.drag-ghost.out::after { content: attr(data-out); position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  background: var(--bad); color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; }
+.card.dragging { opacity: .3; }
+#dropMarker { display: none; position: fixed; z-index: 51; width: 4px; border-radius: 2px; background: var(--accent); pointer-events: none; box-shadow: 0 0 8px var(--accent); }
+#seq.drop-target { outline: 2px dashed #ffcc3388; outline-offset: 4px; border-radius: 8px; }
+#perkBar { display: none; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+#perkBar span { background: #5b3fd133; border: 1px solid #5b3fd1aa; color: var(--text); border-radius: 12px; padding: 2px 8px; }
+#banner .routes { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.route { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 150px; padding: 10px 8px; text-align: center; }
+.route b { font-size: 15px; }
+.route small { color: var(--muted); font-size: 11px; line-height: 1.25; }
+.route .icon { font-size: 30px; height: 63px; display: flex; align-items: center; color: var(--accent); }
+.route.risky b { color: var(--bad); } .route.safe b { color: var(--good); } .route.perk b { color: #b8a6ff; }
+.route.perk { width: 160px; min-height: 90px; justify-content: center; }
+.played-count { color: var(--muted); font-size: 12px; align-self: center; }
+.card.done { opacity: .5; }
+.lane-label small { display: block; text-transform: none; letter-spacing: 0; margin-top: 4px; }
+#banner .extra { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.card.failed { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad); }
+.slot { width: 80px; height: 92px; border: 2px dashed var(--line); border-radius: 8px; flex-shrink: 0; }
+.slot.gap { border-color: var(--bad); background: #ff6b6b14; }
+.slot.drop-here, .card.drop-here { outline: 3px solid var(--accent); outline-offset: 2px; }
+.lane-label small.warn { color: var(--bad); font-weight: 600; }
+.locked .card { cursor: default; }
+.locked .card:hover, .locked .card:active { transform: none; }
+
+/* Editor */
+#editor { display: none; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+#editor .group { display: flex; flex-direction: column; gap: 6px; }
+#editor .group > b { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.tiles { display: flex; gap: 4px; flex-wrap: wrap; max-width: 300px; }
+.tiles button { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+.tiles button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tiles i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.cardcounts { display: grid; grid-template-columns: auto auto auto auto; gap: 3px 6px; align-items: center; font-size: 12px; }
+.cardcounts button { padding: 0 7px; }
+.cardcounts span.n { min-width: 14px; text-align: center; }
+#solveOut { font-size: 12px; color: var(--muted); max-width: 320px; white-space: pre-wrap; }
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; width: min(640px, 92vw); }
+dialog textarea { width: 100%; height: 280px; font: 12px/1.35 ui-monospace, Menlo, monospace; }
+dialog::backdrop { background: #0008; }
+
+/* Phones, portrait: stack everything; game on top, cards below */
+@media (max-width: 600px) {
+  header { gap: 6px; flex-wrap: nowrap; padding-bottom: 6px; }
+  header h1 { display: none; }
+  header .spacer { display: none; }
+  .lg { display: none; } .sm { display: inline; }
+  #levelSel { flex: 1 1 0; min-width: 0; max-width: 46vw; padding: 5px 6px; text-overflow: ellipsis; }
+  .seg button, #editBtn { padding: 6px 9px; }
+  /* card rows scroll sideways instead of stacking */
+  .cards { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 0; padding: 10px 6px 8px 8px; margin: -6px -4px 0;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .cards::-webkit-scrollbar { display: none; }
+  .card, .slot { flex: 0 0 auto; }
+  .cards > span { flex: 1 1 auto; min-width: 0; white-space: normal; }
+  /* Endless: the hand fills the width of the phone with big cards */
+  body.endless #hand { display: grid; grid-template-columns: repeat(var(--hand, 4), 1fr); gap: 8px; overflow: visible; margin: 0; padding: 10px 0 4px; }
+  body.endless #hand .card { width: auto; height: 124px; }
+  body.endless #hand .card .nm { font-size: 14px; }
+  body.endless #hand .card .key { font-size: 11px; }
+  body.endless #hand .card .pic { align-self: stretch; }
+  body.endless #hand .card .pic svg { transform: scale(var(--pic, 1.25)); }   /* same scale on every card, so tile sizes stay comparable */
+  #deck { gap: 6px; padding-top: 8px; }
+  #play { gap: 6px; }
+  #play .lanes { gap: 4px; }
+  .lane-label small { display: inline; margin: 0 0 0 6px; }
+  select, input, textarea { font-size: 16px; }   /* stops iOS zooming in on focus */
+  #stage { flex: 0 0 auto; padding: 8px; flex-direction: column; gap: 6px; }
+  #deck { flex: 1 1 auto; max-height: none; }
+  #hud { left: 14px; top: 12px; font-size: 10px; }
+  .lane-label { width: auto; }
+  .lane { flex-direction: column; align-items: stretch; gap: 0; }
+  .card, .slot { width: 62px; height: 80px; }
+  .card .nm { font-size: 10.5px; }
+  #play { grid-template-columns: 1fr; }
+  #seqActions { flex-direction: row; }
+  #seqActions button { width: auto; flex: 1; padding: 10px 8px; }
+  #banner { width: calc(100% - 24px); min-width: 0; padding: 12px; }
+  #banner .extra .card { width: 70px; }
+}
+@media (max-width: 600px) and (pointer: coarse) { #rotateHint { display: block; } }
+/* Phones, landscape: game on the left, cards in a scrolling column on the right */
+@media (orientation: landscape) and (max-height: 500px) {
+  body { display: grid; grid-template-columns: 1fr minmax(240px, 36%); grid-template-rows: auto minmax(0, 1fr); }
+  header { grid-column: 1 / -1; padding-top: 6px; padding-bottom: 6px; }
+  header h1 { display: none; }
+  select, input, textarea { font-size: 16px; }
+  #stage { padding: 6px 8px 6px max(8px, env(safe-area-inset-left)); }
+  #deck { max-height: none; border-top: 0; border-left: 1px solid var(--line); padding-top: 8px; }
+  #play { grid-template-columns: 1fr; }
+  .lane { flex-direction: column; align-items: stretch; gap: 4px; }
+  .lane-label { width: auto; }
+  .cards { min-height: 0; gap: 6px; }
+  .card, .slot { width: 58px; height: 74px; }
+  .card .nm { font-size: 10.5px; }
+  #seqActions { flex-direction: row; order: -1; }
+  #seqActions button { width: auto; flex: 1; padding: 8px 6px; }
+  #editor { flex-direction: column; }
+}
