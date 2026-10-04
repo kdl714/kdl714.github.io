@@ -218,10 +218,155 @@ const PUZZLE_PACK = [
     ],
     cards: ['turn', 'jump', 'turn', 'jump', 'walk3', 'jump', 'echo'],
   },
+  {
+    name: '14. On Thin Ice',         // ice carries you until something stops you
+    hint: "Once you're on ice you won't stop until you hit something. That wall at the end is your friend.",
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '.........#......',
+      '.P.......#...G..',
+      '###IIIIII#######',
+    ],
+    cards: ['walk2', 'highjump', 'walk1', 'walk3'],
+  },
+  {
+    name: '15. Boing',               // the door is behind you; the spring is the way up
+    hint: 'The door is behind you, up on that block. What happens if you step on the red pad?',
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '.G..............',
+      '#######.........',
+      '#######.........',
+      '#######.P.......',
+      '#######S#....###',
+    ],
+    cards: ['turn', 'walk3', 'walk3', 'highjump'],
+  },
+  {
+    name: '16. Upstairs',            // zig-zag up through one-way platforms (one solution)
+    hint: 'You can jump up through the wooden platforms and land on top of them. Zig-zag your way up.',
+    map: [
+      '................',
+      '..........G.....',
+      '........=====...',
+      '................',
+      '....=====.......',
+      '................',
+      '........=====...',
+      '.P..............',
+      '################',
+    ],
+    cards: ['walk2', 'walk2', 'walk2', 'highjump', 'turn', 'highjump', 'turn', 'highjump', 'walk2'],
+  },
+  {
+    name: '17. Wall Climber',        // walls far too tall to jump; Climb them
+    hint: 'Those walls are far too tall to jump. Walk right up to one first.',
+    map: [
+      '................',
+      '................',
+      '..........####G.',
+      '..........######',
+      '......##..######',
+      '......##..######',
+      '......##..######',
+      '.P....##..######',
+      '################',
+    ],
+    cards: ['walk1', 'walk3', 'climb', 'walk3', 'climb', 'walk1', 'walk3'],
+  },
+  {
+    name: '18. Night Watch',         // a patroller walks a step every card: jump it or land on it
+    hint: 'The patroller takes a step every time you play a card. Jump over it, or land right on top of it.',
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '.P.......E....G.',
+      '################',
+    ],
+    cards: ['walk2', 'walk3', 'jump', 'walk3', 'walk3'],
+  },
+  {
+    name: '19. Grand Tour',          // spring, platform key, patroller, climb, ice slide to the door
+    hint: 'Spring up to the key, come back down past the patroller, climb the big wall, and let the ice carry you to the door.',
+    map: [
+      '................',
+      '................',
+      '...............G',
+      '............IIII',
+      '....K.......####',
+      '...=====....####',
+      '............####',
+      '.P........E.####',
+      '######S#########',
+    ],
+    cards: ['walk2', 'walk3', 'turn', 'walk3', 'turn', 'walk1', 'walk3', 'walk3', 'climb'],
+  },
+  {
+    name: '20. Bounce Back',         // no Turn card: the bumper is your U-turn
+    hint: "There's no Turn card, but the door is behind you. What happens if you walk into the red pad on that wall?",
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '.G.......P...<..',
+      '######.#########',
+    ],
+    cards: ['walk1', 'walk3', 'walk1', 'jump', 'walk1', 'walk3'],
+  },
+  {
+    name: '21. Mid-Air U-Turn',      // the bumper is too high to walk into, so jump into it (one solution)
+    hint: "That bumper is too high to walk into. You'll have to hit it in mid-air.",
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '...G......<.....',
+      '..####.P..#.....',
+      '################',
+    ],
+    cards: ['walk1', 'jump', 'walk2'],
+  },
+  {
+    name: '22. Rebound',             // floor spring launches you into a high bumper, which throws you onto the ledge
+    hint: "The ledge is too high and behind you. The floor spring can't get you there on its own, but it can get you somewhere useful.",
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '..G.......<.....',
+      '######....#.....',
+      '######....#.....',
+      '######.P..#.....',
+      '#########S######',
+    ],
+    cards: ['walk2', 'walk3'],
+  },
 ];
 
 // Levels that need a switched-off feature are hidden.
 const usesDisabled = (l) => (!CONFIG.features.crates && l.map.some((r) => r.includes('C')))
+  || [['ice', 'I'], ['platforms', '='], ['springs', 'S'], ['enemies', 'E'], ['sideSprings', '>'], ['sideSprings', '<']].some(([f, ch]) => !CONFIG.features[f] && l.map.some((r) => r.includes(ch)))
   || (!CONFIG.features.keys && l.map.some((r) => r.includes('K'))) || l.cards.some((c) => !CARDS[c]);
 const withGemBonus = (l) => CONFIG.features.gems && l.gemBonus?.every((c) => CARDS[c]) ? { ...l, cards: [...l.cards, ...l.gemBonus] } : l;
 const BUILTIN_LEVELS = [...BASE_LEVELS, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);

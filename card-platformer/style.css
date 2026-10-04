@@ -83,6 +83,19 @@ canvas.mini { border-radius: 4px; max-width: 100%; }
 .card .price { position: absolute; top: -8px; right: -8px; background: #4fd8e8; color: #10333a; font-weight: 700; font-size: 11px; border-radius: 10px; padding: 1px 6px; }
 .card .sell { position: absolute; bottom: -8px; right: -6px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-size: 10px; border-radius: 10px; padding: 1px 6px; cursor: pointer; }
 .card.cant { opacity: .4; cursor: not-allowed; }
+/* Endless: the Next card sits above the hand, a little smaller */
+body.endless #seq { justify-content: flex-end; min-height: 0; overflow: visible; }
+#seq .card.preview { width: 56px; height: 70px; opacity: .92; cursor: default; padding: 3px 2px; }
+#seq .card.preview .nm { font-size: 10px; }
+#seq .card.preview .pic svg { transform: scale(.8); }
+#seq .card.preview:hover { transform: none; }
+/* the lucky card the fair deal slips in */
+.card.lucky { border-color: #ffd34d; box-shadow: 0 0 0 2px #ffd34d55, 0 0 12px #ffd34d55; }
+.card.lucky::after { content: '✦'; position: absolute; top: 2px; left: 5px; color: #d9a400; font-size: 12px; }
+/* new cards drop in from the Next slot */
+.card.enter { animation: cardIn .24s ease-out; }
+@keyframes cardIn { from { transform: translateY(-28px) scale(.82); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .card.enter { animation: none; } }
 body.paused #cv { filter: blur(16px) brightness(.6); }
 body.endless #hud { margin-top: 8px; }    /* leave room for the timer strip on the canvas */
 body.paused #hud, body.paused #hand .card, body.paused #seq .card { visibility: hidden; }

@@ -19,12 +19,19 @@ const CONFIG = {
     echo: true,        // "Echo" card: replays the previous card
     crates: true,      // pushable crates (tile C)
     puzzlePack: true,  // levels 3–5, built around echo/crates/decoy cards
-    runMode: true,     // "Roguelite" mode: deck, draws, generated levels, rewards
+    runMode: false,    // "Roguelite" mode (tabled for now: hidden from the menu; set true to bring it back)
     fairGenerator: true, // generated levels respect your deck's card counts and are play-tested with random draws
     keys: true,        // key (K) + locked door: the flag stays locked until you hold every key
     gems: true,        // optional gems (*) off the easy route, plus scoring
     hints: true,       // Plan & Run: optional hints unlock after a failed run
     timeAttack: true,  // replaces "Instant" with an endless, timed runner (off = old Instant mode)
+    ice: true,         // I: ice blocks you slide along
+    platforms: true,   // =: one-way platforms (jump up through, stand on top)
+    springs: true,     // S: springs launch you up 3 and forward 1
+    sideSprings: true, // > <: wall bumpers fling you 4 tiles the way they face
+    cacti: true,       // Y: cacti (deadly, can't be stood on)
+    climb: true,       // the Climb card: up any wall you're facing
+    enemies: true,     // E: patrollers that walk one tile per card
     shopRun: true,     // Roguelite = route map + buy your hand + Plan & Run + perks (off = older deck-draw roguelite)
   },
   // Shop-run roguelite (features.shopRun)
@@ -70,7 +77,12 @@ const CONFIG = {
     terrainRampTiles: 400,       // tiles until the terrain is at full difficulty
     // --- keeping it fair ---
     fairDeal: true,              // every hand has at least one card that moves you forward without dying
-    heartEvery: 60,              // win back a heart every N tiles, up to the max (0 = off)
+    heartEvery: 0,               // win back a heart every N tiles, up to the max (0 = off; rest stops heal instead)
+    // --- biomes: meadow → canyon → peaks, each starting with a rest stop ---
+    biomeLength: 150,            // tiles per biome
+    restLength: 8,               // flat tiles at the start of each biome
+    restHeal: true,              // reaching a rest stop gives back a heart
+    forkChance: 0.08,            // how often an upper lane (one-way platforms over a hazardous stretch) appears
     // --- cards: draw weights (higher = more common); Wait and Echo left out on purpose ---
     pool: { walk1: 3, walk2: 3, walk3: 2, jump: 3, highjump: 2, longjump: 2 },
     animSpeed: 0.6,              // animations play faster than in other modes

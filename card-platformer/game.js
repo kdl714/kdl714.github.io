@@ -92,7 +92,8 @@ const ease = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 // win still play as their own little beats.
 // ---------------------------------------------------------------------
 const MOTION = new Set(['move', 'fall', 'push']);
-const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone']);   // happen mid-motion
+const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone', 'spring', 'stomp', 'bumper']);   // happen mid-motion
+const deathText = (why) => (why === 'pit' ? 'Fell in a pit!' : why === 'enemy' ? 'Caught by a patroller!' : why === 'cactus' ? 'Ouch, a cactus!' : 'Spiked!');
 
 async function animate(ev) {
   let i = 0;
@@ -101,11 +102,15 @@ async function animate(ev) {
       const run = [];
       while (i < ev.length && (MOTION.has(ev[i].k) || ALONG.has(ev[i].k))) run.push(ev[i++]);
       await glide(run);
+    } else if (ev[i].k === 'emove') {
+      const steps = [];                                  // all patrollers step together
+      while (i < ev.length && ev[i].k === 'emove') steps.push(ev[i++]);
+      await patrol(steps);
     } else await beat(ev[i++]);
   }
 }
 
-const groundBelow = (x, y) => y + 1 >= H ? false : wall(app.map, x, y + 1) || app.view.crates.some((c) => !c.gone && Math.round(c.x) === x && Math.round(c.y) === y + 1);
+const groundBelow = (x, y) => y + 1 >= H ? false : wall(app.map, x, y + 1) || tileAt(app.map, x, y + 1) === '=' || app.view.crates.some((c) => !c.gone && Math.round(c.x) === x && Math.round(c.y) === y + 1);
 
 function glide(run) {
   const v = app.view, speed = animSpeed();
@@ -117,7 +122,7 @@ function glide(run) {
     let ms;
     if (e.k === 'fall') { falls++; ms = CONFIG.gravityMs * (Math.sqrt(falls) - Math.sqrt(falls - 1)); }
     else { falls = 0; ms = CONFIG.stepMs * (e.k === 'push' ? 1.3 : e.y < from.y ? .95 : 1); }
-    segs.push({ ms: ms * speed, kind: e.k, push: e.k === 'push' ? e : null,
+    segs.push({ ms: ms * speed, kind: e.k, push: e.k === 'push' ? e : null, slide: !!e.slide,
       ground: e.k !== 'fall' && e.y === from.y && groundBelow(e.x, e.y) && groundBelow(from.x, from.y) });
     pts.push({ x: e.x, y: e.y });
   }
@@ -189,6 +194,7 @@ function glide(run) {
       v.x = p.x; v.y = p.y;
       if (g.push) { const c = v.crates[g.push.i]; c.x = g.push.cx - Math.sign(g.push.cx - g.push.x) * (1 - t); }
       if (g.ground) v.bob = (v.bob || 0) + Math.abs(p.x - prev.x) * Math.PI;   // footsteps
+      if (g.slide && Math.random() < .6) app.particles.push({ x: p.x + .5 - v.dir * .3, y: p.y + .95, vx: -v.dir * (.01 + Math.random() * .02), vy: -.02 - Math.random() * .02, life: .7, color: '#eaf8ff', size: .045 });
       const dt = Math.max(1, now - prev.t) / 1000;
       v.vx = (p.x - prev.x) / dt; v.vy = (p.y - prev.y) / dt;
       v.air = !g.ground;
@@ -207,9 +213,10 @@ function glide(run) {
 function land() {
   const v = app.view;
   v.landT = performance.now();
+  Art.ring(v.x + .5, v.y + 1, '#ffffff', .8);
   for (let i = 0; i < 8; i++) {      // a puff of dust at the feet
     const side = i % 2 ? 1 : -1;
-    app.particles.push({ x: v.x + .5 + side * .2, y: v.y + .95, vx: side * (.02 + Math.random() * .03), vy: -Math.random() * .03, life: .6, color: '#c9b38f' });
+    app.particles.push({ x: v.x + .5 + side * .2, y: v.y + .95, vx: side * (.02 + Math.random() * .03), vy: -Math.random() * .03, life: .6, color: '#d9c7a3', size: .05 });
   }
 }
 
@@ -218,10 +225,29 @@ function dropCrate(i, toY) {
   tween(CONFIG.gravityMs * Math.sqrt(n), (t) => { c.y = fy + (toY - fy) * t * t; }).then(() => { c.y = toY; });
 }
 
+function patrol(steps) {
+  const v = app.view, from = steps.map((e) => ({ ...v.enemies[e.i] }));
+  steps.forEach((e) => { v.enemies[e.i].dir = e.dir; });
+  return tween(CONFIG.stepMs * .9, (t) => {
+    steps.forEach((e, k) => { const en = v.enemies[e.i]; en.x = from[k].x + (e.x - from[k].x) * t; en.step = t; });
+  }).then(() => steps.forEach((e) => { v.enemies[e.i].x = e.x; }));
+}
+
 // Events that just happen (no waiting)
 function beatNow(e) {
   const v = app.view;
   if (e.k === 'tick') v.turn = e.turn;
+  else if (e.k === 'spring') {
+    app.springHit = { x: e.x, y: e.y, t0: performance.now() }; app.flash = { text: 'Boing!', t0: performance.now() };
+    Art.ring(e.x + .5, e.y + .1, '#ffffff', 1.2);
+  } else if (e.k === 'bumper') {            // side spring: pad squashes, you turn and fly
+    app.springHit = { x: e.tx, y: e.ty, t0: performance.now() }; app.flash = { text: 'Boing!', t0: performance.now() };
+    v.dir = e.dir; Art.ring(e.tx + .5 - e.dir * .4, e.ty + .5, '#ffffff', 1);
+  } else if (e.k === 'stomp') {
+    const en = v.enemies[e.i]; en.dead = true; en.deadT = performance.now();
+    for (let k = 0; k < 10; k++) { const a = Math.PI + Math.random() * Math.PI; app.particles.push({ x: e.x + .5, y: e.y + .9, vx: Math.cos(a) * .05, vy: Math.sin(a) * .06, life: 1, color: '#9b6ae0', size: .06, decay: .03 }); }
+    app.flash = { text: 'Squash!', t0: performance.now() }; Art.shake(.05, 160);
+  }
   else if (e.k === 'cgone') v.crates[e.i].gone = true;
   else if (e.k === 'cfall') dropCrate(e.i, e.y);
   else if (e.k === 'double') app.flash = { text: 'Head Start: ×2', t0: performance.now() };
@@ -255,14 +281,14 @@ async function beat(e) {
     app.flash = { text: e.of ? 'Echo!' : 'Echo: nothing to repeat', t0: performance.now() };
     await nap(CONFIG.stepMs * 1.2);
   } else if (e.k === 'die') {
-    v.status = 'dead';
+    v.status = 'dead'; Art.shake(.08, 260);
     burst(e.x, Math.min(e.y, H - 1), '#ff6b6b');
     await tween(260, (t) => { v.ox = Math.sin(t * Math.PI * 6) * .08 * (1 - t); });   // a shudder
     v.ox = 0;
     await nap(250);
   } else if (e.k === 'win') {
     v.status = 'won';
-    burst(e.x, e.y, '#ffcc33'); burst(e.x, e.y, '#5cd18b');
+    burst(e.x, e.y, '#ffcc33'); burst(e.x, e.y, '#5cd18b'); burst(e.x, e.y, '#4fd8e8'); burst(e.x, e.y, '#ff7aa2');
     await tween(420, (t) => { v.oy = -Math.sin(t * Math.PI) * .6; });          // a hop of joy
     v.oy = 0; v.landT = performance.now();
     await nap(150);
@@ -273,7 +299,8 @@ async function playCard(id) {
   const r = runCard(app.map, app.state, id);
   await animate(r.ev);
   app.state = r.state;
-  Object.assign(app.view, { x: r.state.x, y: r.state.y, dir: r.state.dir, turn: r.state.turn, status: r.state.status, got: r.state.got, crates: clone(r.state.crates) });
+  Object.assign(app.view, { x: r.state.x, y: r.state.y, dir: r.state.dir, turn: r.state.turn, status: r.state.status, got: r.state.got, crates: clone(r.state.crates),
+    enemies: (r.state.enemies || []).map((e, i) => ({ ...e, deadT: app.view.enemies?.[i]?.deadT })) });
   return r.state.status;
 }
 
@@ -428,13 +455,14 @@ const TimeAttack = {
     app.map.start.y = app.map.grid.findIndex((r) => r[1] === '#') - 1;
     app.state = initialState(app.map);
     app.view = { ...clone(app.state), ox: 0, oy: 0 }; app.cam = 0; app.particles = [];
-    app.ta = { hearts: T.hearts, dist: 0, gems: 0, deadline: null, limitMs: 0, paused: null, over: false, plays: 0, nextHeart: T.heartEvery };
+    app.ta = { hearts: T.hearts, dist: 0, gems: 0, deadline: null, limitMs: 0, paused: null, over: false, plays: 0, nextHeart: T.heartEvery,
+      next: TimeAttack.pick(), band: 0 };
     $('hand').style.setProperty('--hand', T.handSize);
     $('hand').style.setProperty('--pic', T.handSize >= 5 ? .92 : 1.25);   // card pictures sized to fit the row
     app.hand = []; app.played = []; app.seq = [];
-    TimeAttack.fill();
+    TimeAttack.fill(true);
     renderDeck();
-    showBanner('Endless', `Go as far as you can. Your first ${T.freeCards} moves are free, then you get ${T.startSeconds}s per card, a little less the further you go.\nToo slow or a bad move costs a heart; you win one back every ${T.heartEvery} tiles. Keys 1–${T.handSize} pick cards.`,
+    showBanner('Endless', `Go as far as you can. Your first ${T.freeCards} moves are free, then you get ${T.startSeconds}s per card, a little less the further you go.\nToo slow or a bad move costs a heart${T.restHeal ? `; each new biome (every ${T.biomeLength} tiles) starts with a rest stop that heals one` : ''}. Keys 1–${T.handSize} pick cards.`,
       [['Start', () => { hideBanner(); TimeAttack.arm(); renderDeck(); }]]);
   },
   pick() {
@@ -443,14 +471,32 @@ const TimeAttack = {
     for (const [id, w] of pool) if ((r -= w) < 0) return id;
     return pool[0][0];
   },
-  fill() {
-    while (app.hand.length < CONFIG.timeAttack.handSize) app.hand.push({ uid: uidSeq++, id: TimeAttack.pick() });
-    if (!CONFIG.timeAttack.fairDeal || !app.state) return;
-    // guarantee at least one card that gets you further right without dying
-    const forward = (id) => { const st = runCard(app.map, app.state, id).state; return st.status !== 'dead' && st.x > app.state.x; };
-    if (app.hand.some((c) => forward(c.id))) return;
-    const options = Object.keys(CONFIG.timeAttack.pool).filter((id) => CARDS[id] && forward(id));
-    if (options.length) app.hand[Math.floor(Math.random() * app.hand.length)] = { uid: uidSeq++, id: options[Math.floor(Math.random() * options.length)] };
+  // Deal cards into the hand. Normally the previewed "Next" card comes in. Fair deal: if nothing in
+  // your hand (counting that card) would move you forward safely, a lucky card cuts in ahead of it
+  // instead, so cards you've already seen never change. fresh = a whole new hand (start, redraw, timeout).
+  fill(fresh = false) {
+    const T = CONFIG.timeAttack, ta = app.ta, ids = Object.keys(T.pool).filter((id) => CARDS[id]);
+    const outcome = (id) => app.state && runCard(app.map, app.state, id).state;
+    const forward = (id) => { const st = outcome(id); return st && st.status !== 'dead' && st.x > app.state.x; };
+    const safe = (id) => { const st = outcome(id); return st && st.status !== 'dead'; };
+    const luckyCard = () => {                    // something that moves you on, or at least won't kill you
+      const opts = ids.filter(forward), pool = opts.length ? opts : ids.filter(safe);
+      return pool.length ? { uid: uidSeq++, id: pool[Math.floor(Math.random() * pool.length)], lucky: true } : null;
+    };
+    app.enter = new Set();
+    while (app.hand.length < T.handSize) {
+      let card = null;
+      if (!fresh && ta?.next) {
+        const last = app.hand.length === T.handSize - 1;
+        if (T.fairDeal && last && !app.hand.some((c) => forward(c.id)) && !forward(ta.next)) card = luckyCard();
+        if (!card) { card = { uid: uidSeq++, id: ta.next }; ta.next = TimeAttack.pick(); }
+      } else card = { uid: uidSeq++, id: TimeAttack.pick() };
+      app.hand.push(card); app.enter.add(card.uid);
+    }
+    if (fresh && T.fairDeal && app.state && !app.hand.some((c) => forward(c.id))) {
+      const lucky = luckyCard();                  // the whole hand is brand new, so the last card can be the lucky one
+      if (lucky) { app.hand[app.hand.length - 1] = lucky; app.enter.add(lucky.uid); }
+    }
   },
   arm() {
     const T = CONFIG.timeAttack, ta = app.ta;
@@ -471,7 +517,7 @@ const TimeAttack = {
   timeout() {
     app.ta.deadline = null;
     app.flash = { text: 'Too slow! −♥', t0: performance.now() };
-    app.hand = []; TimeAttack.fill();
+    app.hand = []; TimeAttack.fill(true);
     if (TimeAttack.loseHeart()) TimeAttack.arm();
     renderDeck();
   },
@@ -503,7 +549,7 @@ const TimeAttack = {
     }
     let alive = true;
     if (status === 'dead') {
-      app.flash = { text: (app.state.why === 'pit' ? 'Fell!' : 'Spiked!') + ' −♥', t0: performance.now() };
+      app.flash = { text: (app.state.why === 'pit' ? 'Fell!' : app.state.why === 'enemy' ? 'Caught!' : app.state.why === 'cactus' ? 'Ouch!' : 'Spiked!') + ' −♥', t0: performance.now() };
       alive = TimeAttack.loseHeart();
       if (alive) { app.state = { ...before, got: 0 }; app.view = { ...clone(app.state), ox: 0, oy: 0 }; }
     }
@@ -514,7 +560,17 @@ const TimeAttack = {
       ta.nextHeart += T.heartEvery;
       if (ta.hearts < T.hearts) { ta.hearts++; app.flash = { text: '+♥', t0: performance.now() }; }
     }
-    extendTerrain(app.map, app.state.x + W + 6);
+    // reached a new biome's rest stop: say where you are, and heal a heart
+    const band = Math.floor(app.state.x / (T.biomeLength || 150));
+    if (alive && band > ta.band) {
+      ta.band = band;
+      let text = { meadow: 'Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[biomeAt(app.state.x)];
+      if (T.restHeal && ta.hearts < T.hearts) { ta.hearts++; text += '  +♥'; }
+      app.flash = { text, t0: performance.now() };
+    }
+    for (const e of extendTerrain(app.map, app.state.x + W + 6)) {          // patrollers in newly built terrain
+      app.state.enemies.push({ ...e }); (app.view.enemies = app.view.enemies || []).push({ ...e });
+    }
     app.running = false;
     TimeAttack.fill();
     if (alive) TimeAttack.arm();
@@ -524,7 +580,7 @@ const TimeAttack = {
   // swap the whole hand; the clock keeps running
   redraw() {
     if (app.running || !app.ta?.deadline || app.ta.paused) return;
-    app.hand = []; TimeAttack.fill(); renderDeck();
+    app.hand = []; TimeAttack.fill(true); renderDeck();
   },
   pause() {
     const ta = app.ta;
@@ -674,7 +730,7 @@ const Quest = {
     } else if (status === 'dead' || outOfCards) {
       q.hearts--;
       if (q.hearts <= 0) return Quest.over();
-      const why = status === 'dead' ? (app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!')
+      const why = status === 'dead' ? deathText(app.state.why)
         : app.map.keyMask && !hasAllKeys(app.map, app.state) ? 'The door stayed locked' : "Didn't reach the flag";
       showBanner(why, `−1 ♥ (${q.hearts} left). Your cards are still in your plan: drag to reorder, tap to sell, or buy more, then press Play again.`, [['Try again', resetRun]]);
     }
@@ -788,7 +844,7 @@ const Run = {
   after(status) {
     const r = app.run;
     if (status === 'won') Run.reward();
-    else if (status === 'dead') Run.loseHeart(app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!');
+    else if (status === 'dead') Run.loseHeart(deathText(app.state.why));
     else if (r.steps <= 0) Run.loseHeart('Out of steps');
     else if (status === 'playing' && !canFinish(app.map, app.state, [...new Set(r.deck.map((c) => c.id))], r.steps)) {
       // soft-lock: no combination of your cards reaches the flag any more, so say so now
@@ -982,7 +1038,7 @@ function finishCheck(status, outOfCards, unused) {
   } else if (status === 'dead') {
     if (app.mode === 'plan') app.fails++;
     const hint = Hints.available() ? [[`💡 Hint`, () => { hideBanner(); Hints.next(); }]] : [];
-    showBanner(app.state.why === 'pit' ? 'Fell in a pit!' : 'Spiked!', 'Rearrange your cards and try again.' + (hint.length ? '\nStuck? A hint is available (optional).' : ''), [...retry, ...hint]);
+    showBanner(deathText(app.state.why), 'Rearrange your cards and try again.' + (hint.length ? '\nStuck? A hint is available (optional).' : ''), [...retry, ...hint]);
   } else if (outOfCards) {
     if (app.mode === 'plan') app.fails++;
     const hint = Hints.available() ? [[`💡 Hint`, () => { hideBanner(); Hints.next(); }]] : [];
@@ -1020,73 +1076,44 @@ function draw() {
   const map = app.editing ? parseLevel(app.level) : app.map;
   const v = app.view;
   const turn = app.editing ? 0 : v.turn;
-  // sky
-  const g = ctx.createLinearGradient(0, 0, 0, H * TS);
-  g.addColorStop(0, '#7ec8f7'); g.addColorStop(1, '#d8f0ff');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W * TS, H * TS);
-  // clouds (decor)
-  ctx.fillStyle = '#ffffffaa';
-  [[2, 1.2], [9, .8], [13, 2]].forEach(([cx, cy]) => {
-    ctx.beginPath(); ctx.ellipse(cx * TS, cy * TS, TS * .9, TS * .3, 0, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.ellipse((cx + .5) * TS, (cy - .2) * TS, TS * .6, TS * .3, 0, 0, 7); ctx.fill();
-  });
-  // camera: follows the player on maps wider than the screen (Time Attack)
+  // camera: follows the player on maps wider than the screen (Endless)
   const camTarget = Math.max(0, Math.min(map.w - W, (app.editing ? 0 : v.x) - 4));
   app.cam += (camTarget - app.cam) * .12;
   if (Math.abs(camTarget - app.cam) < .01) app.cam = camTarget;
   const x0 = Math.floor(app.cam), x1 = Math.min(map.w, x0 + W + 1);
-  ctx.save(); ctx.translate(-app.cam * TS, 0);
-  // grid lines (helps planning)
-  ctx.strokeStyle = '#0000000d'; ctx.lineWidth = 1;
-  for (let x = x0 + 1; x < x1; x++) { ctx.beginPath(); ctx.moveTo(x * TS + .5, 0); ctx.lineTo(x * TS + .5, H * TS); ctx.stroke(); }
-  for (let y = 1; y < H; y++) { ctx.beginPath(); ctx.moveTo(x0 * TS, y * TS + .5); ctx.lineTo(x1 * TS, y * TS + .5); ctx.stroke(); }
-
-  for (let y = 0; y < H; y++) for (let x = x0; x < x1; x++) {
-    const c = map.grid[y][x], px = x * TS, py = y * TS;
-    if (c === '#') {
-      ctx.fillStyle = '#8b5a2b'; ctx.fillRect(px, py, TS, TS);
-      ctx.fillStyle = '#7a4d23'; ctx.fillRect(px + TS * .15, py + TS * .5, TS * .2, TS * .15); ctx.fillRect(px + TS * .6, py + TS * .75, TS * .2, TS * .12);
-      if (y === 0 || map.grid[y - 1][x] !== '#') { ctx.fillStyle = '#5cb85c'; ctx.fillRect(px, py, TS, TS * .22); ctx.fillStyle = '#4a9e4a'; ctx.fillRect(px, py + TS * .18, TS, TS * .05); }
-    } else if (c === '^' || c === 't') {
-      const up = c === '^' || turn % 2 === 1;
-      const h = up ? .55 : .14;
-      ctx.fillStyle = c === '^' ? '#cfd5df' : (up ? '#ff8c42' : '#c9774a');
-      ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = Math.max(1, TS / 30);
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(px + TS * (i / 3), py + TS); ctx.lineTo(px + TS * (i / 3 + 1 / 6), py + TS * (1 - h)); ctx.lineTo(px + TS * ((i + 1) / 3), py + TS);
-        ctx.closePath(); ctx.fill(); ctx.stroke();
-      }
-      if (c === 't') { ctx.fillStyle = '#3a3f4b'; ctx.font = `${Math.floor(TS * .28)}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(up ? 'UP' : 'down', px + TS / 2, py + TS * .3); }
-    }
+  // background (art.js): themed sky + parallax layers; Endless cross-fades between themes
+  const tname = Art.themeName(), px = app.editing ? W / 2 : v.x;
+  if (app.mode === 'time') {
+    const pos = app.cam + W / 2, f = pos % ENDLESS_THEME_TILES, band = Math.floor(pos / ENDLESS_THEME_TILES);
+    if (band > 0 && f < 12) { Art.background(ctx, ENDLESS_THEME_ORDER[(band - 1) % 3], app.cam, px); ctx.globalAlpha = f / 12; }
   }
+  Art.background(ctx, tname, app.cam, px);
+  ctx.globalAlpha = 1;
+  const [shx, shy] = Art.shakeOffset();
+  ctx.save(); ctx.translate(-app.cam * TS + shx, shy);
+  Art.grid(ctx, x0, x1);
+  Art.tiles(ctx, map, x0, x1, turn);
+  for (const sg of map.signs || []) if (sg.x >= x0 - 2 && sg.x <= x1 + 2) Art.sign(ctx, sg);
   // keys and gems (collected ones disappear)
   const got = app.editing ? 0 : v.got;
   const bob = Math.sin(performance.now() / 300) * TS * .05;
-  map.items.forEach((it, i) => { if (!(got & (1 << i))) (it.t === 'K' ? drawKey : drawGem)(it.x * TS, it.y * TS + bob); });
+  map.items.forEach((it, i) => { if (!(got & (1 << i))) (it.t === 'K' ? Art.key : Art.gem)(ctx, it.x * TS, it.y * TS + bob); });
   // goal: a locked door while keys are missing, otherwise the flag
-  if (map.goal.x >= 0 && map.keyMask && !hasAllKeys(map, { got })) drawDoor(map.goal.x * TS, map.goal.y * TS);
-  else if (map.goal.x >= 0) {
-    const gx = map.goal.x * TS, gy = map.goal.y * TS;
-    ctx.fillStyle = '#555'; ctx.fillRect(gx + TS * .3, gy + TS * .08, TS * .07, TS * .92);
-    const wave = Math.sin(performance.now() / 250) * TS * .04;
-    ctx.fillStyle = '#e8434b'; ctx.beginPath();
-    ctx.moveTo(gx + TS * .37, gy + TS * .1); ctx.lineTo(gx + TS * .85, gy + TS * .25 + wave); ctx.lineTo(gx + TS * .37, gy + TS * .42); ctx.fill();
-  }
-  // crates
-  for (const c of (app.editing ? map.crates : v.crates)) if (!c.gone) drawCrate(c.x, c.y);
-  // player
+  if (map.goal.x >= 0 && map.keyMask && !hasAllKeys(map, { got })) Art.door(ctx, map.goal.x * TS, map.goal.y * TS);
+  else if (map.goal.x >= 0) Art.flag(ctx, map.goal.x * TS, map.goal.y * TS);
+  // soft shadows, then crates, patrollers and the player
+  const crates = app.editing ? map.crates : v.crates, enemies = app.editing ? map.enemies || [] : v.enemies || [];
+  for (const c of crates) if (!c.gone) Art.shadow(ctx, map, [], c.x, c.y, .9);
+  for (const en of enemies) if (!en.dead) Art.shadow(ctx, map, crates, en.x, en.y, .8);
+  if (!app.editing) Art.shadow(ctx, map, crates, v.x + v.ox, v.y + v.oy, .7);
+  for (const c of crates) if (!c.gone) Art.crate(ctx, c.x, c.y);
+  enemies.forEach((en, i) => {
+    if (en.dead && (!en.deadT || performance.now() - en.deadT > 600)) return;
+    Art.slime(ctx, en.x, en.y, en.dir, en.dead ? Math.min(1, (performance.now() - en.deadT) / 600) : -1, en.step || 0, i);
+  });
   if (app.editing) drawPlayer(map.start.x, map.start.y, 1, 'playing', .9);
   else drawPlayer(v.x + v.ox, v.y + v.oy, v.dir, v.status, 1, playerFx(v));
-
-  // particles
-  app.particles = app.particles.filter((p) => p.life > 0);
-  for (const p of app.particles) {
-    p.x += p.vx; p.y += p.vy; p.vy += .006; p.life -= .02;
-    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
-    ctx.fillRect(p.x * TS - 3, p.y * TS - 3, 6, 6);
-  }
-  ctx.globalAlpha = 1;
+  Art.effects(ctx, map, got);
 
   // floating text (e.g. what Echo repeated)
   if (app.flash && !app.editing) {
@@ -1104,6 +1131,8 @@ function draw() {
     ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 2; ctx.strokeRect(hover.x * TS + 1, hover.y * TS + 1, TS - 2, TS - 2);
   }
   ctx.restore();
+  Art.ambient(ctx, tname);
+  Art.vignette(ctx);
   const run = app.mode === 'run' && app.run, ta = app.mode === 'time' && app.ta, q = app.mode === 'quest' && app.q;
   if (ta) {
     TimeAttack.tick();
@@ -1179,39 +1208,19 @@ function drawMini(level, canvas, t = 9) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const ch = m.grid[y][x];
     if (ch === '#') { c.fillStyle = y && m.grid[y - 1][x] !== '#' ? '#5cb85c' : '#8b5a2b'; c.fillRect(x * t, y * t, t, t); }
+    if (ch === 'I') { c.fillStyle = '#bfe8ff'; c.fillRect(x * t, y * t, t, t); }
+    if (ch === 'S') { c.fillStyle = '#e8434b'; c.fillRect(x * t, y * t + t * .2, t, t * .8); }
+    if (ch === '=') { c.fillStyle = '#a0703c'; c.fillRect(x * t, y * t, t, t * .3); }
+    if (ch === 'Y') { c.fillStyle = '#4f9a4a'; c.fillRect(x * t + t * .3, y * t, t * .4, t); }
+    if (ch === '>' || ch === '<') { c.fillStyle = '#4d5363'; c.fillRect(x * t, y * t, t, t); c.fillStyle = '#e8434b'; c.fillRect(x * t + (ch === '>' ? t * .7 : 0), y * t, t * .3, t); }
     if (ch === '^' || ch === 't') { c.fillStyle = ch === '^' ? '#cfd5df' : '#ff8c42'; c.beginPath(); c.moveTo(x * t, y * t + t); c.lineTo(x * t + t / 2, y * t + t * .3); c.lineTo(x * t + t, y * t + t); c.fill(); }
   }
   const dot = (x, y, col) => { c.fillStyle = col; c.fillRect(x * t + t * .2, y * t + t * .2, t * .6, t * .6); };
   m.crates.forEach((k) => dot(k.x, k.y, '#c68a3f'));
+  (m.enemies || []).forEach((k) => dot(k.x, k.y, '#8e5bd6'));
   m.items.forEach((it) => dot(it.x, it.y, it.t === 'K' ? '#ffcc33' : '#4fd8e8'));
   dot(m.goal.x, m.goal.y, m.keyMask ? '#7a4d23' : '#e8434b');
   dot(m.start.x, m.start.y, '#ffcc33');
-}
-function drawKey(px, py) {
-  ctx.strokeStyle = '#8a6400'; ctx.fillStyle = '#ffcc33'; ctx.lineWidth = Math.max(1.5, TS / 18);
-  ctx.beginPath(); ctx.arc(px + TS * .32, py + TS * .5, TS * .16, 0, 7); ctx.fill(); ctx.stroke();
-  ctx.fillRect(px + TS * .46, py + TS * .45, TS * .38, TS * .1); ctx.strokeRect(px + TS * .46, py + TS * .45, TS * .38, TS * .1);
-  ctx.fillRect(px + TS * .66, py + TS * .55, TS * .07, TS * .14); ctx.fillRect(px + TS * .77, py + TS * .55, TS * .07, TS * .1);
-  ctx.fillStyle = '#8a6400'; ctx.beginPath(); ctx.arc(px + TS * .32, py + TS * .5, TS * .06, 0, 7); ctx.fill();
-}
-function drawGem(px, py) {
-  const cx = px + TS / 2, cy = py + TS / 2, r = TS * .26;
-  ctx.fillStyle = '#4fd8e8'; ctx.strokeStyle = '#1b6f7a'; ctx.lineWidth = Math.max(1.5, TS / 20);
-  ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r * .8, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r * .8, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#ffffffcc'; ctx.beginPath(); ctx.moveTo(cx - r * .3, cy - r * .3); ctx.lineTo(cx, cy - r * .7); ctx.lineTo(cx + r * .1, cy - r * .3); ctx.closePath(); ctx.fill();
-}
-function drawDoor(px, py) {
-  ctx.fillStyle = '#7a4d23'; ctx.strokeStyle = '#3a2410'; ctx.lineWidth = Math.max(1.5, TS / 18);
-  ctx.beginPath(); ctx.moveTo(px + TS * .18, py + TS); ctx.lineTo(px + TS * .18, py + TS * .3);
-  ctx.arc(px + TS * .5, py + TS * .3, TS * .32, Math.PI, 0); ctx.lineTo(px + TS * .82, py + TS); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#ffcc33'; ctx.fillRect(px + TS * .4, py + TS * .5, TS * .2, TS * .16);                      // padlock body
-  ctx.strokeStyle = '#ffcc33'; ctx.beginPath(); ctx.arc(px + TS * .5, py + TS * .5, TS * .07, Math.PI, 0); ctx.stroke(); // shackle
-}
-function drawCrate(x, y) {
-  const px = x * TS, py = y * TS, i = TS * .06;
-  ctx.fillStyle = '#c68a3f'; ctx.strokeStyle = '#6b4416'; ctx.lineWidth = Math.max(1.5, TS / 18);
-  ctx.fillRect(px + i, py + i, TS - 2 * i, TS - 2 * i); ctx.strokeRect(px + i, py + i, TS - 2 * i, TS - 2 * i);
-  ctx.beginPath(); ctx.moveTo(px + i, py + i); ctx.lineTo(px + TS - i, py + TS - i); ctx.moveTo(px + TS - i, py + i); ctx.lineTo(px + i, py + TS - i); ctx.stroke();
 }
 function roundRect(x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -1223,6 +1232,7 @@ function roundRect(x, y, w, h, r) {
    ===================================================================== */
 function cardIcon(id, card = CARDS[id]) {
   if (card.echo) return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M32 12a12 12 0 1 0 3 10" fill="none" stroke="#5b3fd1" stroke-width="3" stroke-linecap="round"/><path d="M34 4v9h-9" fill="none" stroke="#5b3fd1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="22" y="25" font-size="10" font-weight="700" text-anchor="middle" fill="#5b3fd1">×2</text></svg>';
+  if (card.moves[0].type === 'climb') return '<svg width="44" height="40" viewBox="0 0 44 40"><rect x="22" y="14" width="14" height="25" rx="2" fill="#8b5a2b"/><rect x="22" y="14" width="14" height="4" fill="#5cb85c"/><rect x="8" y="29" width="10" height="10" rx="2" fill="#ffcc33"/><path d="M13 29V7h16v3" fill="none" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="10" r="2.5" fill="#2a2a2a"/></svg>';
   if (card.moves[0].type === 'turn') return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M10 14h22l-6-6M34 26H12l6 6" fill="none" stroke="#2a2a2a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   if (card.moves[0].type === 'wait') return '<svg width="44" height="40" viewBox="0 0 44 40"><path d="M14 6h16M14 34h16M16 6c0 10 12 10 12 14S16 24 16 34M28 6c0 10-12 10-12 14s12 4 12 14" fill="none" stroke="#2a2a2a" stroke-width="2.5" stroke-linecap="round"/></svg>';
   // trace the path on a mini grid
@@ -1266,7 +1276,8 @@ function renderDeck() {
   const quest = app.mode === 'quest';
   const instant = app.mode !== 'plan' && !quest;
   const time = app.mode === 'time';
-  $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>`
+  if (time) $('seqLabel').innerHTML = 'Next';
+  else $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>`
     : instant ? 'Played'
     : 'Sequence' + (Slots.gap() >= 0 ? '<small class="warn">fill the empty slot to play</small>' : '<small>tap a card to remove · drag to move</small>');
   const r = app.mode === 'run' && app.run;
@@ -1282,7 +1293,12 @@ function renderDeck() {
     : 'Hand';
   $('levelSel').style.visibility = app.mode === 'run' || time || quest ? 'hidden' : '';
   $('editBtn').disabled = app.mode === 'run' || time || quest;
-  const list = time ? app.played.slice(-1) : instant ? app.played : app.seq;   // time attack: just the last card
+  const list = time ? [] : instant ? app.played : app.seq;   // Endless shows the Next card instead
+  if (time && app.ta?.next) {
+    const el = cardEl({ id: app.ta.next }, 'preview');
+    el.title = 'Comes into your hand next';
+    seqBox.appendChild(el);
+  }
   if (app.mode === 'plan') {
     // fixed slots: cards where you put them, dashed outlines for empty ones (red if it's a gap)
     const gapBefore = Slots.gap() >= 0 ? Slots.lastFilled() : -1;
@@ -1312,7 +1328,6 @@ function renderDeck() {
     Drag.attach(el, { src: 'seq', uid: c.uid, id: c.id });
     seqBox.appendChild(el);
   });
-  if (time && app.played.length > 1) seqBox.appendChild(Object.assign(document.createElement('span'), { className: 'played-count', textContent: `${app.played.length} cards played` }));
   $('timer').style.display = time ? 'block' : 'none';
   document.body.classList.toggle('endless', time);
   $('hintBox').style.display = app.mode === 'plan' && app.hintText ? 'block' : 'none';
@@ -1327,6 +1342,8 @@ function renderDeck() {
   app.hand.forEach((c, i) => {
     const el = cardEl(c, app.mode === 'plan' && c.id === app.hintNext && app.hand.findIndex((h) => h.id === c.id) === i ? 'hinted'
       : app.mode === 'run' && app.run?.cycling ? 'cycling' : '');
+    if (time && c.lucky) { el.classList.add('lucky'); el.title = 'Lucky card: dealt so you always have a way forward'; }
+    if (time && app.enter?.has(c.uid)) el.classList.add('enter');
     if (time) el.insertAdjacentHTML('afterbegin', `<span class="key">${i + 1}</span>`);
     el.onclick = Drag.tap(() => C.clickHand(c.uid)); handBox.appendChild(el);
     Drag.attach(el, { src: 'hand', uid: c.uid, id: c.id });
@@ -1336,6 +1353,7 @@ function renderDeck() {
       el.appendChild(sell);
     }
   });
+  app.enter = null;                    // new cards animate in once, not on every redraw
   // shop lane + perks (shop-run roguelite)
   $('shopLane').style.display = quest && app.q?.route ? 'flex' : 'none';
   $('shopLane').style.order = quest ? -2 : '';   // shop → hand → sequence, in the order you use them
@@ -1515,6 +1533,12 @@ const TILES = [
   ...(CONFIG.features.crates ? [['C', 'Crate', '#c68a3f']] : []),
   ...(CONFIG.features.keys ? [['K', 'Key', '#ffcc33']] : []),
   ...(CONFIG.features.gems ? [['*', 'Gem', '#4fd8e8']] : []),
+  ...(CONFIG.features.ice ? [['I', 'Ice', '#bfe8ff']] : []),
+  ...(CONFIG.features.platforms ? [['=', 'Platform', '#a0703c']] : []),
+  ...(CONFIG.features.springs ? [['S', 'Spring', '#e8434b']] : []),
+  ...(CONFIG.features.sideSprings ? [['>', 'Bumper →', '#e8434b'], ['<', 'Bumper ←', '#e8434b']] : []),
+  ...(CONFIG.features.cacti ? [['Y', 'Cactus', '#4f9a4a']] : []),
+  ...(CONFIG.features.enemies ? [['E', 'Patroller', '#8e5bd6']] : []),
 ];
 let hover = null, painting = false;
 function setEditing(on) {
