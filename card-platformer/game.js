@@ -1339,7 +1339,7 @@ function renderDeck() {
           // (so the preview never gives away where a plan fails)
           const resolved = CARDS[c.id].echo ? (sim.last || 'wait') : c.id;
           sim = { ...sim, last: CARDS[c.id].echo ? sim.last : c.id };
-          carryMomentum(sim, resolved, false);
+          carryMomentum(sim, resolved);
         }
       }
       const el = cardEl(c, cls, i + 1, def);

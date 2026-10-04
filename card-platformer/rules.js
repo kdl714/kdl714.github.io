@@ -49,8 +49,8 @@ if (!CONFIG.features.climb) delete CARDS.climb;
 //   Sprint: a third Walk in a row goes 2 tiles further
 //   Run-up: a jump straight after a Walk or Dash goes 1 tile further
 //   Double jump: a jump straight after a jump goes 1 tile higher
-// Bumping into something breaks momentum. The card pictures use this same function,
-// so what a card shows is exactly what it will do.
+// Momentum depends only on card order (bumping into things doesn't break it), so the
+// card pictures, which use this same function, always show exactly what a card will do.
 const JUMPY = ['jump', 'highjump', 'longjump', 'hop'];
 function momentumMoves(map, s, id) {
   const card = CARDS[id];
@@ -63,9 +63,9 @@ function momentumMoves(map, s, id) {
 }
 
 // updates s.streak / s.lastKind after playing `resolved` (shared with the plan preview)
-function carryMomentum(s, resolved, bumped) {
-  s.streak = !bumped && resolved.startsWith('walk') ? (s.lastKind === 'run' ? (s.streak || 0) + 1 : 1) : 0;
-  s.lastKind = bumped ? null : resolved.startsWith('walk') || resolved === 'dash' ? 'run' : JUMPY.includes(resolved) ? 'jump' : null;
+function carryMomentum(s, resolved) {
+  s.streak = resolved.startsWith('walk') ? (s.lastKind === 'run' ? (s.streak || 0) + 1 : 1) : 0;
+  s.lastKind = resolved.startsWith('walk') || resolved === 'dash' ? 'run' : JUMPY.includes(resolved) ? 'jump' : null;
 }
 
 function parseLevel(level) {
@@ -287,9 +287,7 @@ function runCard(map, st, id) {
     if (blocked && m.stop) break;
   }
   if (movedSideways && slide()) return { state: s, ev };
-  if (map.momentum) {                       // carry momentum into the next card (a bump breaks it)
-    carryMomentum(s, resolved, ev.some((e) => e.k === 'bump'));
-  }
+  if (map.momentum) carryMomentum(s, resolved);   // carry momentum into the next card
   // patrollers take their step after your card
   s.enemies.forEach((e, i) => {
     if (e.dead) return;
