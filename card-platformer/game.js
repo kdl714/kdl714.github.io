@@ -92,7 +92,7 @@ const ease = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 // win still play as their own little beats.
 // ---------------------------------------------------------------------
 const MOTION = new Set(['move', 'fall', 'push']);
-const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone', 'spring', 'stomp', 'bumper']);   // happen mid-motion
+const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone', 'spring', 'stomp', 'bumper', 'combo']);   // happen mid-motion
 const deathText = (why) => (why === 'pit' ? 'Fell in a pit!' : why === 'enemy' ? 'Caught by a patroller!' : why === 'cactus' ? 'Ouch, a cactus!' : 'Spiked!');
 
 async function animate(ev) {
@@ -237,7 +237,10 @@ function patrol(steps) {
 function beatNow(e) {
   const v = app.view;
   if (e.k === 'tick') v.turn = e.turn;
-  else if (e.k === 'spring') {
+  else if (e.k === 'combo') {
+    app.flash = { text: e.name + '!', t0: performance.now() };
+    if (app.mode === 'time' && app.ta) app.ta.combos = (app.ta.combos || 0) + 1;
+  } else if (e.k === 'spring') {
     app.springHit = { x: e.x, y: e.y, t0: performance.now() }; app.flash = { text: 'Boing!', t0: performance.now() };
     Art.ring(e.x + .5, e.y + .1, '#ffffff', 1.2);
   } else if (e.k === 'bumper') {            // side spring: pad squashes, you turn and fly
@@ -517,6 +520,7 @@ const TimeAttack = {
   timeout() {
     app.ta.deadline = null;
     app.flash = { text: 'Too slow! −♥', t0: performance.now() };
+    app.state.streak = 0; app.state.lastKind = null;           // so does running out of time
     app.hand = []; TimeAttack.fill(true);
     if (TimeAttack.loseHeart()) TimeAttack.arm();
     renderDeck();
@@ -525,9 +529,9 @@ const TimeAttack = {
     const ta = app.ta;
     if (--ta.hearts > 0) return true;
     ta.over = true; ta.deadline = null;
-    const T = CONFIG.timeAttack, score = ta.dist * T.pointsPerTile + ta.gems * T.pointsPerGem;
+    const T = CONFIG.timeAttack, score = ta.dist * T.pointsPerTile + ta.gems * T.pointsPerGem + (ta.combos || 0) * (T.pointsPerCombo || 0);
     const best = recordBest('time attack', score);
-    showBanner('Out of hearts', `Distance ${ta.dist} tiles · ${ta.gems} gem${ta.gems === 1 ? '' : 's'}\nScore ${score}` + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`),
+    showBanner('Out of hearts', `Distance ${ta.dist} tiles · ${ta.gems} gem${ta.gems === 1 ? '' : 's'} · ${ta.combos || 0} combo${ta.combos === 1 ? '' : 's'}\nScore ${score}` + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`),
       [['Play again', TimeAttack.start]]);
     return false;
   },
@@ -580,6 +584,7 @@ const TimeAttack = {
   // swap the whole hand; the clock keeps running
   redraw() {
     if (app.running || !app.ta?.deadline || app.ta.paused) return;
+    app.state.streak = 0; app.state.lastKind = null;           // a redraw breaks your momentum
     app.hand = []; TimeAttack.fill(true); renderDeck();
   },
   pause() {
@@ -1151,7 +1156,7 @@ function draw() {
   $('hud').textContent = app.editing ? 'Editing — click/drag to paint'
     : q ? `Level ${q.depth}  ·  ${'♥'.repeat(q.hearts)}${'♡'.repeat(Math.max(0, q.maxHearts - q.hearts))}  ·  ◆ ${q.gems}`
         + (app.map.keyMask ? (hasAllKeys(app.map, v) ? '  ·  🔑 ✓' : '  ·  🔑 needed') : '') + (gemTotal(map) ? `  ·  gems ${gemCount(map, v)}/${gemTotal(map)}` : '')
-    : ta ? (ta.deadline === Infinity ? `Free moves: ${CONFIG.timeAttack.freeCards - ta.plays}  ·  ` : '') + `Distance ${ta.dist}  ·  ${'♥'.repeat(Math.max(0, ta.hearts))}${'♡'.repeat(Math.max(0, CONFIG.timeAttack.hearts - ta.hearts))}  ·  ◆ ${ta.gems}  ·  Score ${ta.dist * CONFIG.timeAttack.pointsPerTile + ta.gems * CONFIG.timeAttack.pointsPerGem}`
+    : ta ? (ta.deadline === Infinity ? `Free moves: ${CONFIG.timeAttack.freeCards - ta.plays}  ·  ` : '') + `Distance ${ta.dist}  ·  ${'♥'.repeat(Math.max(0, ta.hearts))}${'♡'.repeat(Math.max(0, CONFIG.timeAttack.hearts - ta.hearts))}  ·  ◆ ${ta.gems}  ·  Score ${ta.dist * CONFIG.timeAttack.pointsPerTile + ta.gems * CONFIG.timeAttack.pointsPerGem + (ta.combos || 0) * (CONFIG.timeAttack.pointsPerCombo || 0)}`
     : (run ? `Level ${run.depth}  ·  ${'♥'.repeat(run.hearts)}${'♡'.repeat(Math.max(0, CONFIG.run.hearts - run.hearts))}  ·  Steps left ${run.steps}  ·  `
         + (CONFIG.features.gems ? `Score ${run.score}  ·  ` : '') : '')
       + (map.keyMask ? (hasAllKeys(map, v) ? '🔑 ✓  ·  ' : '🔑 needed  ·  ') : '')
@@ -1238,8 +1243,8 @@ function cardIcon(id, card = CARDS[id]) {
   // trace the path on a mini grid
   const pts = [[0, 0]]; let x = 0, y = 0;
   for (const m of card.moves) for (const [dx, dy] of m.path) { x += dx; y += dy; pts.push([x, y]); }
-  const minY = Math.min(...pts.map((p) => p[1])), maxX = Math.max(...pts.map((p) => p[0]));
-  const cols = maxX + 1, rows = -minY + 1, c = Math.min(17, 64 / cols, 52 / rows);
+  const minY = Math.min(...pts.map((p) => p[1])), maxY = Math.max(...pts.map((p) => p[1])), maxX = Math.max(...pts.map((p) => p[0]));
+  const cols = maxX + 1, rows = maxY - minY + 1, c = Math.min(17, 64 / cols, 52 / rows);
   const wpx = cols * c, hpx = rows * c;
   let cells = '';
   pts.forEach(([px, py], i) => {
@@ -1253,19 +1258,24 @@ function cardIcon(id, card = CARDS[id]) {
 }
 
 // What a card does once perks are applied (shop-run roguelite); plain CARDS otherwise
-function effectiveCard(id) {
+function effectiveCard(id, live = true) {
   const d = CARDS[id], mods = app.mode === 'quest' && app.q ? Quest.mods() : {};
+  if (live && app.mode === 'time' && app.map?.momentum && app.state) {      // Endless: show what momentum would do right now
+    const m = momentumMoves(app.map, app.state, id);
+    if (m.combo) return { ...d, moves: m.moves, boosted: true, combo: m.combo };
+  }
   if (mods.walkExtra && id.startsWith('walk')) return { ...d, moves: [...d.moves, step], boosted: true };
   if (mods.jumpExtra && id === 'jump') return { ...d, moves: [{ path: [...d.moves[0].path, [1, 0]] }], boosted: true };
   return d;
 }
 // A tiny inline picture of a card, for text that refers to specific cards
 const cardChip = (id) => `<span class="chip" title="${CARDS[id].name}">${cardIcon(id, effectiveCard(id))}</span>`;
-function cardEl(c, cls = '', idx) {
-  const d = effectiveCard(c.id);
+function cardEl(c, cls = '', idx, def) {
+  const d = def || effectiveCard(c.id, !cls.includes('preview'));   // the Next card isn't affected by the current momentum
   const el = document.createElement('div');
   el.className = 'card ' + cls;
-  el.innerHTML = `${idx != null ? `<span class="idx">${idx}</span>` : ''}<div class="nm">${d.name}${d.boosted ? ' +' : ''}</div><div class="pic">${cardIcon(c.id, d)}</div>`;
+  el.innerHTML = `${idx != null ? `<span class="idx">${idx}</span>` : ''}<div class="nm">${d.name}${d.boosted && !d.combo ? ' +' : ''}</div><div class="pic">${cardIcon(c.id, d)}</div>${d.combo ? `<span class="combo">${d.combo}</span>` : ''}`;
+  if (d.combo) el.classList.add('boosted');
   return el;
 }
 
@@ -1285,6 +1295,11 @@ function renderDeck() {
   const peek = peekN ? r.draw.slice(-peekN).reverse().map((c) => cardChip(c.id)) : [];
   while (peek.length < peekN) peek.push('<b>?</b>');   // will come from a reshuffle
   if (quest) $('handLabel').innerHTML = `Hand<small>${Quest.owned()}/${Quest.handLimit()} cards</small>`;
+  else if (time) {
+    const st = app.state || {}, mom = app.map?.momentum;
+    const tip = !mom ? '' : (st.streak || 0) >= 2 ? '▶▶▶ next Walk sprints' : st.lastKind === 'run' ? '▶ run-up: jumps go further' : st.lastKind === 'jump' ? '⤴ next jump goes higher' : '';
+    $('handLabel').innerHTML = 'Hand' + (tip ? `<small class="mom">${tip}</small>` : '');
+  }
   else if (app.mode === 'plan') $('handLabel').innerHTML = 'Hand<small>tap or drag into a slot</small>';
   else $('handLabel').innerHTML = r && r.draw
     ? `Hand<small>draw ${r.draw.length} · discard ${r.discard.length} · deck ${r.deck.length}</small>`
@@ -1302,16 +1317,25 @@ function renderDeck() {
   if (app.mode === 'plan') {
     // fixed slots: cards where you put them, dashed outlines for empty ones (red if it's a gap)
     const gapBefore = Slots.gap() >= 0 ? Slots.lastFilled() : -1;
+    // walk through the sequence so each card shows what it will really do, momentum included
+    let sim = app.map && initialState(app.map);
     for (let i = 0; i < app.level.cards.length; i++) {
       const c = app.seq[i];
       if (!c) {
+        sim = null;                                  // a gap: we can't tell what comes after
         const sl = Object.assign(document.createElement('div'), { className: 'slot' + (i < gapBefore ? ' gap' : '') });
         sl.dataset.slot = i; seqBox.appendChild(sl); continue;
       }
       let cls = '';
       if (i < app.cursor) cls = (i === app.cursor - 1 && app.state.status === 'dead') ? 'failed' : 'done';
       if (app.running && i === app.cursor) cls = 'active';
-      const el = cardEl(c, cls, i + 1);
+      let def;
+      if (sim && sim.status === 'playing') {
+        const mm = momentumMoves(app.map, sim, c.id);
+        if (mm.combo) def = { ...CARDS[c.id], moves: mm.moves, boosted: true, combo: mm.combo };
+        sim = runCard(app.map, sim, c.id).state;
+      }
+      const el = cardEl(c, cls, i + 1, def);
       el.dataset.slot = i;
       el.onclick = Drag.tap(() => C.clickSeq(c.uid));
       Drag.attach(el, { src: 'seq', uid: c.uid, id: c.id });

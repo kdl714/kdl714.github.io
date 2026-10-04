@@ -38,12 +38,33 @@ const CARDS = {
   wait:     { name: 'Wait', label: 'Wait',      moves: [{ type: 'wait' }] },
   echo:     { name: 'Echo', label: 'Echo',      echo: true, moves: [] },
   climb:    { name: 'Climb', label: 'Climb',    moves: [{ type: 'climb' }] },   // up the wall you face, any height, then onto the top
+  dash:     { name: 'Dash',  label: 'Dash',     moves: [{ path: [[1, 0], [1, 0], [1, 0], [1, 0]] }] },   // forward 4 in a straight line, skimming over gaps
+  hop:      { name: 'Hop',   label: 'Hop',      moves: [{ path: [[0, -1], [1, 0]] }] },                  // up 1, forward 1: a precise step up
+  glide:    { name: 'Glide', label: 'Glide',    moves: [{ path: [[1, 0], [1, 1], [1, 1], [1, 1]] }] },   // forward, then drift down 1 per tile
 };
 if (!CONFIG.features.echo) delete CARDS.echo;
 if (!CONFIG.features.climb) delete CARDS.climb;
 
+// Momentum (every mode; switch: features.momentum). Order matters, like real platformer physics:
+//   Sprint: a third Walk in a row goes 2 tiles further
+//   Run-up: a jump straight after a Walk or Dash goes 1 tile further
+//   Double jump: a jump straight after a jump goes 1 tile higher
+// Bumping into something breaks momentum. The card pictures use this same function,
+// so what a card shows is exactly what it will do.
+const JUMPY = ['jump', 'highjump', 'longjump', 'hop'];
+function momentumMoves(map, s, id) {
+  const card = CARDS[id];
+  let moves = card.moves, combo = null;
+  if (!map.momentum || !moves.length || moves[0].type) return { moves, combo };
+  if (id.startsWith('walk') && (s.streak || 0) >= 2) { moves = [...moves, step, step]; combo = 'Sprint'; }
+  else if (JUMPY.includes(id) && s.lastKind === 'run') { moves = moves.map((m) => ({ ...m, path: [...m.path, [1, 0]] })); combo = 'Run-up'; }
+  else if (JUMPY.includes(id) && s.lastKind === 'jump') { moves = moves.map((m) => ({ ...m, path: [[0, -1], ...m.path] })); combo = 'Double jump'; }
+  return { moves, combo };
+}
+
 function parseLevel(level) {
-  const grid = [], map = { grid, w: W, start: { x: 0, y: 0 }, goal: { x: -1, y: -1 }, crates: [], items: [], keyMask: 0, enemies: [] };
+  const grid = [], map = { grid, w: W, start: { x: 0, y: 0 }, goal: { x: -1, y: -1 }, crates: [], items: [], keyMask: 0, enemies: [],
+    momentum: !!CONFIG.features.momentum };
   const F = CONFIG.features;
   for (let y = 0; y < H; y++) {
     const row = (level.map[y] || '').padEnd(W, '.').slice(0, W).split('');
@@ -81,7 +102,7 @@ function initialState(map) {
 const hasAllKeys = (map, s) => (s.got & map.keyMask) === map.keyMask;
 const gemCount = (map, s) => map.items.filter((it, i) => it.t === '*' && s.got & (1 << i)).length;
 const gemTotal = (map) => map.items.filter((it) => it.t === '*').length;
-const stateKey = (s) => `${s.x},${s.y},${s.dir},${s.turn % 2},${s.last},${s.got},${s.n ? 1 : 0},${s.shield || 0},${s.crates.map((c) => c.gone ? '_' : c.x + ':' + c.y).join(';')}|${(s.enemies || []).map((e) => e.dead ? '_' : e.x + ':' + e.y + ':' + e.dir).join(';')}`;
+const stateKey = (s) => `${s.x},${s.y},${s.dir},${s.turn % 2},${s.last},${s.got},${s.n ? 1 : 0},${s.shield || 0},${s.lastKind || ''}${Math.min(2, s.streak || 0)},${s.crates.map((c) => c.gone ? '_' : c.x + ':' + c.y).join(';')}|${(s.enemies || []).map((e) => e.dead ? '_' : e.x + ':' + e.y + ':' + e.dir).join(';')}`;
 
 function wall(map, x, y) {
   if (x < 0 || x >= map.w) return true;      // side walls
@@ -132,6 +153,8 @@ function runCard(map, st, id) {
   } else s.last = id;
   // perks (shop runs) can change what cards do; map.mods is absent everywhere else
   let moves = card.moves;
+  const mom = momentumMoves(map, s, resolved);
+  if (mom.combo) { moves = mom.moves; ev.push({ k: 'combo', name: mom.combo, x: s.x, y: s.y }); }
   const mods = map.mods;
   if (mods) {
     if (mods.walkExtra && resolved.startsWith('walk')) moves = [...moves, step];
@@ -258,6 +281,11 @@ function runCard(map, st, id) {
     if (blocked && m.stop) break;
   }
   if (movedSideways && slide()) return { state: s, ev };
+  if (map.momentum) {                       // carry momentum into the next card (a bump breaks it)
+    const bumped = ev.some((e) => e.k === 'bump');
+    s.streak = !bumped && resolved.startsWith('walk') ? (s.lastKind === 'run' ? (s.streak || 0) + 1 : 1) : 0;
+    s.lastKind = bumped ? null : resolved.startsWith('walk') || resolved === 'dash' ? 'run' : JUMPY.includes(resolved) ? 'jump' : null;
+  }
   // patrollers take their step after your card
   s.enemies.forEach((e, i) => {
     if (e.dead) return;
@@ -531,7 +559,7 @@ const ENDLESS_BIOMES = ['meadow', 'canyon', 'peaks'];
 const biomeAt = (x) => ENDLESS_BIOMES[Math.floor(x / (CONFIG.timeAttack.biomeLength || 150)) % 3];
 function makeEndlessMap(rand = Math.random) {
   const map = { grid: Array.from({ length: H }, () => []), w: 0, start: { x: 1, y: 6 }, goal: { x: -1, y: -1 },
-    crates: [], items: [], keyMask: 0, enemies: [], signs: [], gen: { top: 7 } };
+    crates: [], items: [], keyMask: 0, enemies: [], signs: [], gen: { top: 7 }, momentum: !!CONFIG.features.momentum };
   extendTerrain(map, W + 6, rand);
   return map;
 }

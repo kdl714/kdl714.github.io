@@ -30,6 +30,7 @@ const CONFIG = {
     springs: true,     // S: springs launch you up 3 and forward 1
     sideSprings: true, // > <: wall bumpers fling you 4 tiles the way they face
     cacti: true,       // Y: cacti (deadly, can't be stood on)
+    momentum: true,    // Run-up / Sprint / Double jump, in every mode (see rules.js → momentumMoves)
     climb: true,       // the Climb card: up any wall you're facing
     enemies: true,     // E: patrollers that walk one tile per card
     shopRun: true,     // Roguelite = route map + buy your hand + Plan & Run + perks (off = older deck-draw roguelite)
@@ -84,7 +85,8 @@ const CONFIG = {
     restHeal: true,              // reaching a rest stop gives back a heart
     forkChance: 0.08,            // how often an upper lane (one-way platforms over a hazardous stretch) appears
     // --- cards: draw weights (higher = more common); Wait and Echo left out on purpose ---
-    pool: { walk1: 3, walk2: 3, walk3: 2, jump: 3, highjump: 2, longjump: 2 },
+    pool: { walk1: 3, walk2: 3, walk3: 2, jump: 3, highjump: 2, longjump: 2, dash: 2, hop: 2 },   // (glide, climb also exist; add them here to use them)
+    pointsPerCombo: 10,          // combos are common (about half of all plays), so keep this modest
     animSpeed: 0.6,              // animations play faster than in other modes
     pointsPerTile: 10,
     pointsPerGem: 50,

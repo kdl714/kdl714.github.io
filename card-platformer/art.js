@@ -4,8 +4,8 @@
 // Loaded after levels.js and before game.js.
 
 /* =====================================================================
-   THEMES — tweak colours here. Levels 1–7 meadow, 8–13 dusk canyon,
-   14+ snowy peaks; Endless cycles through them every few hundred tiles.
+   THEMES — tweak colours here. Levels 1–9 meadow, 10–18 dusk canyon,
+   19+ snowy peaks; Endless cycles through them every few hundred tiles.
    ===================================================================== */
 const THEMES = {
   meadow: {
@@ -30,7 +30,7 @@ const THEMES = {
     motes: { kind: 'snow', color: '#ffffff' },
   },
 };
-const THEME_BANDS = [{ upTo: 7, theme: 'meadow' }, { upTo: 13, theme: 'canyon' }, { upTo: Infinity, theme: 'peaks' }];
+const THEME_BANDS = [{ upTo: 9, theme: 'meadow' }, { upTo: 18, theme: 'canyon' }, { upTo: Infinity, theme: 'peaks' }];
 const ENDLESS_THEME_ORDER = ['meadow', 'canyon', 'peaks'];
 const ENDLESS_THEME_TILES = CONFIG.timeAttack.biomeLength || 150;   // Endless changes scenery every N tiles (set in config.js)
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
