@@ -35,13 +35,13 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-15b`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-15d`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
 The game opens on a **Start** screen with four buttons: **Puzzles**, **Endless**, **Level editor** and **Settings**.
 
-- **Puzzles** lists the level sets (9 levels each unless a set says otherwise with `size` in `LEVEL_SETS`; Snowy Peaks has 10; one theme per set) plus **Your levels** from the editor. Tap a set to see its levels, then a level to play it. Every level is open.
+- **Puzzles** lists the level sets (9 levels each unless a set says otherwise with `size` in `LEVEL_SETS`;  one theme per set) plus **Your levels** from the editor. Tap a set to see its levels, then a level to play it. Every level is open.
 - **No points in puzzles:** a level is cleared or not. Each level has up to two **badges**: ⚑ cleared, and ◆ every gem in one run (only on levels with gems). They're shown on the level grid and on the Level complete card, and saved per level name in this browser. Hints are free.
 - **Settings:** animation speed, hints on or off, reduce motion (follows the device until you change it) and Reset progress (clears badges and your best Endless distance; your own levels are kept). It also shows the version tag, which helps when a tester reports something.
 - The ‹ button (or the browser's or phone's Back) goes up a level: level → set → Puzzles → Start. A set's page also has a **Home** button straight to Start, and its top bar stays put while a long set scrolls. Leaving in the middle of a run stops it cleanly.
@@ -105,7 +105,7 @@ The order of cards matters, like real platformer physics:
 - **Double jump:** a jump straight after a jump goes one tile higher.
 - **Breaking momentum:** a Turn or Wait in between, or (in Endless) losing a heart, a redraw or a timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
 
-Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. Set 2 (Dusk Canyon) adds one idea per level: Turn, timed spikes and Wait, Sprint, Double jump, crates, keys and doors, Echo, Hop, and a review. In Set 3, 3-6 (Bowled Over) shows Dash knocking a slime out of the way. (Sets 3 and 4 are being redone next; the original levels are kept in `levels-archive.js`.) Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
+Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. Set 2 (Dusk Canyon) adds one idea per level: Turn, timed spikes and Wait, Sprint, Double jump, crates, keys and doors, Echo, Hop, and a review. Set 3 (Snowy Peaks) does the same with ice, springs, one-way platforms, Climb, slimes, Dash, Dash vs slime (Bowled Over), bumpers and a review (Grand Tour). The original levels are kept in `levels-archive.js`; the harder ones there are candidates for a Summit set. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
 
 ## Tiles, cards and the patroller
 

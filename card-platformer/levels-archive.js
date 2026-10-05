@@ -1,6 +1,8 @@
 // Deckhop — retired levels (not loaded by the game). Kept so they can be reused:
 // copy one into levels.js (and give it a new name) to bring it back.
-// These were the original Meadow and Dusk Canyon sets, before the gentler new sets replaced them.
+// These were the original level sets, before the gentler new sets replaced them. Good candidates for a harder
+// 'Summit' set. (Mid-Air U-Turn, Rebound, Bridge Builder, Two-Way Street and Into the Pit are now in it; Full Sprint,
+// Stepping Stone, Down and Under, Rush Hour, Upstairs and the old Mind the Gap were joined in pairs to make its wide levels.)
 const ARCHIVED_LEVELS = [
   {
     name: '1. Mind the Gap',
@@ -118,22 +120,6 @@ const ARCHIVED_LEVELS = [
     cards: ['turn', 'walk1', 'highjump', 'turn', 'walk1', 'walk3', 'longjump', 'walk3'],
   },
   {
-    name: '12. Bridge Builder',       // jump the small pit, push the crate into the wide one
-    hint: 'You can hop the first spike pit, but not the wide one. What could fill part of it?',
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '...........*....',
-      '.P...C......G...',
-      '###^####^^######',
-      '################',
-    ],
-    cards: ['walk1', 'hop', 'walk3', 'walk1', 'jump', 'walk2'],
-  },
-  {
     name: '13. Stepping Stone',       // the crate has to stop exactly under the platform's edge
     hint: 'The platform is out of reach from the floor. Something has to be standing right under its edge: exactly there, not one tile further.',
     map: [
@@ -148,38 +134,6 @@ const ARCHIVED_LEVELS = [
       '################',
     ],
     cards: ['walk2', 'walk3', 'highjump', 'echo', 'walk3'],
-  },
-  {
-    name: '14. Into the Pit',         // you can't climb out of the pit, so send the crate in first
-    hint: "Once you drop in for the key, you can't jump high enough to climb out. Send something down there first.",
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '..PC......G.....',
-      '######..########',
-      '######..########',
-      '######.K########',
-      '################',
-    ],
-    cards: ['walk3', 'walk2', 'turn', 'hop', 'jump', 'turn', 'walk1', 'jump', 'walk2'],
-  },
-  {
-    name: '15. Two-Way Street',       // key on the right, door on the left; clear the spike both ways
-    hint: "The key is on the pillar to the right and the door is back on the left. You'll have to get past that spike twice.",
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '..........K.....',
-      '.G........#.....',
-      '##...P..^.#.....',
-      '################',
-    ],
-    cards: ['walk2', 'jump', 'highjump', 'turn', 'longjump', 'walk3', 'walk2', 'jump'],
   },
   {
     name: '16. Rush Hour',            // no jumping under the ceiling: pure timing (one solution)
@@ -214,19 +168,19 @@ const ARCHIVED_LEVELS = [
     cards: ['turn', 'jump', 'turn', 'jump', 'walk3', 'jump', 'echo'],
   },
   {
-    name: '18. Skimming',             // Dash skims one-tile gaps but must stop on solid ground
-    hint: 'Dash skims straight over one-tile gaps, but it has to stop on solid ground. Where does a Walk fit in?',
+    name: '21. Upstairs',             // zig-zag up through one-way platforms (one solution)
+    hint: 'You can jump up through the wooden platforms and land on top of them. Zig-zag your way up.',
     map: [
       '................',
+      '..........G.....',
+      '........=====...',
       '................',
+      '....=====.......',
       '................',
-      '................',
-      '................',
-      '................',
+      '........=====...',
+      '.P..............',
       '################',
-      'P..............G',
-      '###.####.###.###',
     ],
-    cards: ['dash', 'dash', 'dash', 'walk3', 'walk3'],
+    cards: ['walk2', 'walk2', 'walk2', 'highjump', 'turn', 'highjump', 'turn', 'highjump', 'walk2'],
   },
 ];
