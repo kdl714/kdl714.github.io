@@ -33,7 +33,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-13b`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-13d`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
@@ -103,7 +103,7 @@ The order of cards matters, like real platformer physics:
 - **Double jump:** a jump straight after a jump goes one tile higher.
 - **Breaking momentum:** a Turn or Wait in between, or (in Endless) losing a heart, a redraw or a timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
 
-Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. 2-2 introduces Hop, 2-9 Dash, and 3-6 (Bowled Over) shows Dash knocking a slime out of the way. (Sets 2–4 are being redone next; the original Meadow levels are kept in `levels-archive.js`.) Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
+Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. Set 2 (Dusk Canyon) adds one idea per level: Turn, timed spikes and Wait, Sprint, Double jump, crates, keys and doors, Echo, Hop, and a review. In Set 3, 3-6 (Bowled Over) shows Dash knocking a slime out of the way. (Sets 3 and 4 are being redone next; the original levels are kept in `levels-archive.js`.) Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
 
 ## Tiles, cards and the patroller
 

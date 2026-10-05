@@ -130,32 +130,119 @@ const SET_1 = [
       '..............G.',
       '......^....#####',
       '.P..#####...####',
-      '####.....#######',
+      '################',
     ],
     cards: ['walk2', 'jump', 'walk2', 'highjump', 'longjump', 'walk2', 'walk2', 'walk1'],
   },
 ];
 
 // Experiment 1: levels built around a single "aha" each (verified with solve()).
-const PUZZLE_PACK = [
+const SET_2 = [
   {
-    name: '10. Back for the Key',     // key on a ledge behind you, spike on the way back
-    hint: 'The door is locked and the key is on the ledge behind you. That ledge is two tiles tall.',
+    name: 'About Face',  // the flag is behind you: Turn first
+    hint: 'The flag is behind you. Turn around first!',
+    map: [
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '.G....P^....',
+      '############',
+    ],
+    cards: ['turn', 'walk3', 'walk2'],
+  },
+  {
+    name: 'Wait for It',  // orange spikes go up and down every card: Wait to fix the timing
+    hint: 'Orange spikes pop up every other card. Waiting one card changes the timing.',
+    map: [
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '.P...t....G.',
+      '############',
+    ],
+    cards: ['walk3', 'wait', 'walk3', 'walk3'],
+  },
+  {
+    name: 'Full Speed',  // three Walks in a row: the third sprints (one solution)
+    hint: 'Three Walks in a row: the third one sprints two tiles further.',
+    map: [
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '.P.......G..',
+      '############',
+    ],
+    cards: ['walk2', 'walk2', 'walk2'],
+  },
+  {
+    name: 'Double Jump',           // jump straight after a jump to go one tile higher
+    hint: 'That wall is too tall for one Jump. What if you jump again straight away?',
     map: [
       '................',
       '................',
       '................',
       '................',
       '................',
-      '.K..............',
-      '####............',
-      '####.P.^...G....',
+      '................',
+      '....###.G.......',
+      '.P..############',
       '################',
     ],
-    cards: ['turn', 'walk1', 'highjump', 'turn', 'walk1', 'walk3', 'longjump', 'walk3'],
+    cards: ['jump', 'jump', 'walk3'],
+    needs: ['momentum'],               // hidden if these features are switched off
   },
   {
-    name: '11. Small Steps',          // Hop lands exactly where Jump would overshoot
+    name: 'Push It',  // walk into the crate: it drops into the spike pit and makes a bridge
+    hint: "Walk into the crate to push it. It'll fall into the spike pit and make a bridge.",
+    map: [
+      '............',
+      '............',
+      '............',
+      '............',
+      '.P.C......G.',
+      '######^#####',
+      '############',
+    ],
+    cards: ['walk3', 'walk2', 'walk3'],
+  },
+  {
+    name: 'Key First',  // the flag is a locked door; the key is behind you (one solution)
+    hint: 'The flag is a locked door until you grab the key, and the key is behind you.',
+    map: [
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '.K..P..G....',
+      '############',
+    ],
+    cards: ['turn', 'walk3', 'turn', 'walk3', 'walk3'],
+  },
+  {
+    name: 'Echo Chamber',          // one High Jump, two tall steps
+    hint: 'Two tall steps, but only one card that climbs that high. Look closely at the purple card.',
+    map: [
+      '................',
+      '................',
+      '................',
+      '..........G.....',
+      '....#..#..######',
+      '....#..#..######',
+      '...##..#..######',
+      '..P##..#..######',
+      '#####..#..######',
+    ],
+    cards: ['highjump', 'walk1', 'longjump', 'echo', 'jump', 'echo'],
+  },
+  {
+    name: 'Small Steps',          // Hop lands exactly where Jump would overshoot
     hint: 'A Jump goes too far here. Sometimes a smaller step is the right one.',
     map: [
       '................',
@@ -171,117 +258,25 @@ const PUZZLE_PACK = [
     cards: ['hop', 'jump', 'jump', 'jump', 'walk2'],
   },
   {
-    name: '12. Bridge Builder',       // jump the small pit, push the crate into the wide one
-    hint: 'You can hop the first spike pit, but not the wide one. What could fill part of it?',
+    name: 'Turn the Key',          // key is behind you; gem route = same cards, different order
+    hint: "The key is behind you, past a spike. You'll have to turn around, then turn back again.",
     map: [
-      '................',
-      '................',
-      '................',
       '................',
       '................',
       '...........*....',
-      '.P...C......G...',
-      '###^####^^######',
+      '................',
+      '................',
+      '................',
+      '...........#....',
+      '..K^P......#.G..',
       '################',
     ],
-    cards: ['walk1', 'hop', 'walk3', 'walk1', 'jump', 'walk2'],
+    cards: ['walk3', 'turn', 'highjump', 'echo', 'jump', 'turn', 'echo', 'jump'],
+    gemBonus: ['echo'],               // extra card dealt only when gems are on
   },
-  {
-    name: '13. Stepping Stone',       // the crate has to stop exactly under the platform's edge
-    hint: 'The platform is out of reach from the floor. Something has to be standing right under its edge: exactly there, not one tile further.',
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '............G...',
-      '.........######.',
-      '................',
-      '..P.C...........',
-      '################',
-    ],
-    cards: ['walk2', 'walk3', 'highjump', 'echo', 'walk3'],
-  },
-  {
-    name: '14. Into the Pit',         // you can't climb out of the pit, so send the crate in first
-    hint: "Once you drop in for the key, you can't jump high enough to climb out. Send something down there first.",
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '..PC......G.....',
-      '######..########',
-      '######..########',
-      '######.K########',
-      '################',
-    ],
-    cards: ['walk3', 'walk2', 'turn', 'hop', 'jump', 'turn', 'walk1', 'jump', 'walk2'],
-  },
-  {
-    name: '15. Two-Way Street',       // key on the right, door on the left; clear the spike both ways
-    hint: "The key is on the pillar to the right and the door is back on the left. You'll have to get past that spike twice.",
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '..........K.....',
-      '.G........#.....',
-      '##...P..^.#.....',
-      '################',
-    ],
-    cards: ['walk2', 'jump', 'highjump', 'turn', 'longjump', 'walk3', 'walk2', 'jump'],
-  },
-  {
-    name: '16. Rush Hour',            // no jumping under the ceiling: pure timing (one solution)
-    hint: "No jumping under that ceiling, so it's all about timing: orange spikes are down on even turns. Count turns before you move.",
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '...##########...',
-      '.P...t...t...G..',
-      '################',
-    ],
-    cards: ['walk1', 'walk3', 'walk3', 'wait', 'echo', 'echo'],
-  },
-  {
-    name: '17. Fetch & Carry',        // crate against the wall, key from behind, then a double jump (one solution)
-    hint: 'You need the crate against the tall wall and the key from behind you. Then jump onto the crate, and do it again.',
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '.........G......',
-      '........########',
-      '.K^P.C..########',
-      '################',
-    ],
-    cards: ['turn', 'jump', 'turn', 'jump', 'walk3', 'jump', 'echo'],
-  },
-  {
-    name: '18. Skimming',             // Dash skims one-tile gaps but must stop on solid ground
-    hint: 'Dash skims straight over one-tile gaps, but it has to stop on solid ground. Where does a Walk fit in?',
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '################',
-      'P..............G',
-      '###.####.###.###',
-    ],
-    cards: ['dash', 'dash', 'dash', 'walk3', 'walk3'],
-  },
+];
+
+const PUZZLE_PACK = [
   {
     name: '19. On Thin Ice',          // ice carries you until something stops you
     hint: "Once you're on ice you won't stop until you hit something. That wall at the end is your friend.",
@@ -449,7 +444,7 @@ const usesDisabled = (l) => (l.needs || []).some((f) => !CONFIG.features[f]) || 
   || [['ice', 'I'], ['platforms', '='], ['springs', 'S'], ['enemies', 'E'], ['sideSprings', '>'], ['sideSprings', '<']].some(([f, ch]) => !CONFIG.features[f] && l.map.some((r) => r.includes(ch)))
   || (!CONFIG.features.keys && l.map.some((r) => r.includes('K'))) || l.cards.some((c) => !CARDS[c]);
 const withGemBonus = (l) => CONFIG.features.gems && l.gemBonus?.every((c) => CARDS[c]) ? { ...l, cards: [...l.cards, ...l.gemBonus] } : l;
-const BUILTIN_LEVELS = [...SET_1, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);
+const BUILTIN_LEVELS = [...SET_1, ...SET_2, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);
 
 // Level sets: the Puzzles screen groups the levels above, in order: each set takes its
 // `size` levels (SET_SIZE if it doesn't say). Each set has its own theme (see THEMES in
