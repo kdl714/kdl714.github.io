@@ -30,6 +30,7 @@ const PIXEL_THEMES = {
     near: { lit: '#c97a5c', shade: '#b0654a', rim: '#d98f70', hMin: 36, hMax: 50, spacing: 58, slope: 1.6, mesa: true },
     hills: { fill: '#b5623f', rim: '#d08055', base: 104 }, tree: 'cactus',
     cap: ['#fbe7ad', '#ecc66e', '#c99a3e', '#7a5520'], dirt: ['#c0623f', '#9a4a30', '#d98a5f', '#5e2a1c'], stone: ['#8b6a5a', '#b08a76'],
+    strata: ['#c0623f', '#cf7349', '#b4573a', '#dc8e60', '#c96a43', '#a94f35'],   // rock layers (bands of 4 pixels)
     tufts: '#c99a3e', flowers: false, cloud: ['#fff1e0', '#f6cfae'], motes: '#ffc86b',
   },
   peaks: {
@@ -37,7 +38,8 @@ const PIXEL_THEMES = {
     far: { lit: '#d6e2f3', shade: '#b8c8e4', snow: '#ffffff', snowShade: '#e6eef9', rim: '#e8eef8', snowDepth: 30, hMin: 72, hMax: 100, spacing: 58, slope: 1.05 },
     near: { lit: '#aebfdd', shade: '#97aacd', rim: '#c3d1e8', hMin: 46, hMax: 62, spacing: 54, slope: .9, snowDepth: 8, snow: '#eef4ff', snowShade: '#d6e2f3' },
     hills: { fill: '#c9d8ef', rim: '#e6eef9', base: 102 }, tree: 'pine',
-    cap: ['#ffffff', '#f2f7ff', '#c8d6ee', '#7d8fb3'], dirt: ['#8b9bb4', '#6d7c9a', '#a9b8d6', '#3a4466'], stone: ['#5a6988', '#c0cbdc'],
+    cap: ['#ffffff', '#f2f7ff', '#c8d6ee', '#7d8fb3'], dirt: ['#7a8fb5', '#5b6d94', '#b4d3ee', '#2f3b5c'], stone: ['#4a5878', '#8fa6c8'],
+    frozen: true,   // frozen rock: icy flecks
     tufts: null, flowers: false, cloud: ['#ffffff', '#dde6f4'], motes: '#ffffff',
   },
 };
@@ -253,7 +255,18 @@ const PixelArt = {
     const solidAt = (dx, dy) => { const c = at(dx, dy); return c === '#' || c === 'I' || c === 'S' || c === '>' || c === '<' || x + dx < 0 || x + dx >= map.w; };
     const [base, dark, light, edge] = th.dirt;
     P(base, 0, 0, U, U);
-    for (let k = 0; k < 7; k++) P(dark, Math.floor(Art.hash(x, y, k) * 15), 4 + Math.floor(Art.hash(y, x, k + 3) * 11), Art.hash(x, k, y) > .5 ? 2 : 1, 1);
+    if (th.strata) {              // canyon: horizontal rock layers that wander a pixel or two between tiles
+      const n = th.strata.length, band = (i, j) => th.strata[((Math.floor((Y + j + Math.round(Math.sin((X + i) * .05) * 2)) / 4)) % n + n) % n];
+      for (let j = 0; j < U; j++) for (let i = 0; i < U;) {          // each row in runs of the same colour, so the layers drift smoothly
+        const c = band(i, j); let e = i + 1; while (e < U && band(e, j) === c) e++;
+        P(c, i, j, e - i, 1); i = e;
+      }
+      for (let k = 0; k < 3; k++) P(dark, Math.floor(Art.hash(x, y, k) * 14), 3 + Math.floor(Art.hash(y, x, k + 3) * 12), 2 + Math.floor(Art.hash(k, x, y) * 3), 1);   // chips along the layers
+    }
+    if (th.frozen) {              // frozen rock: icy flecks
+      for (let k = 0; k < 3; k++) { const fx = 1 + Math.floor(Art.hash(x, y, k + 33) * 13), fy = 3 + Math.floor(Art.hash(y, x, k + 36) * 11); P(light, fx, fy, 2, 1); P('#ffffff', fx, fy, 1, 1); }
+    }
+    if (!th.strata) for (let k = 0; k < 7; k++) P(dark, Math.floor(Art.hash(x, y, k) * 15), 4 + Math.floor(Art.hash(y, x, k + 3) * 11), Art.hash(x, k, y) > .5 ? 2 : 1, 1);
     for (let k = 0; k < 3; k++) P(light, Math.floor(Art.hash(x, y, k + 7) * 15), 5 + Math.floor(Art.hash(y, x, k + 9) * 9));
     if (Art.hash(x, y, 9) > .7) {
       const sx = 3 + Math.floor(Art.hash(x, y, 11) * 9), sy = 8 + Math.floor(Art.hash(x, y, 12) * 5);
@@ -309,15 +322,18 @@ const PixelArt = {
     Pixel.spr(g, rows.slice(5 + n, 8), SPAL.spring, X, Y + 11 + n);
     Pixel.spr(g, rows.slice(0, 5), SPAL.spring, X, Y + 6 + n);
   },
+  // bumper (side spring): wall plate, a zigzag coil, and a red pad with a big arrow the way it flings you
   bumper(g, x, y, face) {
-    const X = x * U, Y = y * U, comp = Math.round(Math.max(0, Art.springSquash(x, y)) * 4), P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + a, Y + b, w, h);
-    const plateX = face > 0 ? 0 : 12, padX = face > 0 ? 10 - comp : 2 + comp;
-    P('#2b1b24', plateX, 1, 4, 14); P('#5a6988', plateX + 1, 2, 2, 12); P('#8b9bb4', plateX + 1, 2, 1, 12);
-    const a = Math.min(plateX + 4, padX + 4), b = Math.max(plateX, padX);
-    for (let i = a; i < b; i++) P('#c0cbdc', i, 6 + ((i - a) % 4 < 2 ? 0 : 2), 1, 2);
-    P('#2b1b24', padX, 0, 4, U); P('#e43b44', padX + 1, 1, 2, 14); P('#f6757a', padX + 1, 1, 1, 14); P('#a22633', padX + 2, 13, 1, 2);
-    const ax = face > 0 ? padX + 1 : padX + 2;                                   // arrow on the pad
-    P('#ffffff', ax, 7, 1, 2); P('#ffffff', ax + face, 6, 1, 1); P('#ffffff', ax + face, 9, 1, 1);
+    const X = x * U, Y = y * U, comp = Math.round(Math.max(0, Art.springSquash(x, y)) * 3);
+    const P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + (face > 0 ? a : U - a - w), Y + b, w, h);   // drawn facing right, mirrored for left
+    P('#2b1b24', 0, 1, 3, 14); P('#8b9bb4', 1, 2, 1, 12);                                // wall plate
+    const padX = 10 - comp, a = 3, b = padX - 1;                                       // coil between plate and pad
+    for (let k = 0; k < 4; k++) {                                                      // zigzag: four diagonal strokes
+      const x0 = a + Math.round((b - a) * k / 4), x1 = a + Math.round((b - a) * (k + 1) / 4), down = k % 2 === 0;
+      for (let r = 0; r < 8; r++) { const cx = x0 + Math.round((x1 - x0) * r / 7), cy = 4 + (down ? r : 7 - r); P('#5a6988', cx, cy + 1); P('#e6ecf5', cx, cy); }
+    }
+    P('#2b1b24', padX, 0, 5, U); P('#e43b44', padX + 1, 1, 3, 14); P('#f6757a', padX + 1, 1, 1, 14); P('#a22633', padX + 3, 1, 1, 14);
+    [[0, 0], [1, 1], [2, 2], [1, 3], [0, 4]].forEach(([dx, dy]) => P('#ffffff', padX + 1 + dx, 6 + dy));   // arrow
   },
   cactus(g, map, x, y) {
     const above = tileAt(map, x, y - 1) === 'Y', below = tileAt(map, x, y + 1) === 'Y';
@@ -361,15 +377,18 @@ const PixelArt = {
   },
   key(g, px, py) { Pixel.spr(g, SPR.key, SPAL.key, Math.round(px) + 2, Math.round(py) + 5); },
   gem(g, px, py) { Pixel.spr(g, SPR.gem, SPAL.gem, Math.round(px) + 4, Math.round(py) + 3); },
+  // locked door: a light stone arch, dark wood with iron bands and a big gold lock, so it reads on any ground
   door(g, px, py) {
-    const rows = Pixel.shape(14, 16, (i, j) => i >= 0 && i < 14 && j < 16 && (j >= 6 || (i - 6.5) ** 2 + (j - 6) ** 2 <= 42),
+    const arch = (i, j) => (i - 6.5) ** 2 + (j - 6) ** 2;
+    const rows = Pixel.shape(14, 16, (i, j) => i >= 0 && i < 14 && j < 16 && (j >= 6 || arch(i, j) <= 44),
       (i, j) => {
-        const edge = i <= 1 || i >= 12 || (j < 8 && (i - 6.5) ** 2 + (j - 6) ** 2 > 22);
-        if (edge) return i <= 2 || j < 4 ? 's' : 'S';
-        if (i >= 6 && i <= 7 && j >= 9 && j <= 11) return j === 10 && i === 6 ? 'k' : 'L';
-        return i === 5 || i === 8 ? 'p' : 'W';
+        const frame = i <= 2 || i >= 11 || (j < 8 && arch(i, j) > 20);
+        if (frame) return i <= 2 || (j < 5 && i < 7) ? 's' : 'S';
+        if (i >= 5 && i <= 8 && j >= 8 && j <= 11) return (i === 6 || i === 7) && j === 10 ? 'k' : j === 8 ? 'l' : 'L';
+        if (j === 7 || j === 13) return 'b';
+        return i === 6 || i === 7 ? 'p' : 'W';
       });
-    Pixel.spr(g, rows, { o: '#3e2731', s: '#c0cbdc', S: '#8b9bb4', W: '#a2614a', p: '#733e39', L: '#fee761', k: '#3e2731' }, Math.round(px) + 1, Math.round(py));
+    Pixel.spr(g, rows, { o: '#1a1220', s: '#f4f6fb', S: '#a9b8d6', W: '#8a4f2c', p: '#5e3420', b: '#3a4466', L: '#fee761', l: '#ffffff', k: '#2b1b24' }, Math.round(px) + 1, Math.round(py));
   },
   flag(g, px, py) {
     const fx = Math.round(px) + 4, fy = Math.round(py) - 6, P = (c, x, y, w = 1, h = 1) => Pixel.px(g, c, x, y, w, h);

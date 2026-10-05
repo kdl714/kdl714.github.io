@@ -32,7 +32,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-08a`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-08c`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
