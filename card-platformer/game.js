@@ -1098,7 +1098,17 @@ function setView(map) {
   const w = app.editing || app.mode === 'time' ? (app.mode === 'time' ? BOARD_W : map.w) : Math.min(map.w, VIEW_MAX_W), h = map.h || BOARD_H;
   if (w !== W || h !== H) { W = w; H = h; resize(); }
 }
+// The UI pixel (CSS --px): how many CSS pixels one pixel of the interface takes. Always a whole number
+// of the screen's own pixels (so edges stay crisp): 1.5 on very narrow phones, 2 on phones and laptops,
+// 3 on big screens. Everything outside the level is built in multiples of it (style.css, pixel.js).
+function uiPixel() {
+  const dpr = window.devicePixelRatio || 1, want = innerWidth < 360 ? 1.5 : innerWidth < 1100 ? 2 : 3;
+  const px = Math.max(1, Math.round(want * dpr)) / dpr;
+  document.documentElement.style.setProperty('--px', px + 'px'); document.documentElement.style.setProperty('--pxn', px);
+  Drag.GAP = 8 * px;
+}
 function resize() {
+  uiPixel();
   const st = $('stage'), cs = getComputedStyle(st);
   const aw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   // In phone portrait the stage hugs the canvas, so size against the screen instead
@@ -1176,8 +1186,8 @@ function draw() {
   ctx.restore();
   A.ambient(ctx, tname);
   const pixelHud = pixel && !app.editing && (app.mode === 'plan' || app.mode === 'time') && !document.body.classList.contains('home');
-  if (pixelHud) Pixel.hud(ctx, map, v, fullTS < 30 ? 2 : 1);   // status drawn straight onto the level (pixel.js); chunkier on phones
   if (pixel) { ctx = screen; TS = fullTS; Pixel.end(ctx); }
+  if (pixelHud) Pixel.hud(ctx, map, v);             // status drawn straight onto the level at the UI pixel size (pixel.js)
   else Art.vignette(ctx);
   // text and the editor cursor go on at full resolution, so they stay sharp in every style
   ctx.save(); ctx.translate(-app.cam * TS, 0);
@@ -1337,7 +1347,7 @@ function effectiveCard(id, live = true) {
   return d;
 }
 // A small inline picture of a card (the pixel card itself), for text that refers to specific cards
-const cardChip = (id) => `<img class="chip" alt="${CARDS[id].name}" title="${CARDS[id].name}" src="${PixelCard.url(id, effectiveCard(id))}">`;
+const cardChip = (id) => `<img class="chip" alt="${CARDS[id].name}" title="${CARDS[id].name}" src="${PixelCard.url(id, effectiveCard(id))}">`;   // sized in style.css (.chip)
 // A card: the pixel card picture (pixel.js), plus its slot number in the sequence
 function cardEl(c, cls = '', idx, def) {
   const d = def || effectiveCard(c.id, !cls.includes('preview') && !cls.includes('last'));   // Next/Last cards aren't affected by the current momentum
@@ -1516,7 +1526,7 @@ function renderDeck() {
    ===================================================================== */
 const Drag = {
   HOLD_MS: 150, MOVE_PX: 6, lastDrop: 0,
-  GAP: 16,                                   // how far the plan's cards move aside to make room (px; matches .make-room in style.css)
+  GAP: 16,                                   // how far the plan's cards move aside (CSS px): 8 UI pixels, set by uiPixel(); matches .make-room in style.css
   cur: null,
   attach(el, info) {
     if (!(app.mode === 'plan' || app.mode === 'quest') || app.running) return;
@@ -1631,11 +1641,11 @@ document.addEventListener('touchmove', (e) => { if (Drag.cur?.live) e.preventDef
 
 function showBanner(title, text, buttons, extra) {
   const b = $('banner'), h2 = b.querySelector('h2'), up = title.toUpperCase();
-  // the title in the pixel font: green for a win, yellow otherwise (3× if it fits, else 2×)
+  // the title in the pixel font: green for a win, yellow otherwise (the big font if it fits, else the small one)
   h2.textContent = '';
-  if (PixelUI.supported(up)) {
-    const win = /complete|cleared|best/i.test(title), k = PixelFont.width(up) * 3 + 40 < Math.min(innerWidth - 40, 560) ? 3 : 2;
-    h2.appendChild(PixelUI.text(up, win ? '#a6f0c0' : '#fee761', k, '#181425'));
+  if (PixelUI.supported(up, 'big')) {
+    const win = /complete|cleared|best/i.test(title), size = (PixelFont.width(up, 'big') + 2) * UI.px() + 40 < Math.min(innerWidth - 40, 560) ? 'big' : 'small';
+    h2.appendChild(PixelUI.text(up, win ? '#a6f0c0' : '#fee761', size, '#181425'));
   } else h2.textContent = title;
   h2.setAttribute('aria-label', title);
   b.querySelector('p').textContent = text;
@@ -1890,7 +1900,7 @@ function setTitle() {
     : k[0] === 'b' ? `${setOf(k) + 1}-${setPos(+k.slice(1)).n + 1} ${shortName(app.level.name)}`
     : app.level?.name || '';
   // pixel font, 3× when it fits beside the back button, otherwise 2×
-  PixelUI.set($('gameTitle'), t, '#ffffff', PixelFont.width(t.toUpperCase()) * 3 + 90 < innerWidth ? 3 : 2);
+  PixelUI.set($('gameTitle'), t, '#ffffff', PixelFont.width(t.toUpperCase(), 'big') * UI.px() + 90 < innerWidth ? 'big' : 'small');
 }
 
 // leave whatever was running: stop animations, the Endless clock and the editor
@@ -1949,10 +1959,10 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 function menuButton(icon, title, sub, onclick, cls = '') {
   const pri = cls.includes('primary'), danger = cls.includes('danger'), ink = pri ? '#2b1b24' : '#ffffff';
   const b = el('button', 'm-btn pb ' + (pri ? 'pri ' : '') + cls), words = el('span', 'words');
-  const ic = el('span', 'ic'); ic.append(PixelUI.icon(icon, pri ? '#2b1b24' : danger ? '#ff8a8a' : '#fee761', 3));   // icons sit in a fixed-width slot so titles line up
+  const ic = el('span', 'ic'); ic.append(PixelUI.icon(icon, pri ? '#2b1b24' : danger ? '#ff8a8a' : '#fee761'));   // icons sit in a fixed-width slot so titles line up
   b.append(ic, words);
-  words.append(PixelUI.set(el('b'), title, danger ? '#ff8a8a' : ink, 3));
-  if (sub) words.append(PixelUI.set(el('small'), sub, pri ? '#6b4a10' : '#a9b8d6', 2));
+  words.append(PixelUI.set(el('b'), title, danger ? '#ff8a8a' : ink, 'big'));
+  if (sub) words.append(PixelUI.set(el('small'), sub, pri ? '#6b4a10' : '#a9b8d6'));
   b.setAttribute('aria-label', title + (sub ? ', ' + sub : ''));
   b.onclick = onclick; return b;
 }
@@ -1961,7 +1971,7 @@ function menuBar(title, home = false) {
   const bar = el('div', 'm-bar'), back = PixelUI.iconButton(el('button', 'm-back'), 'back', 'Back');
   back.onclick = Router.up;
   if (home) { const h = PixelUI.button(el('button', 'm-home'), 'Home'); h.onclick = () => Router.go('#/'); bar.append(h); }   // Home, then Back, side by side
-  bar.append(back, PixelUI.set(el('h2'), title, '#ffffff', 3));
+  bar.append(back, PixelUI.set(el('h2'), title, '#ffffff', 'big'));
   return bar;
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -1972,7 +1982,7 @@ const Screens = {
     const builtIn = allLevels().filter((l) => l.key[0] === 'b'), prog = Progress.all();
     const flags = builtIn.filter((l) => prog[l.level.name]?.flag).length;
     const bestEndless = store.get('cardclimber.best', {})['endless distance'];
-    s.append(PixelUI.set(el('h1', 'm-title'), 'Deckhop', '#fee761', 5, '#181425'));
+    const logo = el('h1', 'm-title'); logo.append(PixelUI.logo('DECKHOP')); logo.setAttribute('aria-label', 'Deckhop'); s.append(logo);
     s.append(menuButton('play', 'Puzzles', `${flags}/${builtIn.length} flags`, () => Router.go('#/puzzles'), 'primary'));
     if (CONFIG.features.timeAttack) s.append(menuButton('infinity', 'Endless', bestEndless ? `Best ${bestEndless} tiles` : 'How far can you go?', () => Router.go('#/endless')));
     s.append(menuButton('edit', 'Level editor', app.custom.length ? plural(app.custom.length, 'saved level') : 'Build your own', () => Router.go('#/editor')));
@@ -1985,12 +1995,12 @@ const Screens = {
     for (const set of sets()) {
       const done = set.levels.filter((l) => prog[l.level.name]?.flag).length;
       const row = el('button', `m-set pb t-${set.theme}`);
-      row.append(PixelUI.set(el('b'), `${set.i + 1} ${set.name}`, '#ffffff', 3), PixelUI.set(el('span', 'n'), `${done}/${set.levels.length}`, '#ffffff', 3));
+      row.append(PixelUI.set(el('b'), `${set.i + 1} ${set.name}`, '#ffffff', 'big'), PixelUI.set(el('span', 'n'), `${done}/${set.levels.length}`, '#ffffff', 'big'));
       row.onclick = () => Router.go('#/set/' + set.i);
       s.append(row);
     }
     const mine = el('button', 'm-set pb t-mine');
-    mine.append(PixelUI.set(el('b'), 'Your levels', '#ffffff', 3), PixelUI.set(el('span', 'n'), String(app.custom.length), '#ffffff', 3));
+    mine.append(PixelUI.set(el('b'), 'Your levels', '#ffffff', 'big'), PixelUI.set(el('span', 'n'), String(app.custom.length), '#ffffff', 'big'));
     mine.onclick = () => Router.go(app.custom.length ? '#/set/mine' : '#/editor');
     s.append(mine);
     return s;
@@ -2004,8 +2014,8 @@ const Screens = {
       const got = prog[level.name] || {};
       const t = el('button', 'm-tile pb' + (got.flag ? ' done' : '')), marks = el('span', 'marks'), nm = shortName(level.name).toUpperCase();
       for (const [k] of BADGES) if (k !== 'gems' || levelHasGems(level)) { const ic = PixelUI.icon(k === 'flag' ? 'flag' : 'gem', got[k] ? (k === 'flag' ? '#e43b44' : '#2ce8f5') : '#5a6988'); marks.append(ic); }
-      t.append(PixelUI.set(el('b'), String(n + 1), '#ffffff', 4));
-      if (PixelUI.supported(nm)) t.append(PixelUI.lines(nm, '#c0cbdc', 2, 44)); else t.append(el('small', '', shortName(level.name)));
+      t.append(PixelUI.set(el('b'), String(n + 1), '#ffffff', 'big'));
+      if (PixelUI.supported(nm)) t.append(PixelUI.lines(nm, '#c0cbdc', 44)); else t.append(el('small', '', shortName(level.name)));
       t.append(marks); t.setAttribute('aria-label', `${n + 1}. ${shortName(level.name)}`);
       t.onclick = () => Router.go('#/play/' + key);
       grid.append(t);
@@ -2021,7 +2031,7 @@ const Screens = {
     s.append(menuBar('Settings'));
     const choice = (label, sub, key, options, then) => {
       const row = el('div', 'm-row'), words = el('span', 'words'), seg = el('span', 'pseg');
-      words.append(PixelUI.set(el('b'), label, '#ffffff', 2));
+      words.append(PixelUI.set(el('b'), label, '#ffffff'));
       if (sub) words.append(el('small', '', sub));
       row.append(words);
       for (const [text, value] of options) {
@@ -2042,11 +2052,11 @@ const Screens = {
     const reset = menuButton('trash', 'Reset progress', '', () => {
       if (!confirm('Reset all badges and your best Endless distance? Your own levels are kept.')) return;
       store.set('cardclimber.badges', {}); store.set('cardclimber.best', {});
-      PixelUI.set(reset.querySelector('b'), 'Progress cleared', '#ff8a8a', 3);
+      PixelUI.set(reset.querySelector('b'), 'Progress cleared', '#ff8a8a', 'big');
     }, 'danger');
     s.append(reset);
     s.append(el('p', 'm-note', 'Reset clears your badges and best Endless distance. Your own levels are kept.'));
-    s.append(PixelUI.set(el('p', 'm-foot'), 'Version ' + version(), '#8b9bb4', 2));
+    s.append(PixelUI.set(el('p', 'm-foot'), 'Version ' + version(), '#8b9bb4'));
     return s;
   },
 };
@@ -2055,6 +2065,7 @@ PixelUI.iconButton($('backBtn'), 'back', 'Back');
 $('backBtn').onclick = Router.up;
 window.addEventListener('hashchange', Router.show);
 app.mode = 'plan';
+uiPixel();
 Router.show();
 resize();
 requestAnimationFrame(draw);

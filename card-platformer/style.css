@@ -246,7 +246,6 @@ body.home #hud, body.home #rotateHint { display: none !important; }
 @media (max-width: 600px) { body.home #stage { height: auto; padding-top: max(16px, env(safe-area-inset-top)); } }
 
 /* ---------- pixel cards (PixelCard in pixel.js): 32×44 pictures, scaled by a whole number (--cs) ---------- */
-:root { --cs: 2; }
 .card { width: calc(32px * var(--cs)); height: calc(44px * var(--cs)); background: none; border: 0; border-radius: 6px; padding: 0; display: block; flex: 0 0 auto; }
 .card .pcard { position: relative; z-index: 1; width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 @media (hover: hover) { .card:hover { transform: translateY(-4px); border-color: transparent; z-index: 3; } }
@@ -275,9 +274,6 @@ body.endless #seq > * + * { margin-left: 0; }
 .pile-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .card.last { opacity: .55; cursor: default; }
 .card.last:hover, .card.preview:hover, .card.last:active, .card.preview:active { transform: none; }
-body.endless #hand { justify-content: center; flex-wrap: nowrap; overflow: visible; --cs: 3; }
-@media (max-width: 600px) { body.endless #hand { --cs: 2; padding-top: 8px; } }
-@media (max-width: 359px) { body.endless #hand { --cs: 1.5; } }   /* very narrow phones: still five across (1.5 = 3 screen pixels per card pixel on those screens) */
 
 /* ---------- pixel message box and buttons (PixelUI in pixel.js) ---------- */
 .ptext, .picon { display: block; image-rendering: pixelated; image-rendering: crisp-edges; flex: 0 0 auto; }
@@ -305,7 +301,6 @@ button.pb:disabled { opacity: .4; }
 header { background: #262b44; border-bottom: 0; box-shadow: 0 2px 0 #181425, inset 0 -2px 0 #1c2036; position: relative; z-index: 2; }
 header h1 { display: flex; align-items: center; }
 #backBtn, .m-back, .m-home { padding: 8px 10px; margin: 2px 2px 6px; font-size: inherit; }
-#backBtn .picon, .m-back .picon { width: 15px; height: 15px; }
 .m-bar { background: #1d2333; padding: 6px 2px 8px; }
 .m-bar h2 { display: flex; align-items: center; }
 .m-title { display: flex; justify-content: center; margin: 6px 0 14px; }
@@ -345,3 +340,58 @@ button.m-tile b { display: flex; }
 #seq .card.make-room { transform: translateX(16px); }     /* every card after the drop point moves along together (Drag.GAP) */
 #seq .card.lifted { display: none; }                       /* the card you're moving leaves the row while you hold it */
 #dropMarker { width: 4px; border-radius: 0; box-shadow: 0 0 0 2px #181425; }
+
+/* =====================================================================
+   ONE UI PIXEL. Everything outside the level is built in multiples of --px
+   (set by uiPixel() in game.js: a whole number of the screen's own pixels).
+   1 UI pixel = var(--px). These rules restate the pixel UI in those units.
+   ===================================================================== */
+:root { --px: 2px; --pxn: 2; --cs: var(--pxn); }   /* --px = one UI pixel as a length; --pxn = the same as a plain number */
+body.endless #hand { justify-content: center; flex-wrap: nowrap; overflow: visible; padding-top: calc(4 * var(--px)); }
+@media (hover: hover) { .card:hover { transform: translateY(calc(-2 * var(--px))); } }
+.card:active { transform: translateY(calc(-2 * var(--px))); }
+.cards > * + * { margin-left: calc(2 * var(--px)); }
+.slot { border-width: var(--px); border-radius: calc(3 * var(--px)); }
+.card.active, .card.hinted, .card.failed, .card.cycling, .card.drop-here { outline-width: calc(1.5 * var(--px)); outline-offset: calc(0.5 * var(--px)); }
+.chip { width: calc(32px * var(--pxn)); height: calc(44px * var(--pxn)); }
+#seq .card.make-room { transform: translateX(calc(8 * var(--px))); }
+#dropMarker { width: calc(2 * var(--px)); box-shadow: 0 0 0 var(--px) #181425; }
+/* buttons: 1-pixel outline, 1-pixel light top edge, 2-pixel darker lip, 2-pixel hard shadow; press = sink 2 pixels */
+button.pb { gap: calc(3 * var(--px)); padding: calc(5 * var(--px)) calc(7 * var(--px)); margin: var(--px) var(--px) calc(3 * var(--px));
+  box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #5a6988, inset 0 calc(-2 * var(--px)) 0 #262b44, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+button.pb.pri { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #fee761, inset 0 calc(-2 * var(--px)) 0 #d77643, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+button.pb:active:not(:disabled) { transform: translateY(calc(2 * var(--px))); box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #5a6988, inset 0 calc(-1 * var(--px)) 0 #262b44; }
+button.pb.pri:active:not(:disabled) { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #fee761, inset 0 calc(-1 * var(--px)) 0 #d77643; }
+#seqActions { gap: calc(6 * var(--px)); }
+#seqActions button.pb { padding: calc(6 * var(--px)) calc(5 * var(--px)); margin: var(--px) var(--px) calc(4 * var(--px)); }
+.pseg { gap: calc(4 * var(--px)); }
+.pseg button.pb { padding: calc(4 * var(--px)) calc(5 * var(--px)); margin: var(--px) var(--px) calc(3 * var(--px)); }
+#backBtn, .m-back, .m-home { padding: calc(4 * var(--px)) calc(5 * var(--px)); margin: var(--px) var(--px) calc(3 * var(--px)); }
+/* the message box */
+#banner { padding: calc(8 * var(--px)); box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #3e4a74, inset 0 calc(-1 * var(--px)) 0 #1c2036, calc(2 * var(--px)) calc(3 * var(--px)) 0 var(--px) #0b0d16; }
+#banner h2 { margin: var(--px) 0 calc(5 * var(--px)); }
+#banner .row { gap: calc(6 * var(--px)); }
+#banner .badges { gap: calc(6 * var(--px)); margin: calc(2 * var(--px)) 0 calc(7 * var(--px)); }
+#banner .badge { gap: calc(3 * var(--px)); padding: calc(3 * var(--px)) calc(4 * var(--px)); box-shadow: 0 0 0 var(--px) #181425; }
+/* the top bar */
+header { box-shadow: 0 var(--px) 0 #181425, inset 0 calc(-1 * var(--px)) 0 #1c2036; }
+/* menus */
+.m-title { margin: calc(3 * var(--px)) 0 calc(7 * var(--px)); }
+button.m-btn { gap: calc(7 * var(--px)); padding: calc(7 * var(--px)) calc(8 * var(--px)) calc(8 * var(--px)); margin: var(--px) var(--px) calc(5 * var(--px)); }
+.m-btn .words { gap: calc(3 * var(--px)); }
+.m-btn .ic { width: calc(7 * var(--px)); }
+button.m-btn.danger { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #5a3a4a, inset 0 calc(-2 * var(--px)) 0 #2a1a2a, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+button.m-set { padding: calc(8 * var(--px)) calc(8 * var(--px)) calc(9 * var(--px)); margin: var(--px) var(--px) calc(5 * var(--px)); }
+button.m-set.t-meadow { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #63c74d, inset 0 calc(-2 * var(--px)) 0 #265c42, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+button.m-set.t-canyon { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #e07a4f, inset 0 calc(-2 * var(--px)) 0 #733e39, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+button.m-set.t-peaks { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #8fb3e0, inset 0 calc(-2 * var(--px)) 0 #2f4466, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+.m-grid { gap: calc(7 * var(--px)); padding: var(--px); }
+button.m-tile { gap: calc(4 * var(--px)); padding: calc(5 * var(--px)) calc(2 * var(--px)) calc(6 * var(--px)); margin: 0 0 calc(2 * var(--px)); }
+.m-tile .marks { gap: calc(3 * var(--px)); }
+.t-meadow button.m-tile.done { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #3e8948, inset 0 calc(-2 * var(--px)) 0 #1f4a2c, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+.t-canyon button.m-tile.done { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #b05a3a, inset 0 calc(-2 * var(--px)) 0 #5e2a1c, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+.t-peaks button.m-tile.done { box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #5a7cb0, inset 0 calc(-2 * var(--px)) 0 #263c5e, 0 calc(2 * var(--px)) 0 var(--px) #181425; }
+.m-foot { gap: calc(3 * var(--px)); margin: calc(5 * var(--px)) 0 0; }
+.m-foot .ptext + .picon { margin-left: calc(6 * var(--px)); }
+.m-row { margin: var(--px) var(--px) calc(4 * var(--px)); padding: calc(6 * var(--px)) calc(7 * var(--px)); box-shadow: 0 0 0 var(--px) #181425, inset 0 var(--px) 0 #3e4a74; }
+.m-row .words { gap: calc(3 * var(--px)); }

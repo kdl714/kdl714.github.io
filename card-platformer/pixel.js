@@ -509,20 +509,73 @@ const PixelFont = {
     '/': ['..#', '..#', '.#.', '#..', '#..'], '+': ['...', '.#.', '###', '.#.', '...'], '-': ['...', '...', '###', '...', '...'], '!': ['#', '#', '#', '.', '#'],
     '.': ['.', '.', '.', '.', '#'], ',': ['.', '.', '.', '#', '#'], "'": ['#', '#', '.', '.', '.'], '?': ['##.', '..#', '.#.', '...', '.#.'], '&': ['.#.', '#.#', '.#.', '#.#', '.##'], '·': ['.', '.', '#', '.', '.'], ':': ['.', '#', '.', '#', '.'], m: ['.....', '##.#.', '#.#.#', '#.#.#', '#.#.#'], x: ['...', '#.#', '.#.', '#.#', '...'],
   },
-  width(s) { return [...s].reduce((a, ch) => a + (PixelFont.glyphs[ch] ? PixelFont.glyphs[ch][0].length : 2) + 1, -1); },
+  // the larger 5×7 font, for titles: same pixel size as everything else, just more pixels per letter
+  big: {
+    A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+    C: ['.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'],
+    D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
+    E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+    F: ['#####', '#....', '#....', '####.', '#....', '#....', '#....'],
+    G: ['.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.####'],
+    H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    I: ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'],
+    J: ['..###', '...#.', '...#.', '...#.', '#..#.', '#..#.', '.##..'],
+    K: ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
+    L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+    M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
+    N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
+    O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+    P: ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+    Q: ['.###.', '#...#', '#...#', '#...#', '#.#.#', '#..#.', '.##.#'],
+    R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+    S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
+    T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+    U: ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+    V: ['#...#', '#...#', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
+    W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
+    X: ['#...#', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '#...#'],
+    Y: ['#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'],
+    Z: ['#####', '....#', '...#.', '..#..', '.#...', '#....', '#####'],
+    '0': ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
+    '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+    '2': ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
+    '3': ['####.', '....#', '....#', '.###.', '....#', '....#', '####.'],
+    '4': ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'],
+    '5': ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
+    '6': ['.###.', '#....', '#....', '####.', '#...#', '#...#', '.###.'],
+    '7': ['#####', '....#', '...#.', '..#..', '.#...', '.#...', '.#...'],
+    '8': ['.###.', '#...#', '#...#', '.###.', '#...#', '#...#', '.###.'],
+    '9': ['.###.', '#...#', '#...#', '.####', '....#', '....#', '.###.'],
+    '!': ['#', '#', '#', '#', '#', '.', '#'],
+    '?': ['.###.', '#...#', '....#', '...#.', '..#..', '.....', '..#..'],
+    '.': ['.', '.', '.', '.', '.', '.', '#'],
+    ',': ['.', '.', '.', '.', '.', '#', '#'],
+    "'": ['#', '#', '.', '.', '.', '.', '.'],
+    '-': ['...', '...', '...', '###', '...', '...', '...'],
+    '/': ['....#', '...#.', '...#.', '..#..', '.#...', '.#...', '#....'],
+    '&': ['.##..', '#..#.', '#.#..', '.#...', '#.#.#', '#..#.', '.##.#'],
+    ':': ['.', '.', '#', '.', '.', '#', '.'],
+    '·': ['.', '.', '.', '#', '.', '.', '.'],
+    '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..', '.....']
+  },
+  font: (size) => (size === 'big' ? PixelFont.big : PixelFont.glyphs),
+  height: (size) => (size === 'big' ? 7 : 5),
+  width(s, size) { const f = PixelFont.font(size); return [...s].reduce((a, ch) => a + (f[ch] ? f[ch][0].length : 2) + 1, -1); },
   // k = size of one font pixel in art pixels (2 = double size, still on the pixel grid)
-  draw(g, s, x, y, col, k = 1) {
+  draw(g, s, x, y, col, k = 1, size) {
     let cx = x;
+    const f = PixelFont.font(size);
     for (const ch of s) {
-      const gl = PixelFont.glyphs[ch];
+      const gl = f[ch];
       if (!gl) { cx += 3 * k; continue; }
       gl.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') Pixel.px(g, col, cx + i * k, y + j * k, k, k); });
       cx += (gl[0].length + 1) * k;
     }
   },
-  outlined(g, s, x, y, col, k = 1, outline = '#2b1b24') {
-    for (const [a, b] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) PixelFont.draw(g, s, x + a * k, y + b * k, outline, k);
-    PixelFont.draw(g, s, x, y, col, k);
+  outlined(g, s, x, y, col, k = 1, outline = '#2b1b24', size) {
+    for (const [a, b] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) PixelFont.draw(g, s, x + a * k, y + b * k, outline, k, size);
+    PixelFont.draw(g, s, x, y, col, k, size);
   },
 };
 
@@ -625,7 +678,7 @@ const PixelCard = {
   badge(n) {
     const t = 'x' + n, w = PixelFont.width(t) + 4, c = document.createElement('canvas'); c.width = w; c.height = 9; c.className = 'pbadge';
     const g = c.getContext('2d'); Pixel.px(g, '#2b1b24', 0, 0, w, 9); Pixel.px(g, '#ffcc33', 1, 1, w - 2, 7); PixelFont.draw(g, t, 2, 2, '#2b1b24');
-    return c;
+    return sizeToPx(c);
   },
 };
 
@@ -640,10 +693,14 @@ const HUD_ICONS = {
   gem: ['.ooooo.', 'oCwCCCo', 'oCCCBBo', '.oCBBo.', '..oBo..', '...o...'],
   key: ['.ooo.....', 'oYwYoooo.', 'oYoYYYYYo', 'oYYYooYoY', '.ooo..o.o'],
 };
-// k: size of one HUD pixel in art pixels: 2 on small screens (phones), so it stays readable
-Pixel.hud = function (g, map, v, k = 1) {
-  const P = Pixel.px, LW = W * U, fw = (s) => PixelFont.width(s) * k;
-  const icon = (rows, x, y, pal) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (pal[r[i]]) P(g, pal[r[i]], x + i * k, y + j * k, k, k); });
+// Drawn on the screen canvas (after the level is scaled up) at the UI pixel size, so it matches the
+// cards and buttons exactly, whatever the level's zoom. Coordinates below are in UI pixels.
+Pixel.hud = function (g, map, v) {
+  const k = UI.px(), LW = Math.floor(W * TS / k), LH = Math.floor(H * TS / k);
+  const P = (col, x, y, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x * k, y * k, w * k, h * k); };
+  const fw = (s) => PixelFont.width(s);
+  const text = (s, x, y, col) => PixelFont.outlined(g, s, x * k, y * k, col, k);
+  const icon = (rows, x, y, pal) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (pal[r[i]]) P(pal[r[i]], x + i, y + j); });
   const heart = (x, y, full) => icon(HUD_ICONS.heart, x, y, { o: '#2b1b24', R: full ? '#e43b44' : '#5a6988' });
   const gem = (x, y) => icon(HUD_ICONS.gem, x, y, { o: '#2b1b24', C: '#2ce8f5', w: '#ffffff', B: '#0099db' });
   const ta = app.mode === 'time' && app.ta;
@@ -651,41 +708,39 @@ Pixel.hud = function (g, map, v, k = 1) {
     const T = CONFIG.timeAttack, N = T.gemsPerHeart;
     if (ta.deadline || ta.paused != null) {           // the timer: a line along the top edge
       const left = ta.paused ?? (ta.deadline - performance.now()), frac = ta.deadline === Infinity ? 1 : Math.max(0, Math.min(1, left / ta.limitMs));
-      P(g, '#2b1b24', 0, 0, LW, 3); P(g, '#5a6988', 0, 0, LW, 2);
-      P(g, frac < .3 ? '#e43b44' : ta.deadline === Infinity ? '#5cd18b' : '#ffcc33', 0, 0, Math.round(LW * frac), 2);
+      P('#2b1b24', 0, 0, LW, 3); P('#5a6988', 0, 0, LW, 2);
+      P(frac < .3 ? '#e43b44' : ta.deadline === Infinity ? '#5cd18b' : '#ffcc33', 0, 0, Math.round(LW * frac), 2);
     }
-    const top = 4 + 2 * k;
-    for (let h = 0; h < T.hearts; h++) heart(4 + h * 9 * k, top, h < ta.hearts);
-    let x = 6 + T.hearts * 9 * k;
+    const top = 6;
+    for (let h = 0; h < T.hearts; h++) heart(4 + h * 9, top, h < ta.hearts);
+    const x = 6 + T.hearts * 9;
     gem(x, top);
     const meter = N ? `${ta.gemMeter || 0}/${N}` : String(ta.gems);
-    PixelFont.outlined(g, meter, x + 10 * k, top + k, '#ffffff', k);
-    if (N && ta.gemMeter >= N) heart(x + 12 * k + fw(meter), top, true);   // a spare heart, waiting
+    text(meter, x + 10, top + 1, '#ffffff');
+    if (N && ta.gemMeter >= N) heart(x + 12 + fw(meter), top, true);   // a spare heart, waiting
     const dist = `${ta.dist}m`;
-    PixelFont.outlined(g, dist, LW - 4 - k - fw(dist), top + k, '#ffffff', k);
-    if (ta.deadline === Infinity) { const f = `FREE ${T.freeCards - ta.plays}`; PixelFont.outlined(g, f, LW - 4 - k - fw(f), top + 9 * k, '#a6f0c0', k); }
+    text(dist, LW - 5 - fw(dist), top + 1, '#ffffff');
+    if (ta.deadline === Infinity) { const f = `FREE ${T.freeCards - ta.plays}`; text(f, LW - 5 - fw(f), top + 9, '#a6f0c0'); }
     return;
   }
-  let x = 4, top = 4;
-  const total = gemTotal(map);
-  if (total) { const t = `${gemCount(map, v)}/${total}`; gem(x, top); PixelFont.outlined(g, t, x + 10 * k, top + k, '#ffffff', k); x += 10 * k + fw(t) + 6 * k; }
+  let x = 4;
+  const top = 4, total = gemTotal(map);
+  if (total) { const t = `${gemCount(map, v)}/${total}`; gem(x, top); text(t, x + 10, top + 1, '#ffffff'); x += 10 + fw(t) + 6; }
   if (map.keyMask) {
-    const has = hasAllKeys(map, v);
-    g.globalAlpha = has ? 1 : .45; icon(HUD_ICONS.key, x, top + k, { o: '#2b1b24', Y: '#fee761', w: '#ffffff' }); g.globalAlpha = 1;
-    x += 15 * k;
+    g.globalAlpha = hasAllKeys(map, v) ? 1 : .45; icon(HUD_ICONS.key, x, top + 1, { o: '#2b1b24', Y: '#fee761', w: '#ffffff' }); g.globalAlpha = 1;
+    x += 15;
   }
-  if (map.grid.some((r) => r.includes('t'))) PixelFont.outlined(g, `TURN ${v.turn}`, x, top + k, '#ffffff', k);   // only matters with timed spikes
+  if (map.grid.some((r) => r.includes('t'))) text(`TURN ${v.turn}`, x, top + 1, '#ffffff');   // only matters with timed spikes
   if (map.w > W) {               // a wide level: arrows at the edges show there's more to see (drag to look)
-    const my = Math.round(H * U / 2);
+    const my = Math.round(LH / 2);
     // a chevron: 4 columns, tallest at its base (x0), narrowing towards the tip in direction dir
     const arrow = (x0, dir) => {
-      for (let i = 0; i < 4; i++) P(g, '#2b1b24', x0 + dir * i * k - k, my - (4 - i) * k - k, 3 * k, (8 - 2 * i) * k + 2 * k);
-      for (let i = 0; i < 4; i++) P(g, '#ffffff', x0 + dir * i * k, my - (4 - i) * k, k, (8 - 2 * i) * k);
+      for (let i = 0; i < 4; i++) P('#2b1b24', x0 + dir * i - 1, my - (4 - i) - 1, 3, (8 - 2 * i) + 2);
+      for (let i = 0; i < 4; i++) P('#ffffff', x0 + dir * i, my - (4 - i), 1, 8 - 2 * i);
     };
-    if (app.cam > .05) arrow(7 * k, -1);
-    if (app.cam < map.w - W - .05) arrow(LW - 8 * k, 1);
+    if (app.cam > .05) arrow(7, -1);
+    if (app.cam < map.w - W - .05) arrow(LW - 8, 1);
   }
-
 };
 
 /* =====================================================================
@@ -702,41 +757,58 @@ const PIXEL_ICONS = {
   gear: ['..#.#..', '.#####.', '##...##', '.#...#.', '##...##', '.#####.', '..#.#..'],
   trash: ['.###.', '#####', '.#.#.', '.#.#.', '.###.'],
 };
+// The UI pixel: one size for every pixel outside the level itself (cards, buttons, panels, icons, text,
+// the status on the level). It's the CSS variable --px, set by uiPixel() in game.js: a whole number of
+// device pixels, so every edge is crisp. Canvases here are sized as multiples of it.
+const UI = { px: () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--px')) || 2 };
+const sizeToPx = (c) => { c.style.width = `calc(${c.width}px * var(--pxn))`; c.style.height = `calc(${c.height}px * var(--pxn))`; return c; };
 const PixelUI = {
-  supported: (s) => [...s].every((ch) => ch === ' ' || PixelFont.glyphs[ch]),
-  // a line of pixel text as a canvas, k screen pixels per pixel, with an optional 1-pixel outline
-  text(s, col, k = 2, outline) {
+  supported: (s, size) => [...s].every((ch) => ch === ' ' || PixelFont.font(size)[ch]),
+  // a line of pixel text as a canvas (size 'small' = 3×5 letters, 'big' = 5×7), optionally with a 1-pixel outline
+  text(s, col, size = 'small', outline) {
     const pad = outline ? 1 : 0, c = document.createElement('canvas');
-    c.width = PixelFont.width(s) + pad * 2; c.height = 5 + pad * 2; c.className = 'ptext';
+    c.width = PixelFont.width(s, size) + pad * 2; c.height = PixelFont.height(size) + pad * 2; c.className = 'ptext';
     const g = c.getContext('2d');
-    if (outline) PixelFont.outlined(g, s, pad, pad, col, 1, outline); else PixelFont.draw(g, s, 0, 0, col);
-    c.style.width = c.width * k + 'px'; c.style.height = c.height * k + 'px';
-    return c;
+    if (outline) PixelFont.outlined(g, s, pad, pad, col, 1, outline, size); else PixelFont.draw(g, s, 0, 0, col, 1, size);
+    return sizeToPx(c);
   },
-  icon(name, col, k = 2) {
+  icon(name, col) {
     const rows = PIXEL_ICONS[name], c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length; c.className = 'picon';
     const g = c.getContext('2d');
     rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') Pixel.px(g, col, i, j); });
-    c.style.width = c.width * k + 'px'; c.style.height = c.height * k + 'px';
-    return c;
+    return sizeToPx(c);
   },
-  // pixel text wrapped onto lines no wider than maxW (in pixels), centred
-  lines(s, col, k = 2, maxW = 40) {
-    const out = [];
-    for (const w of s.split(' ')) { const last = out[out.length - 1]; if (last && PixelFont.width(last + ' ' + w) <= maxW) out[out.length - 1] = last + ' ' + w; else out.push(w); }
-    const c = document.createElement('canvas'), wid = Math.max(...out.map((l) => PixelFont.width(l)));
-    c.width = wid; c.height = out.length * 7 - 2; c.className = 'ptext';
+  // pixel text wrapped onto lines no wider than maxW pixels, centred
+  lines(s, col, maxW = 40, size = 'small') {
+    const out = [], lh = PixelFont.height(size) + 2;
+    for (const w of s.split(' ')) { const last = out[out.length - 1]; if (last && PixelFont.width(last + ' ' + w, size) <= maxW) out[out.length - 1] = last + ' ' + w; else out.push(w); }
+    const c = document.createElement('canvas'), wid = Math.max(...out.map((l) => PixelFont.width(l, size)));
+    c.width = wid; c.height = out.length * lh - 2; c.className = 'ptext';
     const g = c.getContext('2d');
-    out.forEach((l, i) => PixelFont.draw(g, l, Math.floor((wid - PixelFont.width(l)) / 2), i * 7, col));
-    c.style.width = c.width * k + 'px'; c.style.height = c.height * k + 'px';
-    return c;
+    out.forEach((l, i) => PixelFont.draw(g, l, Math.floor((wid - PixelFont.width(l, size)) / 2), i * lh, col, 1, size));
+    return sizeToPx(c);
   },
   // put pixel text into an element (falls back to plain text for characters the font can't draw)
-  set(elm, s, col, k = 2, outline) {
+  set(elm, s, col, size = 'small', outline) {
     const up = s.toUpperCase(); elm.textContent = '';
-    if (PixelUI.supported(up)) elm.appendChild(PixelUI.text(up, col, k, outline)); else elm.textContent = s;
+    if (PixelUI.supported(up, size)) elm.appendChild(PixelUI.text(up, col, size, outline)); else elm.textContent = s;
     elm.setAttribute('aria-label', s);
     return elm;
+  },
+  // the logo: the big font with strokes two pixels thick, a one-pixel outline, a highlight and a drop shadow,
+  // all on the same pixel grid as everything else
+  logo(s) {
+    const f = PixelFont.big, scale = 2, gap = 2, H = 7 * scale;
+    let w = 0; const glyphs = [...s].map((ch) => { const gl = f[ch]; const x = w; w += (gl ? gl[0].length : 3) * scale + gap; return { gl, x }; });
+    w -= gap;
+    const pad = 2, c = document.createElement('canvas'); c.width = w + pad * 2 + 1; c.height = H + pad * 2 + 1; c.className = 'ptext';
+    const on = new Set();
+    for (const { gl, x } of glyphs) if (gl) gl.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') for (let a = 0; a < scale; a++) for (let b = 0; b < scale; b++) on.add(`${pad + x + i * scale + a},${pad + j * scale + b}`); });
+    const g = c.getContext('2d'), has = (x, y) => on.has(`${x},${y}`), P = (col, x, y) => Pixel.px(g, col, x, y);
+    for (const k of on) { const [x, y] = k.split(',').map(Number); P('#181425', x + 1, y + 1); }                       // drop shadow
+    for (const k of on) { const [x, y] = k.split(',').map(Number); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!has(x + dx, y + dy)) P('#2b1b24', x + dx, y + dy); }   // outline
+    for (const k of on) { const [x, y] = k.split(',').map(Number); P(!has(x, y - 1) ? '#fff2a8' : !has(x, y + 1) ? '#f77622' : '#fee761', x, y); }   // light top, shaded bottom
+    return sizeToPx(c);
   },
   // an icon-only pixel button (e.g. Back)
   iconButton(b, icon, label) {

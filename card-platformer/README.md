@@ -18,6 +18,7 @@ No build step and no dependencies: just static files.
 | `pixel.js` | **Pixel art style:** sprites, palettes and pixel backgrounds (the default look). |
 | `art.js` | **Look and feel:** the three themes (colours at the top), parallax backgrounds, tiles, springs, the slime, items, shadows and particles. |
 | `game.js` | Modes, the player character, animation, card UI, drag & drop, editor. |
+| `ASSETS.md` | **Art guide:** what to draw in Aseprite to replace the built-in art, with sizes and export settings. |
 | `card-climber.html` | Redirects to `index.html`, so old links and home-screen shortcuts keep working. |
 | `apple-touch-icon.png` | Home-screen icon. |
 
@@ -35,7 +36,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-15d`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-16a`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
@@ -56,7 +57,7 @@ Levels can be different sizes; a level's size is simply the size of its map. The
 | Small | 12 × 7 | whole level, bigger tiles: good for early, friendly levels |
 | Medium | 16 × 9 | whole level (the classic size, and Endless) |
 | Large | 20 × 11 | whole level, smaller tiles |
-| Wide | 28 × 11 | 20 columns at a time: it scrolls to follow the hero, and while planning you can drag the level sideways to look around (arrows at the edges show there's more) |
+| Wide | 28 × 11 (or any width; The Summit's joined levels are 22–27 wide) | 20 columns at a time: it scrolls to follow the hero, and while planning you can drag the level sideways to look around (arrows at the edges show there's more) |
 
 Changing the size in the editor keeps the bottom-left corner where it is, so the ground stays put. The widest a level shows at once is `VIEW_MAX_W` (20) in `game.js`; the presets are `LEVEL_SIZES`.
 
@@ -105,7 +106,7 @@ The order of cards matters, like real platformer physics:
 - **Double jump:** a jump straight after a jump goes one tile higher.
 - **Breaking momentum:** a Turn or Wait in between, or (in Endless) losing a heart, a redraw or a timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
 
-Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. Set 2 (Dusk Canyon) adds one idea per level: Turn, timed spikes and Wait, Sprint, Double jump, crates, keys and doors, Echo, Hop, and a review. Set 3 (Snowy Peaks) does the same with ice, springs, one-way platforms, Climb, slimes, Dash, Dash vs slime (Bowled Over), bumpers and a review (Grand Tour). The original levels are kept in `levels-archive.js`; the harder ones there are candidates for a Summit set. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
+Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. Set 2 (Dusk Canyon) adds one idea per level: Turn, timed spikes and Wait, Sprint, Double jump, crates, keys and doors, Echo, Hop, and a review. Set 3 (Snowy Peaks) does the same with ice, springs, one-way platforms, Climb, slimes, Dash, Dash vs slime (Bowled Over), bumpers and a review (Grand Tour). Set 4 (The Summit) is the harder finale: five tricky Medium levels, then four long, scrolling levels made by joining two puzzles end to end with one shared hand (every card counts). The original levels not used in a set are kept in `levels-archive.js`. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
 
 ## Tiles, cards and the patroller
 
@@ -127,6 +128,8 @@ Cards: Walk (1–3), Jump (three shapes), Turn, Wait, Echo (repeat the last card
 Each mechanic can be switched off in `config.js` (`features.ice`, `platforms`, `springs`, `sideSprings`, `climb`, `enemies`); levels that need a switched-off mechanic are hidden.
 
 ## Look
+
+**One UI pixel:** everything outside the level (cards, buttons, panels, borders, icons, text and the status on the level) is built in multiples of one size, `--px`, set by `uiPixel()` in `game.js`: 2 screen pixels on phones and laptops, 1.5 on very narrow phones, 3 on big screens, always a whole number of the device's own pixels. Titles use a larger 5×7 pixel font rather than scaled-up letters. The level itself zooms to fit separately.
 
 **Art styles:** the game is drawn in **Pixel** art by default (`pixel.js`): every object is a small sprite placed pixel by pixel, 16 art-pixels per tile, with solid outlines on characters, on a palette based on Endesga 32. The hero is rebuilt in pixels at every squash and stretch, so he moves exactly as in the **Smooth** style (`art.js`). Players switch in **Settings → Art style**; `CONFIG.artStyle` in `config.js` sets the default. Pixel palettes for each theme are in `PIXEL_THEMES` at the top of `pixel.js`.
 
