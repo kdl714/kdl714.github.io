@@ -342,6 +342,6 @@ button.m-tile b { display: flex; }
 .m-btn .ic { width: 24px; display: flex; justify-content: center; flex: 0 0 auto; }
 /* dragging into the plan: the cards either side of the gold insertion bar part to make room */
 #seq .card { transition: transform .12s ease-out; }
-#seq .card.part-l { transform: translateX(-8px); }
-#seq .card.part-r { transform: translateX(8px); }
+#seq .card.make-room { transform: translateX(16px); }     /* every card after the drop point moves along together (Drag.GAP) */
+#seq .card.lifted { display: none; }                       /* the card you're moving leaves the row while you hold it */
 #dropMarker { width: 4px; border-radius: 0; box-shadow: 0 0 0 2px #181425; }

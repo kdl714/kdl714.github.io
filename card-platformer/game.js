@@ -1516,6 +1516,7 @@ function renderDeck() {
    ===================================================================== */
 const Drag = {
   HOLD_MS: 150, MOVE_PX: 6, lastDrop: 0,
+  GAP: 16,                                   // how far the plan's cards move aside to make room (px; matches .make-room in style.css)
   cur: null,
   attach(el, info) {
     if (!(app.mode === 'plan' || app.mode === 'quest') || app.running) return;
@@ -1550,6 +1551,11 @@ const Drag = {
     Object.assign(d.ghost.style, { width: r.width + 'px', height: r.height + 'px' });
     document.body.appendChild(d.ghost);
     d.el.classList.add('dragging');
+    // measure the plan's cards once, now (with the lifted card out of the row), so the drop point and the
+    // bar never chase the cards as they move aside
+    if (d.info.src === 'seq') d.el.classList.add('lifted');
+    const row = $('seq');
+    d.snap = { scroll: row.scrollLeft, cards: [...row.querySelectorAll('.card')].filter((c) => c !== d.el).map((el) => ({ el, r: el.getBoundingClientRect() })) };
     if (navigator.vibrate) navigator.vibrate(10);
     // keep scrolling the plan row while the card is held near its left/right edge (phones)
     d.auto = setInterval(() => {
@@ -1565,12 +1571,10 @@ const Drag = {
     const d = Drag.cur, lane = $('seq').getBoundingClientRect();
     const over = d.x >= lane.left - 20 && d.x <= lane.right + 20 && d.y >= lane.top - 30 && d.y <= lane.bottom + 30;
     if (!over) return null;
-    const cards = [...$('seq').querySelectorAll('.card')].filter((c) => c !== d.el);
+    const shift = d.snap.scroll - $('seq').scrollLeft;      // the row may have scrolled since we measured
+    const cards = d.snap.cards.map(({ el, r }) => ({ el, left: r.left + shift, right: r.right + shift, top: r.top, bottom: r.bottom }));
     let at = 0;
-    for (const c of cards) {
-      const r = c.getBoundingClientRect();
-      if (d.y > r.bottom + 4 || (d.y >= r.top - 4 && d.x > r.left + r.width / 2)) at++;
-    }
+    for (const c of cards) if (d.y > c.bottom + 4 || (d.y >= c.top - 4 && d.x > (c.left + c.right) / 2)) at++;
     return { at, cards };
   },
   position() {
@@ -1579,14 +1583,19 @@ const Drag = {
     const s = Drag.slot();
     $('seq').classList.toggle('drop-target', !!s);
     d.ghost.classList.toggle('out', !s && d.info.src === 'seq');
-    document.querySelectorAll('.drop-here, .part-l, .part-r').forEach((n) => n.classList.remove('drop-here', 'part-l', 'part-r'));
-    if (!s) { marker.style.display = 'none'; return; }
-    s.cards[s.at - 1]?.classList.add('part-l'); s.cards[s.at]?.classList.add('part-r');   // the cards either side make room
-    // marker: before the card at `at`, or after the last one
-    const ref = s.cards[s.at] || s.cards[s.at - 1];
-    const lane = $('seq').getBoundingClientRect();
-    let x = lane.left + 4, top = lane.top, h = 80;
-    if (ref) { const r = ref.getBoundingClientRect(); x = s.cards[s.at] ? r.left - 5 : r.right + 3; top = r.top; h = r.height; }
+    if (!s) {
+      marker.style.display = 'none';
+      d.snap.cards.forEach(({ el }) => el.classList.remove('make-room'));
+      return;
+    }
+    // every card from the drop point on slides right together, opening a gap (so nothing overlaps)
+    d.snap.cards.forEach(({ el }, i) => el.classList.toggle('make-room', i >= s.at));
+    const prev = s.cards[s.at - 1], next = s.cards[s.at], gap = Drag.GAP;
+    let x, top, h;
+    if (prev && next) { x = (prev.right + next.left + gap) / 2 - 2; top = next.top; h = next.bottom - next.top; }
+    else if (next) { x = next.left + gap / 2 - 2; top = next.top; h = next.bottom - next.top; }
+    else if (prev) { x = prev.right + gap / 2; top = prev.top; h = prev.bottom - prev.top; }
+    else { const lane = $('seq').getBoundingClientRect(); x = lane.left + 4; top = lane.top; h = 88; }
     Object.assign(marker.style, { display: 'block', left: x + 'px', top: top + 'px', height: h + 'px' });
   },
   up(e) {
@@ -1607,9 +1616,10 @@ const Drag = {
   cancel() { clearTimeout(Drag.cur?.timer); Drag.cleanup(); },
   cleanup() {
     const d = Drag.cur;
-    if (d) { clearInterval(d.auto); d.ghost?.remove(); d.el.classList.remove('dragging'); }
+    if (d) { clearInterval(d.auto); d.ghost?.remove(); d.el.classList.remove('dragging', 'lifted'); }
+    document.querySelectorAll('.make-room').forEach((n) => n.classList.remove('make-room'));
     $('dropMarker').style.display = 'none'; $('seq').classList.remove('drop-target');
-    document.querySelectorAll('.drop-here, .part-l, .part-r').forEach((n) => n.classList.remove('drop-here', 'part-l', 'part-r'));
+    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
     Drag.cur = null;
   },
 };
