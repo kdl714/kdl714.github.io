@@ -1,4 +1,4 @@
-// Card Climber — handmade Plan & Run levels.
+// Deckhop — handmade Plan & Run levels.
 // Map legend: . empty  # ground  ^ spikes  t timed spikes  C crate  K key  * gem  P start  G flag/door
 // Each level: name, optional hint (first hint shown), the map (any size: see LEVEL_SIZES in game.js), and the cards in your hand.
 // Levels you build in the editor can be exported as JSON and pasted in here.

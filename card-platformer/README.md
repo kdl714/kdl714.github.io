@@ -1,4 +1,6 @@
-# Card Climber
+# Deckhop
+
+*(Formerly Card Climber. Saved progress still lives under the old `cardclimber.*` names in the browser, so nothing was lost in the rename.)*
 
 A turn-based puzzle platformer: play movement cards in the right order to reach the flag.
 No build step and no dependencies: just static files.
@@ -33,7 +35,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-13d`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-15a`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
@@ -74,7 +76,7 @@ Everything you can change is in `config.js`:
 
 ## Modes
 
-- **Plan & Run:** put cards into the sequence slots, then press Play. You can drop a card into any slot, but Play stays off while there's an empty slot between cards. Tap a planned card to take it back; drag to move it. **Reset** starts the level over (cards back in your hand). After a failed run an optional 💡 Hint unlocks. The first hint is a nudge in words; later ones reveal cards one at a time.
+- **Plan & Run:** put cards into the sequence, then press Play. The sequence is a simple list: tap a card in your hand to add it to the end, or drag it in (a gold bar shows where it'll go, and the cards either side part to make room). Tap a planned card to send it back to your hand; the cards after it slide along to close the gap. Drag planned cards to reorder them. **Reset** starts the level over (cards back in your hand). After a failed run an optional 💡 Hint unlocks. The first hint is a nudge in words; later ones reveal cards one at a time.
 - **Endless:** an endless runner with a hand of 5 movement cards (no Wait or Echo). Above the hand, **Last** shows the card you just played and **Next** shows what comes in after you play. Your first 3 moves are untimed; after that, pick a card before the timer strip along the top runs out (4s at first, tightening slowly). The world cycles through biomes every 150 tiles (**Meadow** with slimes, springs and platforms; **Dusk Canyon** with cacti and springs up to ledges; **Snowy Peaks** with ice runs), and from the second lap they mix. Each biome starts with a flat **rest stop** and a signpost, which heals a heart. **Forks:** now and then an upper lane of wooden planks runs over a stretch of hazardous ground. High Jump up onto it (from just before it, or from underneath) to skip the hazards and grab its gems, or stay on the ground and jump the hazards. Both routes rejoin on safe ground. **Extra cards:** Dash (forward 4 in a straight line, skimming gaps and bowling over slimes) and Hop (up 1, forward 1). **Momentum:** order matters. A jump straight after a Walk or Dash gets a **Run-up** (+1 forward), a third Walk in a row **Sprints** (+2), and a jump straight after a jump is a **Double jump** (+1 higher). Losing a heart, redrawing or timing out breaks momentum; bumping into things doesn't. Cards in your hand redraw their pictures live (green, with a tag) to show exactly what they'd do right now. **Score = distance:** your best distance is saved. **Gems heal:** every 5 gems restore a heart (the ◆ count in the status line shows your progress); at full hearts the meter waits, full ("spare ♥"), and refills the next heart you lose. **Fair deal:** if nothing in your hand would move you forward safely, a **lucky card** (gold, ✦) cuts in ahead of the Next card. Cards you can already see never change. Number keys 1–5 pick cards, Space redraws your hand (the clock keeps running), and P pauses (which hides the level).
 - **Roguelite** *(tabled for now: hidden from the menu; set `features.runMode: true` in `config.js` to bring it back)*: a run of levels where you buy your cards.
   1. **Pick a route:** *Safe*, *Risky* (tighter budget and more gems, plus a perk), or a *Rest* (heal) or *Shrine* (buy a perk) stop. Each level is previewed.

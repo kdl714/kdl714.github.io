@@ -1,4 +1,4 @@
-// Card Climber — retired levels (not loaded by the game). Kept so they can be reused:
+// Deckhop — retired levels (not loaded by the game). Kept so they can be reused:
 // copy one into levels.js (and give it a new name) to bring it back.
 // These were the original Meadow and Dusk Canyon sets, before the gentler new sets replaced them.
 const ARCHIVED_LEVELS = [

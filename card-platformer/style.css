@@ -1,4 +1,4 @@
-/* Card Climber — styles. Phone layouts are at the bottom. */
+/* Deckhop — styles. Phone layouts are at the bottom. */
 
 :root {
   --bg: #1d2333; --panel: #262d40; --panel2: #2f3750; --text: #eef1f8; --muted: #9aa3bb;
@@ -340,3 +340,8 @@ button.m-tile b { display: flex; }
 .pseg { display: flex; gap: 8px; }
 .pseg button.pb { padding: 8px 9px; margin: 2px 2px 6px; }
 .m-btn .ic { width: 24px; display: flex; justify-content: center; flex: 0 0 auto; }
+/* dragging into the plan: the cards either side of the gold insertion bar part to make room */
+#seq .card { transition: transform .12s ease-out; }
+#seq .card.part-l { transform: translateX(-8px); }
+#seq .card.part-r { transform: translateX(8px); }
+#dropMarker { width: 4px; border-radius: 0; box-shadow: 0 0 0 2px #181425; }

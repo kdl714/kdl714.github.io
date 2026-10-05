@@ -1,4 +1,4 @@
-// Card Climber — the game itself: modes (Plan & Run, Endless, Roguelite),
+// Deckhop — the game itself: modes (Plan & Run, Endless, Roguelite),
 // drawing, animation, cards UI, drag & drop, editor and wiring.
 
 /* =====================================================================
@@ -346,20 +346,12 @@ const Slots = {
   lastFilled: () => app.seq.map(Boolean).lastIndexOf(true),
   gap() { const last = Slots.lastFilled(); for (let i = 0; i < last; i++) if (!app.seq[i]) return i; return -1; },
   trim() { while (app.seq.length && !app.seq[app.seq.length - 1]) app.seq.pop(); },
-  firstEmpty() { const i = app.seq.indexOf(null); return i >= 0 ? i : app.seq.length; },
-  // put a card in slot i; if it's taken, shift cards along into the nearest empty slot
+  firstEmpty() { return app.seq.filter(Boolean).length; },
+  // The plan is a list: insert a card at position i (the cards after it move along one).
   place(card, i) {
-    const s = app.seq, n = app.level.cards.length;
-    i = Math.max(0, Math.min(n - 1, i));
-    while (s.length < n) s.push(null);
-    if (!s[i]) s[i] = card;
-    else {
-      let j = s.indexOf(null, i);
-      if (j >= 0) { for (let k = j; k > i; k--) s[k] = s[k - 1]; }
-      else { j = s.lastIndexOf(null, i); for (let k = j; k < i; k++) s[k] = s[k + 1]; }
-      s[i] = card;
-    }
-    Slots.trim();
+    const s = app.seq;
+    for (let k = s.length - 1; k >= 0; k--) if (!s[k]) s.splice(k, 1);    // never any holes
+    s.splice(Math.max(0, Math.min(s.length, i)), 0, card);
   },
 };
 
@@ -373,15 +365,15 @@ const Plan = {
   moveTo(uid, at) {
     if (app.running) return;
     const i = app.seq.findIndex((c) => c && c.uid === uid), card = app.seq[i];
-    app.seq[i] = null;
+    app.seq.splice(i, 1);                     // `at` already counts the other cards only
     Slots.place(card, at);
     if (app.cursor || app.state.status !== 'playing') resetRun(); else renderDeck();
   },
-  // tapping a planned card takes it back to your hand and leaves its slot empty
+  // tapping a planned card takes it back to your hand; the cards after it slide along to close the gap
   clickSeq(uid) {
     if (app.running) return;
     const i = app.seq.findIndex((c) => c && c.uid === uid);
-    app.hand.push(app.seq[i]); app.seq[i] = null; Slots.trim();   // back to the end of your hand (or onto its matching stack)
+    app.hand.push(app.seq.splice(i, 1)[0]);   // back to the end of your hand (or onto its matching stack)
     if (app.cursor) resetRun(); else renderDeck();
   },
   async play() {
@@ -1377,7 +1369,7 @@ function renderDeck() {
   if (time) $('seqLabel').innerHTML = '';
   else $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>`
     : instant ? 'Played'
-    : 'Sequence' + (Slots.gap() >= 0 ? '<small class="warn">fill the empty slot to play</small>' : '<small>tap a card to remove · drag to move</small>');
+    : 'Sequence<small>tap a card to remove · drag to reorder</small>';
   const r = app.mode === 'run' && app.run;
   const peekN = r && r.draw ? CONFIG.run.peek : 0;
   const peek = peekN ? r.draw.slice(-peekN).reverse().map((c) => cardChip(c.id)) : [];
@@ -1409,15 +1401,14 @@ function renderDeck() {
     if (app.ta?.next) side('Next', { id: app.ta.next }, 'preview');
   }
   if (app.mode === 'plan') {
-    // fixed slots: cards where you put them, dashed outlines for empty ones (red if it's a gap)
-    const gapBefore = Slots.gap() >= 0 ? Slots.lastFilled() : -1;
+    // the plan in order, then dashed outlines for the cards still to place
     // walk through the sequence so each card shows what it will really do, momentum included
     let sim = app.map && initialState(app.map);
     for (let i = 0; i < app.level.cards.length; i++) {
       const c = app.seq[i];
       if (!c) {
         sim = null;                                  // a gap: we can't tell what comes after
-        const sl = Object.assign(document.createElement('div'), { className: 'slot' + (i < gapBefore ? ' gap' : '') });
+        const sl = Object.assign(document.createElement('div'), { className: 'slot' });
         sl.dataset.slot = i; seqBox.appendChild(sl); continue;
       }
       let cls = '';
@@ -1574,14 +1565,6 @@ const Drag = {
     const d = Drag.cur, lane = $('seq').getBoundingClientRect();
     const over = d.x >= lane.left - 20 && d.x <= lane.right + 20 && d.y >= lane.top - 30 && d.y <= lane.bottom + 30;
     if (!over) return null;
-    if (app.mode === 'plan') {      // fixed slots: the slot (card or empty outline) nearest the finger
-      let best = null, bd = Infinity;
-      for (const el of $('seq').querySelectorAll('[data-slot]')) {
-        const r = el.getBoundingClientRect(), dist = Math.hypot(d.x - (r.left + r.width / 2), d.y - (r.top + r.height / 2));
-        if (dist < bd) { bd = dist; best = el; }
-      }
-      return best && { at: +best.dataset.slot, el: best };
-    }
     const cards = [...$('seq').querySelectorAll('.card')].filter((c) => c !== d.el);
     let at = 0;
     for (const c of cards) {
@@ -1596,9 +1579,9 @@ const Drag = {
     const s = Drag.slot();
     $('seq').classList.toggle('drop-target', !!s);
     d.ghost.classList.toggle('out', !s && d.info.src === 'seq');
-    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
+    document.querySelectorAll('.drop-here, .part-l, .part-r').forEach((n) => n.classList.remove('drop-here', 'part-l', 'part-r'));
     if (!s) { marker.style.display = 'none'; return; }
-    if (s.el) { marker.style.display = 'none'; s.el.classList.add('drop-here'); return; }   // Plan & Run: highlight the slot
+    s.cards[s.at - 1]?.classList.add('part-l'); s.cards[s.at]?.classList.add('part-r');   // the cards either side make room
     // marker: before the card at `at`, or after the last one
     const ref = s.cards[s.at] || s.cards[s.at - 1];
     const lane = $('seq').getBoundingClientRect();
@@ -1626,7 +1609,7 @@ const Drag = {
     const d = Drag.cur;
     if (d) { clearInterval(d.auto); d.ghost?.remove(); d.el.classList.remove('dragging'); }
     $('dropMarker').style.display = 'none'; $('seq').classList.remove('drop-target');
-    document.querySelectorAll('.drop-here').forEach((n) => n.classList.remove('drop-here'));
+    document.querySelectorAll('.drop-here, .part-l, .part-r').forEach((n) => n.classList.remove('drop-here', 'part-l', 'part-r'));
     Drag.cur = null;
   },
 };
@@ -1908,7 +1891,7 @@ function leaveGame() {
   hideBanner();
 }
 
-const HOME_SCENE = { name: 'Card Climber', cards: [], map: [
+const HOME_SCENE = { name: 'Deckhop', cards: [], map: [
   '................', '................', '................', '................', '.........*......',
   '................', '................', '...P.........G..', '################'] };
 
@@ -1979,7 +1962,7 @@ const Screens = {
     const builtIn = allLevels().filter((l) => l.key[0] === 'b'), prog = Progress.all();
     const flags = builtIn.filter((l) => prog[l.level.name]?.flag).length;
     const bestEndless = store.get('cardclimber.best', {})['endless distance'];
-    s.append(PixelUI.set(el('h1', 'm-title'), 'Card Climber', '#fee761', 5, '#181425'));
+    s.append(PixelUI.set(el('h1', 'm-title'), 'Deckhop', '#fee761', 5, '#181425'));
     s.append(menuButton('play', 'Puzzles', `${flags}/${builtIn.length} flags`, () => Router.go('#/puzzles'), 'primary'));
     if (CONFIG.features.timeAttack) s.append(menuButton('infinity', 'Endless', bestEndless ? `Best ${bestEndless} tiles` : 'How far can you go?', () => Router.go('#/endless')));
     s.append(menuButton('edit', 'Level editor', app.custom.length ? plural(app.custom.length, 'saved level') : 'Build your own', () => Router.go('#/editor')));

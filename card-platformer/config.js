@@ -1,4 +1,4 @@
-// Card Climber — every tuning knob lives here.
+// Deckhop — every tuning knob lives here.
 // Change a number, save, reload the page. Loaded first, before rules.js, levels.js and game.js.
 
 /* =====================================================================

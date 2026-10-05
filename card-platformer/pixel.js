@@ -1,4 +1,4 @@
-// Card Climber — the Pixel art style (Settings → Art style → Pixel).
+// Deckhop — the Pixel art style (Settings → Art style → Pixel).
 // Every object is a small sprite placed pixel by pixel, 16 art-pixels per tile, with
 // solid outlines on characters. The world is drawn on a small canvas, then scaled
 // up with no smoothing (game.js draw()). Text stays at full resolution.
@@ -79,7 +79,7 @@ const Pixel = {
     const p = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)), A = p(a), B = p(b);
     return (Pixel.mixCache[key] = '#' + A.map((v, i) => Math.round(v + (B[i] - v) * f).toString(16).padStart(2, '0')).join(''));
   },
-  mixCache: {},
+  mixCache: {}, hazeCache: {},
   // draw a sprite (rows of characters) with a palette; flip mirrors it
   spr(g, rows, pal, x, y, flip = false) {
     for (let j = 0; j < rows.length; j++) {
@@ -172,8 +172,8 @@ const PixelArt = {
     Art.shiftNow += (target - Art.shiftNow) * .04;
     PixelArt.range(g, th.far, Math.round((camX * PARALLAX.far + Art.shiftNow * .3) * U), 11, th.sky[3]);
     PixelArt.clouds(g, th, (camX * PARALLAX.clouds + Art.shiftNow * .5) * U, t);
-    PixelArt.range(g, th.near, Math.round((camX * (PARALLAX.far + PARALLAX.near) / 2 + Art.shiftNow * .6) * U), 23, th.sky[4]);
-    PixelArt.hills(g, th, Math.round((camX * PARALLAX.near + Art.shiftNow) * U));
+    PixelArt.range(g, th.near, Math.round((camX * (PARALLAX.far + PARALLAX.near) / 2 + Art.shiftNow * .5) * U), 23, th.sky[4]);
+    PixelArt.hills(g, th, Math.round((camX * PARALLAX.near + Art.shiftNow * .7) * U));
   },
   // a mountain range: real peaks (or flat-topped mesas), each drawn whole, back to front, so
   // nearer peaks overlap farther ones (farther ones are a little hazier). Lit on the left; the
@@ -216,7 +216,10 @@ const PixelArt = {
     const LW = W * U, LH = H * U, P = Pixel.px, hl = th.hills;
     const base = LH - (144 - hl.base) * LH / 144;                       // the same share of the screen at any level height
     const top = (wx) => Math.round(base + 5 * Math.sin(wx * .06 + 2) + 2 * Math.sin(wx * .19));
-    const kind = th.tree === 'round' ? 'tree' : th.tree === 'pine' ? 'pine' : 'saguaro', rows = SPR[kind], pal = SPAL[kind];
+    const kind = th.tree === 'round' ? 'tree' : th.tree === 'pine' ? 'pine' : 'saguaro', rows = SPR[kind];
+    // scenery is hazed towards the sky, so it never looks like the bright, outlined things you play with (e.g. cacti)
+    const haze = (f) => { const key = kind + th.sky[4] + f; return Pixel.hazeCache[key] || (Pixel.hazeCache[key] = Object.fromEntries(Object.entries(SPAL[kind]).map(([c, v]) => [c, Pixel.mix(v, th.sky[4], f)]))); };
+    const backPal = haze(.45), frontPal = haze(.3);
     const trees = [];
     for (let k = Math.floor(off / 30) - 1; k <= Math.floor((off + LW) / 30) + 1; k++) {
       if (Art.hash(k, 51) < .35) continue;
@@ -224,10 +227,10 @@ const PixelArt = {
       trees.push({ sx: tx - off, base: top(tx + 6), front: Art.hash(k, 54) > .55, sink: Math.round(Art.hash(k, 53) * 3) });
     }
     // some trees peek over the ridge from behind...
-    for (const t of trees) if (!t.front) Pixel.spr(g, rows, pal, t.sx, t.base - rows.length + 2 + t.sink);
+    for (const t of trees) if (!t.front) Pixel.spr(g, rows, backPal, t.sx, t.base - rows.length + 2 + t.sink);
     for (let sx = 0; sx < LW; sx++) { const y = top(sx + off); P(g, hl.fill, sx, y, 1, LH - y); P(g, hl.rim, sx, y, 1, 1); }
-    // ...and some stand on the near slope, in front of it
-    for (const t of trees) if (t.front) Pixel.spr(g, rows, pal, t.sx, t.base - rows.length + 6 + t.sink * 2);
+    // ...and some stand on the near slope, in front of it (high on the slope, well above the ground you play on)
+    for (const t of trees) if (t.front) Pixel.spr(g, rows, frontPal, t.sx, t.base - rows.length + 3 + t.sink);
   },
   clouds(g, th, off, t) {
     const LW = W * U, span = LW + 60, P = Pixel.px;
@@ -416,18 +419,19 @@ const PixelArt = {
   },
   key(g, px, py) { Pixel.spr(g, SPR.key, SPAL.key, Math.round(px) + 2, Math.round(py) + 5); },
   gem(g, px, py) { Pixel.spr(g, SPR.gem, SPAL.gem, Math.round(px) + 4, Math.round(py) + 3); },
-  // locked door: a light stone arch, dark wood with iron bands and a big gold lock, so it reads on any ground
+  // locked door: a light stone arch, dark wood with iron bands and a big gold lock, so it reads on any ground.
+  // Exactly as tall as the flag, finial included (26 pixels: it rises 10 above its tile).
   door(g, px, py) {
-    const arch = (i, j) => (i - 6.5) ** 2 + (j - 6) ** 2;
-    const rows = Pixel.shape(14, 16, (i, j) => i >= 0 && i < 14 && j < 16 && (j >= 6 || arch(i, j) <= 44),
+    const DH = 26, arch = (i, j) => (i - 6.5) ** 2 + (j - 7) ** 2;
+    const rows = Pixel.shape(14, DH, (i, j) => i >= 0 && i < 14 && j < DH && (j >= 7 || arch(i, j) <= 50),
       (i, j) => {
-        const frame = i <= 2 || i >= 11 || (j < 8 && arch(i, j) > 20);
-        if (frame) return i <= 2 || (j < 5 && i < 7) ? 's' : 'S';
-        if (i >= 5 && i <= 8 && j >= 8 && j <= 11) return (i === 6 || i === 7) && j === 10 ? 'k' : j === 8 ? 'l' : 'L';
-        if (j === 7 || j === 13) return 'b';
+        const frame = i <= 2 || i >= 11 || (j < 9 && arch(i, j) > 20);
+        if (frame) return i <= 2 || (j < 6 && i < 7) ? 's' : 'S';
+        if (i >= 5 && i <= 8 && j >= 14 && j <= 17) return (i === 6 || i === 7) && j === 16 ? 'k' : j === 14 ? 'l' : 'L';
+        if (j === 10 || j === 21) return 'b';
         return i === 6 || i === 7 ? 'p' : 'W';
       });
-    Pixel.spr(g, rows, { o: '#1a1220', s: '#f4f6fb', S: '#a9b8d6', W: '#8a4f2c', p: '#5e3420', b: '#3a4466', L: '#fee761', l: '#ffffff', k: '#2b1b24' }, Math.round(px) + 1, Math.round(py));
+    Pixel.spr(g, rows, { o: '#1a1220', s: '#f4f6fb', S: '#a9b8d6', W: '#8a4f2c', p: '#5e3420', b: '#3a4466', L: '#fee761', l: '#ffffff', k: '#2b1b24' }, Math.round(px) + 1, Math.round(py) - (DH - U));
   },
   flag(g, px, py) {
     const fx = Math.round(px) + 4, fy = Math.round(py) - 6, P = (c, x, y, w = 1, h = 1) => Pixel.px(g, c, x, y, w, h);

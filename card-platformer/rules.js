@@ -1,4 +1,4 @@
-// Card Climber — game rules (no screen code): cards, movement, crates, keys,
+// Deckhop — game rules (no screen code): cards, movement, crates, keys,
 // the solvers and the level generators. Also used by the level editor's
 // "Check solvable" and by the roguelite/endless modes to build fair levels.
 

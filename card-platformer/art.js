@@ -1,4 +1,4 @@
-// Card Climber — art: themes, parallax backgrounds, tiles, springs, the patroller,
+// Deckhop — art: themes, parallax backgrounds, tiles, springs, the patroller,
 // items, shadows and particles. Everything is drawn with code (no image files).
 // The player character is drawn in game.js (drawPlayer) and isn't touched here.
 // Loaded after levels.js and before game.js.
@@ -38,7 +38,7 @@ const ENDLESS_THEME_TILES = CONFIG.timeAttack.biomeLength || 150;   // Endless c
 const reducedMotion = () => window.settings ? settings.reduceMotion : matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Parallax strength. Endless: how fast each layer scrolls relative to the ground (0 = fixed, 1 = with the ground).
 // Fixed screens: how far (in tiles, per tile the player is off-centre) the near layer eases with the player.
-const PARALLAX = { far: .1, clouds: .18, near: .3, followPlayer: .06 };
+const PARALLAX = { far: .08, clouds: .15, near: .22, followPlayer: .03 };
 
 const Art = {
   // deterministic pseudo-random 0..1 for a position, so textures don't flicker between frames
