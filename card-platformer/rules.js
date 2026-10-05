@@ -18,7 +18,7 @@ const W = 16, H = 9;
 //   > <  side spring (wall bumper): solid; its face points the way of the arrow. Moving into
 //      its face (walking, jumping, sliding) flings you 4 tiles that way, now facing that way.
 //   E  patroller: walks one tile per card (starts walking left), turns at walls, edges,
-//      spikes and crates (Endless slimes also stay on their own short patch). Touching it kills you; landing on it from above squashes it.
+//      spikes and crates (Endless slimes also stay on their own short patch). Touching it kills you; landing on it from above squashes it, and a Dash bowls straight through it.
 // Keys and gems are picked up by passing through their tile, even mid-jump.
 // A card is a list of moves. A move is a path of [dx,dy] steps (dx is relative
 // to facing), followed by gravity. If a step is blocked, the rest of that path
@@ -38,7 +38,7 @@ const CARDS = {
   wait:     { name: 'Wait', label: 'Wait',      moves: [{ type: 'wait' }] },
   echo:     { name: 'Echo', label: 'Echo',      echo: true, moves: [] },
   climb:    { name: 'Climb', label: 'Climb',    moves: [{ type: 'climb' }] },   // up the wall you face, any height, then onto the top
-  dash:     { name: 'Dash',  label: 'Dash',     moves: [{ path: [[1, 0], [1, 0], [1, 0], [1, 0]] }] },   // forward 4 in a straight line, skimming over gaps
+  dash:     { name: 'Dash',  label: 'Dash',     moves: [{ path: [[1, 0], [1, 0], [1, 0], [1, 0]], plow: true }] },   // forward 4 in a straight line, skimming over gaps and bowling over patrollers
   hop:      { name: 'Hop',   label: 'Hop',      moves: [{ path: [[0, -1], [1, 0]] }] },                  // up 1, forward 1: a precise step up
   glide:    { name: 'Glide', label: 'Glide',    moves: [{ path: [[1, 0], [1, 1], [1, 1], [1, 1]] }] },   // forward, then drift down 1 per tile
 };
@@ -277,6 +277,8 @@ function runCard(map, st, id) {
         continue;
       }
       if (solid(map, s, nx, ny)) { ev.push({ k: 'bump', x: s.x, y: s.y, dx: dx * s.dir, dy }); blocked = true; break; }
+      const ei = m.plow ? enemyAt(s, nx, ny) : -1;          // Dash: a patroller in the way is knocked out, not deadly
+      if (ei >= 0) { s.enemies[ei].dead = true; ev.push({ k: 'smash', i: ei, x: nx, y: ny, dir: dx * s.dir }); }
       s.x = nx; s.y = ny; ev.push({ k: 'move', x: s.x, y: s.y });
       if (dx) movedSideways = true;
       if (check()) return { state: s, ev };

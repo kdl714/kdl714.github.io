@@ -101,7 +101,8 @@ const ease = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 // win still play as their own little beats.
 // ---------------------------------------------------------------------
 const MOTION = new Set(['move', 'fall', 'push']);
-const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone', 'spring', 'stomp', 'bumper', 'combo']);   // happen mid-motion
+const SLIME_DEATH_MS = 700;   // how long a squashed or bowled-over patroller stays on screen
+const ALONG = new Set(['collect', 'tick', 'double', 'cfall', 'cgone', 'spring', 'stomp', 'smash', 'bumper', 'combo']);   // happen mid-motion
 const deathText = (why) => (why === 'pit' ? 'Fell in a pit!' : why === 'enemy' ? 'Caught by a patroller!' : why === 'cactus' ? 'Ouch, a cactus!' : 'Spiked!');
 
 async function animate(ev) {
@@ -256,8 +257,12 @@ function beatNow(e) {
   } else if (e.k === 'bumper') {            // side spring: pad squashes, you turn and fly
     app.springHit = { x: e.tx, y: e.ty, t0: performance.now() }; app.flash = { text: 'Boing!', t0: performance.now() };
     v.dir = e.dir; Art.ring(e.tx + .5 - e.dir * .4, e.ty + .5, '#ffffff', 1);
+  } else if (e.k === 'smash') {           // a Dash bowls a patroller over: it tumbles away
+    const en = v.enemies[e.i]; en.dead = true; en.deadT = performance.now(); en.deadKind = 'dash'; en.flyDir = e.dir;
+    for (let k = 0; k < 12; k++) { const a = Math.random() * Math.PI * 2; app.particles.push({ x: e.x + .5 - e.dir * .3, y: e.y + .55, vx: Math.cos(a) * .05 + e.dir * .02, vy: Math.sin(a) * .05 - .02, life: 1, color: k % 3 ? '#ffffff' : '#9b6ae0', size: .07, decay: .035 }); }
+    app.flash = { text: 'Bowled over!', t0: performance.now() }; Art.shake(.06, 180);
   } else if (e.k === 'stomp') {
-    const en = v.enemies[e.i]; en.dead = true; en.deadT = performance.now();
+    const en = v.enemies[e.i]; en.dead = true; en.deadT = performance.now(); en.deadKind = 'stomp';
     for (let k = 0; k < 10; k++) { const a = Math.PI + Math.random() * Math.PI; app.particles.push({ x: e.x + .5, y: e.y + .9, vx: Math.cos(a) * .05, vy: Math.sin(a) * .06, life: 1, color: '#9b6ae0', size: .06, decay: .03 }); }
     app.flash = { text: 'Squash!', t0: performance.now() }; Art.shake(.05, 160);
   }
@@ -314,7 +319,7 @@ async function playCard(id) {
   if (gen !== app.gen) return 'aborted';           // you left mid-run; the new screen owns the state now
   app.state = r.state;
   Object.assign(app.view, { x: r.state.x, y: r.state.y, dir: r.state.dir, turn: r.state.turn, status: r.state.status, got: r.state.got, crates: clone(r.state.crates),
-    enemies: (r.state.enemies || []).map((e, i) => ({ ...e, deadT: app.view.enemies?.[i]?.deadT })) });
+    enemies: (r.state.enemies || []).map((e, i) => { const was = app.view.enemies?.[i]; return { ...e, deadT: was?.deadT, deadKind: was?.deadKind, flyDir: was?.flyDir }; }) });
   return r.state.status;
 }
 
@@ -1102,6 +1107,8 @@ function burst(x, y, color) {
 }
 
 function draw() {
+  // nothing to show yet (opened straight onto a menu), or a menu that hides the game: just wait
+  if (!app.view || (document.body.classList.contains('menu') && !document.body.classList.contains('home'))) { requestAnimationFrame(draw); return; }
   // pixel art: draw the world small with the pixel sprites (pixel.js), then scale it up crisply
   const pixel = Art.style() === 'pixel', A = pixel ? PixelArt : Art, screen = ctx, fullTS = TS;
   if (pixel) { ctx = Pixel.start(); TS = PIXELS_PER_TILE; }
@@ -1140,8 +1147,8 @@ function draw() {
   if (!app.editing) A.shadow(ctx, map, crates, v.x + v.ox, v.y + v.oy, .7);
   for (const c of crates) if (!c.gone) A.crate(ctx, c.x, c.y);
   enemies.forEach((en, i) => {
-    if (en.dead && (!en.deadT || performance.now() - en.deadT > 600)) return;
-    A.slime(ctx, en.x, en.y, en.dir, en.dead ? Math.min(1, (performance.now() - en.deadT) / 600) : -1, en.step || 0, i);
+    if (en.dead && (!en.deadT || performance.now() - en.deadT > SLIME_DEATH_MS)) return;
+    A.slime(ctx, en.x, en.y, en.dir, en.dead ? Math.min(1, (performance.now() - en.deadT) / SLIME_DEATH_MS) : -1, en.step || 0, i, en.deadKind, en.flyDir);
   });
   if (app.editing) drawPlayer(map.start.x, map.start.y, 1, 'playing', .9);
   else drawPlayer(v.x + v.ox, v.y + v.oy, v.dir, v.status, 1, playerFx(v));
@@ -1284,7 +1291,10 @@ function cardIcon(id, card = CARDS[id]) {
   });
   const line = pts.map(([px, py]) => `${px * c + c / 2},${(py - minY) * c + c / 2}`).join(' ');
   const [lx, ly] = pts[pts.length - 1];
-  return `<svg width="${wpx}" height="${hpx}" viewBox="0 0 ${wpx} ${hpx}">${cells}
+  // Dash: a little impact burst at the end, hinting that it bowls patrollers over
+  const ex = lx * c + c / 2, ey = (ly - minY) * c + c / 2;
+  const burst = card.moves.some((m) => m.plow) ? `<g stroke="#e43b44" stroke-width="2" stroke-linecap="round">${[[0, -1], [.8, -.8], [1, 0], [.8, .8], [0, 1]].map(([a, b]) => `<line x1="${ex + a * 5}" y1="${ey + b * 5}" x2="${ex + a * 8}" y2="${ey + b * 8}"/>`).join('')}</g>` : '';
+  return `<svg width="${wpx + (burst ? 8 : 0)}" height="${hpx}" viewBox="${burst ? -4 : 0} 0 ${wpx + (burst ? 8 : 0)} ${hpx}" overflow="visible">${cells}${burst}
     <polyline points="${line}" fill="none" stroke="#2a2a2a" stroke-width="2" stroke-linejoin="round"/>
     <circle cx="${lx * c + c / 2}" cy="${(ly - minY) * c + c / 2}" r="3" fill="#2a2a2a"/></svg>`;
 }
@@ -1786,8 +1796,8 @@ function badgeRow(got, hasGems) {
 }
 const levelHasGems = (l) => l.map.some((r) => r.includes('*'));
 const shortName = (name) => name.replace(/^\d+\.\s*/, '');      // "7. Crate Expectations" → "Crate Expectations"
-const setOf = (key) => Math.floor(+key.slice(1) / SET_SIZE);
-const sets = () => Array.from({ length: Math.ceil(BUILTIN_LEVELS.length / SET_SIZE) }, (_, i) => ({
+const setOf = (key) => setPos(+key.slice(1)).set;
+const sets = () => Array.from({ length: setCount() }, (_, i) => ({
   i, ...setInfo(i), levels: allLevels().filter((l) => l.key[0] === 'b' && setOf(l.key) === i),
 }));
 const version = () => /[?&]v=([^&]+)/.exec(document.querySelector('script[src*="game.js"]')?.src || '')?.[1] || 'dev';
@@ -1796,7 +1806,7 @@ function setTitle() {
   const k = app.levelKey || '';
   $('gameTitle').textContent = app.editing ? 'Level editor'
     : app.mode === 'time' ? 'Endless'
-    : k[0] === 'b' ? `${setOf(k) + 1}-${+k.slice(1) % SET_SIZE + 1} · ${shortName(app.level.name)}`
+    : k[0] === 'b' ? `${setOf(k) + 1}-${setPos(+k.slice(1)).n + 1} · ${shortName(app.level.name)}`
     : app.level?.name || '';
 }
 
@@ -1856,10 +1866,13 @@ function menuButton(icon, title, sub, onclick, cls = '') {
   const b = el('button', 'm-btn ' + cls, `<span class="ic">${icon}</span><span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>`);
   b.onclick = onclick; return b;
 }
-function menuBar(title) {
+// top bar of a menu screen: (deeper in the menus) a Home button, back and the title; it stays put while the screen scrolls
+function menuBar(title, home = false) {
   const bar = el('div', 'm-bar'), back = el('button', 'm-back', '‹');
   back.setAttribute('aria-label', 'Back'); back.onclick = Router.up;
-  bar.append(back, el('h2', '', title)); return bar;
+  if (home) { const h = el('button', 'm-home', 'Home'); h.onclick = () => Router.go('#/'); bar.append(h); }   // Home, then Back, side by side
+  bar.append(back, el('h2', '', title));
+  return bar;
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
@@ -1896,7 +1909,7 @@ const Screens = {
   set(arg) {
     const s = el('div', 'm-screen'), prog = Progress.all(), mine = arg === 'mine';
     const set = mine ? { name: 'Your levels', theme: 'mine', levels: allLevels().filter((l) => l.key[0] === 'c') } : sets()[+arg] || sets()[0];
-    s.append(menuBar(mine ? set.name : `${set.i + 1} · ${set.name}`));
+    s.append(menuBar(mine ? set.name : `${set.i + 1} · ${set.name}`, true));
     const grid = el('div', `m-grid t-${set.theme}`);
     set.levels.forEach(({ key, level }, n) => {
       const got = prog[level.name] || {};

@@ -73,6 +73,13 @@ const SPAL = {
 
 const Pixel = {
   px(g, c, x, y, w = 1, h = 1) { g.fillStyle = c; g.fillRect(x, y, w, h); },
+  mix(a, b, f) {             // blend two #rrggbb colours (cached: called every frame)
+    const key = a + b + f;
+    if (Pixel.mixCache[key]) return Pixel.mixCache[key];
+    const p = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)), A = p(a), B = p(b);
+    return (Pixel.mixCache[key] = '#' + A.map((v, i) => Math.round(v + (B[i] - v) * f).toString(16).padStart(2, '0')).join(''));
+  },
+  mixCache: {},
   // draw a sprite (rows of characters) with a palette; flip mirrors it
   spr(g, rows, pal, x, y, flip = false) {
     for (let j = 0; j < rows.length; j++) {
@@ -166,43 +173,62 @@ const PixelArt = {
     P(g, th.sun[0], 206, 12, 14, 14); P(g, th.sun[0], 204, 15, 18, 8); P(g, th.sun[1], 209, 15, 6, 6);
     const target = reducedMotion() || app.mode === 'time' ? 0 : (px - W / 2) * PARALLAX.followPlayer;
     Art.shiftNow += (target - Art.shiftNow) * .04;
-    PixelArt.range(g, th.far, Math.round((camX * PARALLAX.far + Art.shiftNow * .3) * U), 11);
+    PixelArt.range(g, th.far, Math.round((camX * PARALLAX.far + Art.shiftNow * .3) * U), 11, th.sky[3]);
     PixelArt.clouds(g, th, (camX * PARALLAX.clouds + Art.shiftNow * .5) * U, t);
-    PixelArt.range(g, th.near, Math.round((camX * (PARALLAX.far + PARALLAX.near) / 2 + Art.shiftNow * .6) * U), 23);
+    PixelArt.range(g, th.near, Math.round((camX * (PARALLAX.far + PARALLAX.near) / 2 + Art.shiftNow * .6) * U), 23, th.sky[4]);
     PixelArt.hills(g, th, Math.round((camX * PARALLAX.near + Art.shiftNow) * U));
   },
-  // a mountain range: real peaks (or flat-topped mesas), lit on the left, shaded on the right,
-  // with snowcaps that follow the slopes. Peaks come from a hash, so Endless never repeats.
-  range(g, r, off, seed) {
+  // a mountain range: real peaks (or flat-topped mesas), each drawn whole, back to front, so
+  // nearer peaks overlap farther ones (farther ones are a little hazier). Lit on the left; the
+  // shaded right face starts at a slanted, slightly ragged ridge line. Snowcaps follow the slopes.
+  // Peaks come from a hash, so Endless never repeats.
+  range(g, r, off, seed, haze) {
     const LW = W * U, LH = H * U, P = Pixel.px;
-    const peak = (k) => ({ x: k * r.spacing + Art.hash(k, seed) * r.spacing * .5, h: r.hMin + Art.hash(k, seed + 1) * (r.hMax - r.hMin),
-      s: r.slope * (.85 + Art.hash(k, seed + 2) * .3), w: r.mesa ? 6 + Art.hash(k, seed + 3) * 16 : 0 });
-    for (let sx = 0; sx < LW; sx++) {
-      const wx = sx + off, k0 = Math.floor(wx / r.spacing);
-      let best = -1e9, bp = null;
-      for (let k = k0 - 3; k <= k0 + 3; k++) { const p = peak(k), h = p.h - Math.max(0, Math.abs(wx - p.x) - p.w) * p.s; if (h > best) { best = h; bp = p; } }
-      const top = Math.round(LH - best);
-      if (top >= LH) continue;
-      const right = wx > bp.x + bp.w * .3;
-      P(g, right ? r.shade : r.lit, sx, top, 1, LH - top);
-      if (r.snowDepth) {
-        const snowLine = Math.round(LH - bp.h + r.snowDepth + (Art.hash(wx, 7) > .5 ? 1 : 0) + (Math.round(Math.abs(wx - bp.x)) % 5 === 0 ? 2 : 0));
-        if (top < snowLine) P(g, right ? r.snowShade : r.snow, sx, top, 1, snowLine - top);
+    const peaks = [];
+    for (let k = Math.floor((off - 160) / r.spacing); k <= Math.floor((off + LW + 160) / r.spacing); k++) {
+      peaks.push({ x: k * r.spacing + Art.hash(k, seed) * r.spacing * .5, h: r.hMin + Art.hash(k, seed + 1) * (r.hMax - r.hMin),
+        s: r.slope * (.85 + Art.hash(k, seed + 2) * .3), w: r.mesa ? 6 + Art.hash(k, seed + 3) * 16 : 0,
+        depth: Art.hash(k, seed + 4), ridge: 1.6 + Art.hash(k, seed + 5) * 1.4 });
+    }
+    peaks.sort((a, b) => a.depth - b.depth);               // farthest first
+    for (const p of peaks) {
+      const back = p.depth < .5, c = (col) => (back ? Pixel.mix(col, haze, .3) : col);
+      const lit = c(r.lit), shade = c(r.shade), snow = c(r.snow || r.lit), snowShade = c(r.snowShade || r.shade), rim = c(r.rim);
+      const apex = Math.round(LH - p.h), half = p.h / p.s + p.w;
+      for (let sx = Math.max(0, Math.floor(p.x - half - off)); sx <= Math.min(LW - 1, Math.ceil(p.x + half - off)); sx++) {
+        const wx = sx + off, dx = wx - p.x, hh = p.h - Math.max(0, Math.abs(dx) - p.w) * p.s;
+        if (hh <= 0) continue;
+        const top = Math.round(LH - hh);
+        // the ridge runs from the summit (right edge of a mesa's top) down and to the right
+        const rd = dx - p.w * .4, shadeTo = rd > 0 ? Math.round(apex + rd * p.ridge) + (Art.hash(wx, seed + 6) > .55 ? 1 : 0) : top;
+        P(g, lit, sx, top, 1, LH - top);
+        if (shadeTo > top) P(g, shade, sx, top, 1, Math.min(LH, shadeTo) - top);
+        if (r.snowDepth) {
+          const snowLine = Math.round(apex + r.snowDepth + (Art.hash(wx, 7) > .5 ? 1 : 0) + (Math.round(Math.abs(dx)) % 5 === 0 ? 2 : 0));
+          if (top < snowLine) {
+            P(g, snow, sx, top, 1, snowLine - top);
+            if (shadeTo > top) P(g, snowShade, sx, top, 1, Math.min(snowLine, shadeTo) - top);
+          }
+        }
+        P(g, rim, sx, top, 1, 1);
       }
-      P(g, r.rim, sx, top, 1, 1);
     }
   },
   hills(g, th, off) {
     const LW = W * U, LH = H * U, P = Pixel.px, hl = th.hills;
     const top = (wx) => Math.round(hl.base + 5 * Math.sin(wx * .06 + 2) + 2 * Math.sin(wx * .19));
-    // trees first, so the hill's rim sits in front of their trunks
-    const pal = SPAL[th.tree === 'round' ? 'tree' : th.tree === 'pine' ? 'pine' : 'saguaro'], rows = SPR[th.tree === 'round' ? 'tree' : th.tree === 'pine' ? 'pine' : 'saguaro'];
+    const kind = th.tree === 'round' ? 'tree' : th.tree === 'pine' ? 'pine' : 'saguaro', rows = SPR[kind], pal = SPAL[kind];
+    const trees = [];
     for (let k = Math.floor(off / 30) - 1; k <= Math.floor((off + LW) / 30) + 1; k++) {
       if (Art.hash(k, 51) < .35) continue;
-      const tx = k * 30 + Math.round(Art.hash(k, 52) * 12), sx = tx - off;
-      Pixel.spr(g, rows, pal, sx, top(tx + 6) - rows.length + 2 + Math.round(Art.hash(k, 53) * 3));
+      const tx = k * 30 + Math.round(Art.hash(k, 52) * 12);
+      trees.push({ sx: tx - off, base: top(tx + 6), front: Art.hash(k, 54) > .55, sink: Math.round(Art.hash(k, 53) * 3) });
     }
+    // some trees peek over the ridge from behind...
+    for (const t of trees) if (!t.front) Pixel.spr(g, rows, pal, t.sx, t.base - rows.length + 2 + t.sink);
     for (let sx = 0; sx < LW; sx++) { const y = top(sx + off); P(g, hl.fill, sx, y, 1, LH - y); P(g, hl.rim, sx, y, 1, 1); }
+    // ...and some stand on the near slope, in front of it
+    for (const t of trees) if (t.front) Pixel.spr(g, rows, pal, t.sx, t.base - rows.length + 6 + t.sink * 2);
   },
   clouds(g, th, off, t) {
     const LW = W * U, span = LW + 60, P = Pixel.px;
@@ -365,11 +391,25 @@ const PixelArt = {
       (i, j) => ((i === 2 || i === 11) && (j === 2 || j === 11) ? 'n' : j === 1 ? 'h' : i === 1 || j === 12 || i === 12 ? 'f' : Math.abs(i - (13 - j)) <= 0 ? 'f' : 'B'));
     Pixel.spr(g, rows, { o: '#4a2c14', B: '#d79a52', h: '#ecc08a', f: '#a8702f', n: '#4a3216' }, Math.round(x * U) + 1, Math.round(y * U) + 1);
   },
-  slime(g, x, y, dir, squash, stepT, seed) {
-    const X = Math.round((x + .5) * U) - 7, base = Math.round((y + 1) * U);
-    if (squash >= 0) {           // squashed: a flat puddle that fades away
-      g.globalAlpha = 1 - Math.max(0, squash - .5) * 2;
-      Pixel.spr(g, SPR.slime.slice(6), SPAL.slime, X, base - 4, dir > 0);
+  slime(g, x, y, dir, squash, stepT, seed, kind, flyDir = 1) {
+    const X = Math.round((x + .5) * U) - 7, base = Math.round((y + 1) * U), t = squash;
+    if (t >= 0 && kind === 'dash') {          // bowled over by a Dash: tumbles up and away (four tumble frames), fading out
+      const dx = Math.round(flyDir * t * 30), dy = Math.round(-Math.sin(Math.min(1, t * 1.4) * Math.PI) * 15 + t * t * 14);
+      const f = Math.floor(t * 10) % 4, rows = f >= 2 ? [...SPR.slime].reverse() : SPR.slime;
+      g.globalAlpha = 1 - Math.max(0, t - .55) / .45;
+      Pixel.spr(g, rows, SPAL.slime, X + dx, base - 10 + dy, (flyDir < 0) !== (f % 2 === 1));
+      g.globalAlpha = 1; return;
+    }
+    if (t >= 0) {                             // stomped: flattens into a pancake, splats, then fades
+      const [w, h] = t < .1 ? [15, 7] : t < .22 ? [17, 5] : [19, 3];
+      const rows = Pixel.shape(w, h, (i, j) => i >= 0 && i < w && j >= 0 && j < h && ((i - (w - 1) / 2) ** 2) / ((w / 2) ** 2) + ((j - h) ** 2) / (h ** 2) <= 1,
+        (i, j) => (j >= h - 2 ? 'D' : j <= 1 && i < w / 2 ? 'L' : 'M')).map((r) => r.split(''));
+      if (h >= 5) { const ey = Math.floor(h / 2), c = Math.floor(w / 2); [c - 3, c - 2, c + 2, c + 3].forEach((i) => { if (rows[ey][i] !== 'o') rows[ey][i] = 'k'; }); }   // eyes squeezed shut
+      g.globalAlpha = 1 - Math.max(0, t - .5) * 2;
+      const left = Math.round((x + .5) * U - w / 2);
+      Pixel.spr(g, rows.map((r) => r.join('')), SPAL.slime, left, base - h);
+      const fly = 2 + Math.round(t * 7), up = Math.round(Math.sin(Math.min(1, t * 2) * Math.PI) * 4);   // droplets
+      [[-1, 0], [1, 0], [-1, 3], [1, 2]].forEach(([d, k]) => Pixel.px(g, k ? '#7b4fd6' : '#a884f3', Math.round((x + .5) * U + d * (w / 2 + fly + k)), base - 2 - up - (k ? 1 : 0), 2, 2));
       g.globalAlpha = 1; return;
     }
     const bob = reducedMotion() ? 0 : Math.floor(performance.now() / 400 + seed) % 2;

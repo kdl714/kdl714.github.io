@@ -233,8 +233,10 @@ body.home #hud, body.home #rotateHint { display: none !important; }
 .m-btn.primary { background: var(--accent); color: #1d2333; }
 .m-btn.primary .ic, .m-btn.primary small { color: #5a4300; }
 .m-btn.danger .ic, .m-btn.danger b { color: var(--bad); }
-.m-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.m-bar h2 { margin: 0; font-size: 20px; }
+.m-bar { display: flex; align-items: center; gap: 10px; margin: -4px 0 4px; padding: 4px 0 8px;
+  position: sticky; top: calc(-1 * max(16px, env(safe-area-inset-top))); z-index: 2; background: var(--bg); }   /* stays in reach while a long set scrolls */
+.m-bar h2 { margin: 0; font-size: 20px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-home { padding: 7px 12px; white-space: nowrap; }
 .m-back { font-size: 22px; line-height: 1; padding: 3px 12px 6px; }
 .m-set { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border-width: 1px; }
 .m-set > span:first-child { flex: 1; }

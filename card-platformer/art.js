@@ -57,7 +57,7 @@ const Art = {
   themeName() {
     if (app.mode === 'time') return ENDLESS_THEME_ORDER[Math.floor((app.cam + W / 2) / ENDLESS_THEME_TILES) % 3];
     if (THEMES[app.level?.theme]) return app.level.theme;   // chosen in the editor
-    if (app.levelKey?.[0] === 'b') return setInfo(Math.floor(+app.levelKey.slice(1) / SET_SIZE)).theme;   // built-in: its set's theme
+    if (app.levelKey?.[0] === 'b') return setInfo(setPos(+app.levelKey.slice(1)).set).theme;   // built-in: its set's theme
     const n = Art.levelNumber();
     return THEME_BANDS.find((b) => n <= b.upTo).theme;
   },
@@ -378,7 +378,15 @@ const Art = {
   },
   // The patroller: a glossy slime. Wobbles while idle, leans into its steps,
   // blinks now and then, and splats when squashed (squash 0..1).
-  slime(g, x, y, dir, squash, stepT, seed) {
+  slime(g, x, y, dir, squash, stepT, seed, kind, flyDir = 1) {
+    if (squash >= 0 && kind === 'dash') {        // bowled over by a Dash: tumbles up and away, fading out
+      const t = squash, cx = (x + .5) * TS, cy = (y + .7) * TS;
+      g.save(); g.globalAlpha = 1 - Math.max(0, t - .55) / .45;
+      g.translate(cx + flyDir * t * 1.8 * TS, cy - Math.sin(Math.min(1, t * 1.4) * Math.PI) * .9 * TS + t * t * .8 * TS);
+      g.rotate(flyDir * t * Math.PI * 2.2); g.translate(-cx, -cy);
+      Art.slime(g, x, y, -flyDir, -1, 0, seed);
+      g.restore(); return;
+    }
     const now = performance.now(), cx = (x + .5) * TS, base = (y + 1) * TS - TS * .02;
     const wob = squash >= 0 ? 0 : Math.sin(now / 260 + seed * 2) * .05;
     const sx = (squash >= 0 ? 1 + squash * .5 : 1 - wob) * (1 + Math.sin((stepT || 0) * Math.PI) * .08);

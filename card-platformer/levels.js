@@ -382,6 +382,22 @@ const PUZZLE_PACK = [
     cards: ['walk2', 'walk3', 'jump', 'walk3', 'walk3'],
   },
   {
+    name: 'Bowled Over',              // Dash knocks a patroller out of the way (no number: keeps the other levels' saved badges)
+    hint: "The tunnel is too low to jump the patroller. One card doesn't need to go over it.",
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '################',
+      'P..E...........G',
+      '################',
+    ],
+    cards: ['walk3', 'walk3', 'dash', 'walk3', 'walk2'],
+  },
+  {
     name: '24. Grand Tour',           // spring, platform key, patroller, climb, ice slide to the door
     hint: 'Spring up to the key, come back down past the patroller, climb the big wall, and let the ice carry you to the door.',
     map: [
@@ -454,13 +470,18 @@ const usesDisabled = (l) => (l.needs || []).some((f) => !CONFIG.features[f]) || 
 const withGemBonus = (l) => CONFIG.features.gems && l.gemBonus?.every((c) => CARDS[c]) ? { ...l, cards: [...l.cards, ...l.gemBonus] } : l;
 const BUILTIN_LEVELS = [...BASE_LEVELS, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);
 
-// Level sets: the Puzzles screen groups the levels above, in order, SET_SIZE at a time.
-// Each set has its own theme (see THEMES in art.js). Levels past the last set listed
-// here get a numbered set that cycles through the themes.
+// Level sets: the Puzzles screen groups the levels above, in order: each set takes its
+// `size` levels (SET_SIZE if it doesn't say). Each set has its own theme (see THEMES in
+// art.js). Levels past the last set listed here get a numbered set that cycles the themes.
 const SET_SIZE = 9;
 const LEVEL_SETS = [
   { name: 'Meadow', theme: 'meadow', blurb: 'Jumps, momentum, crates and keys' },
   { name: 'Dusk Canyon', theme: 'canyon', blurb: 'Keys, crates, Hop and Dash' },
-  { name: 'Snowy Peaks', theme: 'peaks', blurb: 'Ice, springs, slimes and bumpers' },
+  { name: 'Snowy Peaks', theme: 'peaks', blurb: 'Ice, springs, slimes and bumpers', size: 10 },
 ];
 const setInfo = (i) => LEVEL_SETS[i] || { name: 'Set ' + (i + 1), theme: ['meadow', 'canyon', 'peaks'][i % 3], blurb: '' };
+// which set a built-in level (its index in BUILTIN_LEVELS) is in, and its place in that set (0-based)
+function setPos(i) {
+  for (let s = 0, start = 0; ; s++) { const n = setInfo(s).size || SET_SIZE; if (i < start + n) return { set: s, n: i - start }; start += n; }
+}
+const setCount = () => (BUILTIN_LEVELS.length ? setPos(BUILTIN_LEVELS.length - 1).set + 1 : 0);
