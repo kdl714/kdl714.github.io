@@ -32,7 +32,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-12e`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-12f`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
@@ -72,7 +72,7 @@ Everything you can change is in `config.js`:
 
 ## Reading cards
 
-Every card is a small pixel picture (`PixelCard` in `pixel.js`): its name at the top and its move in the middle. The yellow square is where you start and the line traces your path, so a "Jump" might go up one and over two, up two and over one, or up one and over three. Turn, Wait, Echo and Climb have little pictures of their own, and Dash ends in a red burst (it bowls patrollers over). **Momentum:** when a card would get a bonus, the extra squares it adds are green and the card gets a green border; the combo's name pops up over the hero when it's played. **Lucky** cards in Endless are gold. In Plan & Run cards sit side by side with a small gap (the Endless hand overlaps a little so five fit), and matching cards in your hand share a stack with a ×2 (×3…) tag. Hint text shows the cards themselves. The level editor still uses specific names (Walk 2, High Jump…) so you can build levels precisely.
+Every card is a small pixel picture (`PixelCard` in `pixel.js`): its name at the top and its move in the middle. The yellow square is where you start and the line traces your path, so a "Jump" might go up one and over two, up two and over one, or up one and over three. Turn, Wait, Echo and Climb have little pictures of their own, and Dash ends in a red burst (it bowls patrollers over). **Momentum:** when a card would get a bonus, the extra squares it adds are green and the card gets a green border; the combo's name pops up over the hero when it's played. **Lucky** cards in Endless are gold. Cards sit side by side with a small gap, and in Plan & Run matching cards in your hand share a stack with a ×2 (×3…) tag. Hint text shows the cards themselves. The level editor still uses specific names (Walk 2, High Jump…) so you can build levels precisely.
 
 **Status on the level (pixel style):** drawn straight onto the level in the same pixel font: gems collected (and the key, and the turn count on levels with timed spikes) in puzzles; the timer along the top edge, hearts, the gem meter and distance in Endless.
 

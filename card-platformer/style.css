@@ -253,7 +253,7 @@ body.home #hud, body.home #rotateHint { display: none !important; }
 .card:active { transform: translateY(-4px); border-color: transparent; z-index: 3; }
 .cards { gap: 0; }
 .cards > * + * { margin-left: 4px; }
-body.endless #hand > .card + .card { margin-left: calc(-4px * var(--cs)); }     /* Endless hand: cards overlap a little so five fit on a phone */
+body.endless #hand > .card + .card { margin-left: 4px; }     /* Endless hand: side by side with a small gap, like everywhere else */
 .slot { width: calc(32px * var(--cs)); height: calc(44px * var(--cs)); border-radius: 6px; flex: 0 0 auto; }
 .card.active, .card.hinted, .card.failed, .card.cycling, .card.drop-here { box-shadow: none; outline: 3px solid var(--accent); outline-offset: 1px; z-index: 2; }
 .card.hinted { outline-color: #4fd8e8; } .card.failed, .card.cycling { outline-color: var(--bad); }
@@ -277,6 +277,7 @@ body.endless #seq > * + * { margin-left: 0; }
 .card.last:hover, .card.preview:hover, .card.last:active, .card.preview:active { transform: none; }
 body.endless #hand { justify-content: center; flex-wrap: nowrap; overflow: visible; --cs: 3; }
 @media (max-width: 600px) { body.endless #hand { --cs: 2; padding-top: 8px; } }
+@media (max-width: 359px) { body.endless #hand { --cs: 1.5; } }   /* very narrow phones: still five across (1.5 = 3 screen pixels per card pixel on those screens) */
 
 /* ---------- pixel message box and buttons (PixelUI in pixel.js) ---------- */
 .ptext, .picon { display: block; image-rendering: pixelated; image-rendering: crisp-edges; flex: 0 0 auto; }
