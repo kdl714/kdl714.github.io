@@ -63,9 +63,6 @@ const CONFIG = {
       heart:    { name: 'Second Wind',   desc: '+1 max heart, and heal' },
     },
   },
-  hints: {
-    penalty: 25,       // points taken off the level score per hint used
-  },
   // Endless mode (internally "timeAttack"). Everything you'd want to tune is here.
   timeAttack: {
     handSize: 5,
@@ -87,11 +84,10 @@ const CONFIG = {
     forkChance: 0.08,            // how often an upper lane (one-way platforms over a hazardous stretch) appears
     // --- cards: draw weights (higher = more common); Wait and Echo left out on purpose ---
     pool: { walk1: 3, walk2: 3, walk3: 2, jump: 3, highjump: 2, longjump: 2, dash: 2, hop: 2 },   // (glide, climb also exist; add them here to use them)
-    pointsPerCombo: 10,          // combos are common (about half of all plays), so keep this modest
     animSpeed: 0.6,              // animations play faster than in other modes
-    pointsPerTile: 10,
-    pointsPerGem: 50,
+    gemsPerHeart: 5,             // every this many gems restores a heart (at full hearts they wait, and refill the next heart you lose)
   },
+  // Points: only the hidden Roguelite uses these now (puzzles have badges, Endless goes by distance)
   score: {
     clear: 100,        // for reaching the flag
     gem: 50,           // per gem

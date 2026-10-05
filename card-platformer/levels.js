@@ -475,7 +475,7 @@ const BUILTIN_LEVELS = [...BASE_LEVELS, ...(CONFIG.features.puzzlePack ? PUZZLE_
 // art.js). Levels past the last set listed here get a numbered set that cycles the themes.
 const SET_SIZE = 9;
 const LEVEL_SETS = [
-  { name: 'Meadow', theme: 'meadow', blurb: 'Jumps, momentum, crates and keys' },
+  { name: 'Sunny Meadow', theme: 'meadow', blurb: 'Jumps, momentum, crates and keys' },
   { name: 'Dusk Canyon', theme: 'canyon', blurb: 'Keys, crates, Hop and Dash' },
   { name: 'Snowy Peaks', theme: 'peaks', blurb: 'Ice, springs, slimes and bumpers', size: 10 },
 ];

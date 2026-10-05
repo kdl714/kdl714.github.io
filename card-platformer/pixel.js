@@ -155,7 +155,7 @@ const Pixel = {
     g.globalAlpha = 1;
   },
   signText(g, s) {
-    const name = { meadow: 'Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[s.biome];
+    const name = { meadow: 'Sunny Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[s.biome];
     g.font = `bold ${Math.max(9, Math.floor(TS * .26))}px system-ui`; g.textAlign = 'center';
     g.fillStyle = '#fff5df'; g.fillText(name, s.x * TS + TS / 2, s.y * TS + TS * .2);
   },
@@ -369,7 +369,7 @@ const PixelArt = {
     Pixel.spr(g, rows, { o: '#1e4a3a', G: '#4aa84a', g: '#7fd36a', S: '#2f7a46', w: '#e9f3c8' }, x * U, y * U);
   },
   sign(g, s) {
-    const name = { meadow: 'Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[s.biome], w = name.length * 3 + 6, X = s.x * U, Y = s.y * U, P = Pixel.px;
+    const name = { meadow: 'Sunny Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[s.biome], w = name.length * 3 + 6, X = s.x * U, Y = s.y * U, P = Pixel.px;
     P(g, '#4a2c14', X + 6, Y + 4, 4, 12); P(g, '#8a5a2e', X + 7, Y + 4, 2, 12);
     const bx = X + 8 - Math.round(w / 2);
     P(g, '#4a2c14', bx, Y - 3, w, 10); P(g, '#c48b4f', bx + 1, Y - 2, w - 2, 8); P(g, '#e0a86a', bx + 1, Y - 2, w - 2, 1); P(g, '#8a5a2e', bx + 1, Y + 5, w - 2, 1);
@@ -484,5 +484,268 @@ const PixelArt = {
       Pixel.px(g, color, Math.round(m.x * U), Math.round(m.y * U), s, s);
     }
     g.globalAlpha = 1;
+  },
+};
+
+/* =====================================================================
+   PixelFont — a tiny bitmap font (3×5, a few letters wider), placed pixel
+   by pixel so text sits on the same grid as everything else.
+   ===================================================================== */
+const PixelFont = {
+  glyphs: {
+    A: ['.#.', '#.#', '###', '#.#', '#.#'], B: ['##.', '#.#', '##.', '#.#', '##.'], C: ['.##', '#..', '#..', '#..', '.##'], D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'], F: ['###', '#..', '##.', '#..', '#..'], G: ['.##', '#..', '#.#', '#.#', '.##'], H: ['#.#', '#.#', '###', '#.#', '#.#'],
+    I: ['###', '.#.', '.#.', '.#.', '###'], J: ['..#', '..#', '..#', '#.#', '.#.'], K: ['#.#', '#.#', '##.', '#.#', '#.#'], L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['#...#', '##.##', '#.#.#', '#...#', '#...#'], N: ['#..#', '##.#', '#.##', '#..#', '#..#'], O: ['.#.', '#.#', '#.#', '#.#', '.#.'], P: ['##.', '#.#', '##.', '#..', '#..'],
+    Q: ['.#.', '#.#', '#.#', '##.', '.##'], R: ['##.', '#.#', '##.', '#.#', '#.#'], S: ['.##', '#..', '.#.', '..#', '##.'], T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'], V: ['#.#', '#.#', '#.#', '#.#', '.#.'], W: ['#...#', '#...#', '#.#.#', '##.##', '#...#'], X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    Y: ['#.#', '#.#', '.#.', '.#.', '.#.'], Z: ['###', '..#', '.#.', '#..', '###'],
+    0: ['###', '#.#', '#.#', '#.#', '###'], 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['##.', '..#', '.#.', '#..', '###'], 3: ['##.', '..#', '.#.', '..#', '##.'],
+    4: ['#.#', '#.#', '###', '..#', '..#'], 5: ['###', '#..', '##.', '..#', '##.'], 6: ['###', '#..', '###', '#.#', '###'], 7: ['###', '..#', '.#.', '.#.', '.#.'],
+    8: ['###', '#.#', '###', '#.#', '###'], 9: ['###', '#.#', '###', '..#', '###'],
+    '/': ['..#', '..#', '.#.', '#..', '#..'], '+': ['...', '.#.', '###', '.#.', '...'], '-': ['...', '...', '###', '...', '...'], '!': ['#', '#', '#', '.', '#'],
+    '.': ['.', '.', '.', '.', '#'], ',': ['.', '.', '.', '#', '#'], "'": ['#', '#', '.', '.', '.'], '?': ['##.', '..#', '.#.', '...', '.#.'], '&': ['.#.', '#.#', '.#.', '#.#', '.##'], '·': ['.', '.', '#', '.', '.'], ':': ['.', '#', '.', '#', '.'], m: ['.....', '##.#.', '#.#.#', '#.#.#', '#.#.#'], x: ['...', '#.#', '.#.', '#.#', '...'],
+  },
+  width(s) { return [...s].reduce((a, ch) => a + (PixelFont.glyphs[ch] ? PixelFont.glyphs[ch][0].length : 2) + 1, -1); },
+  // k = size of one font pixel in art pixels (2 = double size, still on the pixel grid)
+  draw(g, s, x, y, col, k = 1) {
+    let cx = x;
+    for (const ch of s) {
+      const gl = PixelFont.glyphs[ch];
+      if (!gl) { cx += 3 * k; continue; }
+      gl.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') Pixel.px(g, col, cx + i * k, y + j * k, k, k); });
+      cx += (gl[0].length + 1) * k;
+    }
+  },
+  outlined(g, s, x, y, col, k = 1, outline = '#2b1b24') {
+    for (const [a, b] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) PixelFont.draw(g, s, x + a * k, y + b * k, outline, k);
+    PixelFont.draw(g, s, x, y, col, k);
+  },
+};
+
+/* =====================================================================
+   PixelCard — every card in the game is one 32×44 pixel picture, scaled up
+   by a whole number: name at the top, the move's path in the middle. Extra
+   squares from momentum are green (with a green border); the lucky card in
+   Endless is gold. Turn, Wait, Echo and Climb get little pictures instead.
+   ===================================================================== */
+const CARD_W = 32, CARD_H = 44;
+const PixelCard = {
+  ink: (id) => (id.startsWith('walk') ? '#3e8948' : id === 'dash' ? '#b5262e' : id === 'hop' ? '#6a3fc4' : id === 'glide' ? '#2f6fb0' : ['turn', 'wait', 'echo'].includes(id) ? '#5a4a8a' : id === 'climb' ? '#7a5229' : '#c45a22'),
+  canvas(id, d = CARDS[id], o = {}) {
+    const c = document.createElement('canvas'); c.width = CARD_W; c.height = CARD_H; c.className = 'pcard';
+    PixelCard.paint(c.getContext('2d'), id, d, o);
+    return c;
+  },
+  // same picture as a data URL (for small inline pictures in hint text); cached
+  urls: {},
+  url(id, d = CARDS[id], o = {}) {
+    const key = id + JSON.stringify(d.moves) + JSON.stringify(o);
+    return PixelCard.urls[key] || (PixelCard.urls[key] = PixelCard.canvas(id, d, o).toDataURL());
+  },
+  paint(g, id, d, o) {
+    const P = (c, x, y, w = 1, h = 1) => Pixel.px(g, c, x, y, w, h), W = CARD_W, H = CARD_H, ink = PixelCard.ink(id);
+    const boosted = !!(d.combo || d.boosted), ring = boosted ? '#5cd18b' : o.lucky ? '#ffcc33' : '#2b1b24';
+    const face = o.lucky ? '#fff6d6' : '#fbf7ee', frame = o.lucky ? '#f0cf6a' : '#e3d6b8';
+    // outline with rounded corners (a second dark line inside a coloured ring)
+    const rim = (col, k) => { P(col, 2 + k, k, W - 4 - 2 * k, 1); P(col, 2 + k, H - 1 - k, W - 4 - 2 * k, 1); P(col, k, 2 + k, 1, H - 4 - 2 * k); P(col, W - 1 - k, 2 + k, 1, H - 4 - 2 * k); P(col, 1 + k, 1 + k); P(col, W - 2 - k, 1 + k); P(col, 1 + k, H - 2 - k); P(col, W - 2 - k, H - 2 - k); };
+    rim(ring, 0);
+    const k = ring === '#2b1b24' ? 1 : 2;
+    if (k === 2) rim('#2b1b24', 1);
+    P(face, k + 1, k, W - 2 * k - 2, H - 2 * k); P(face, k, k + 1, W - 2 * k, H - 2 * k - 2);
+    P(o.lucky ? '#f3e2b0' : '#ebdfc4', k + 1, H - k - 1, W - 2 * k - 2, 1);                 // a little shade at the bottom
+    P(frame, 3, 3, W - 6, 1); P(frame, 3, H - 4, W - 6, 1); P(frame, 3, 3, 1, H - 6); P(frame, W - 4, 3, 1, H - 6);
+    if (o.lucky) { P('#e0a91c', W - 8, 6, 3, 1); P('#e0a91c', W - 7, 5, 1, 3); }
+    const name = (d.name || CARDS[id].name).toUpperCase(), nw = PixelFont.width(name);
+    PixelFont.draw(g, name, Math.round((W - nw) / 2), 6, ink);
+    const area = { x0: 4, y0: 13, x1: 27, y1: 39 };                      // picture area, inside the frame
+    const m0 = d.moves[0];
+    if (d.echo) return PixelCard.echoPic(P, ink, area);
+    if (m0.type === 'turn') return PixelCard.turnPic(P, ink, area);
+    if (m0.type === 'wait') return PixelCard.waitPic(P, ink, area);
+    if (m0.type === 'climb') return PixelCard.path(P, ink, area, [[0, -1], [0, -1], [1, 0]], 0, 0, true);
+    // the path: which steps are extra (from momentum)?
+    const steps = d.moves.flatMap((m) => m.path || []), base = CARDS[id].moves.flatMap((m) => m.path || []).length, extra = Math.max(0, steps.length - base);
+    const first = d.combo === 'Double jump' ? extra : 0, last = d.combo === 'Double jump' ? 0 : extra;
+    PixelCard.path(P, ink, area, steps, first, last, false, id === 'dash');
+  },
+  // draw a path of steps on a little grid; `first`/`last` steps are momentum extras (green)
+  path(P, ink, a, steps, first, last, climb, burst) {
+    const pts = [{ x: 0, y: 0, extra: false }];
+    let x = 0, y = 0;
+    steps.forEach(([dx, dy], i) => { x += dx; y += dy; pts.push({ x, y, extra: i < first || i >= steps.length - last }); });
+    const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x)), minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
+    const cols = maxX - minX + 1, rows = maxY - minY + 1;
+    const C = Math.max(3, Math.min(5, Math.floor((a.x1 - a.x0 + 2) / cols), Math.floor((a.y1 - a.y0 - 3) / rows)));   // squares shrink to fit, never past the frame
+    const sq = C - 1, pw = cols * C - 1, ph = rows * C - 1, ox = a.x0 + Math.floor((a.x1 - a.x0 + 1 - pw) / 2), oy = a.y0 + Math.floor((a.y1 - a.y0 + 1 - ph) / 2);
+    const at = (p) => [ox + (p.x - minX) * C, oy + (p.y - minY) * C], mid = Math.floor((sq - 1) / 2), lw = sq > 3 ? 2 : 1;
+    if (climb) { const [wx, wy] = at({ x: 1, y: 0 }); P('#7a5229', wx, wy - C, sq, C + sq); P('#4a2c14', wx, wy - C, sq, 1); }   // the wall being climbed
+    pts.forEach((p, i) => {
+      const [X, Y] = at(p);
+      if (!i) { P('#2b1b24', X, Y, sq, sq); P('#fee761', X + 1, Y + 1, sq - 2, sq - 2); }
+      else if (!(climb && p.x === 1 && p.y === 0)) { P(p.extra ? '#5cd18b' : '#d8cdb2', X, Y, sq, sq); P(p.extra ? '#a6f0c0' : '#ece2ca', X + 1, Y + 1, sq - 2, sq - 2); }
+    });
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = at(pts[i]), [x1, y1] = at(pts[i + 1]);
+      P(pts[i + 1].extra ? '#2f9e5c' : ink, Math.min(x0, x1) + mid, Math.min(y0, y1) + mid, Math.abs(x1 - x0) + lw, Math.abs(y1 - y0) + lw);
+    }
+    const end = pts[pts.length - 1], [lx, ly] = at(end);
+    P('#2b1b24', lx, ly, sq, sq); P(end.extra ? '#5cd18b' : ink, lx + 1, ly + 1, sq - 2, sq - 2);
+    if (burst) {     // Dash: an impact burst above and below its last square (it bowls patrollers over)
+      P('#e43b44', lx + mid, ly - 3, 1, 2); P('#e43b44', lx + mid, ly + sq + 1, 1, 2);
+      P('#e43b44', lx - 1, ly - 2); P('#e43b44', lx + sq, ly - 2); P('#e43b44', lx - 1, ly + sq + 1); P('#e43b44', lx + sq, ly + sq + 1);
+    }
+  },
+  arrow(P, ink, x0, x1, y, dir) {          // a 2-pixel arrow from x0 to x1 with a head at the end
+    P(ink, Math.min(x0, x1), y, Math.abs(x1 - x0), 2);
+    for (let k = 0; k < 4; k++) P(ink, x1 - dir * k, y - 3 + k, 1, 8 - 2 * k);
+  },
+  turnPic(P, ink, a) { const cx = Math.round((a.x0 + a.x1) / 2); PixelCard.arrow(P, ink, cx - 8, cx + 7, 20, 1); PixelCard.arrow(P, ink, cx + 7, cx - 8, 30, -1); },
+  waitPic(P, ink, a) {
+    const cx = Math.round((a.x0 + a.x1) / 2), y = 17;
+    P(ink, cx - 6, y, 13, 2); P(ink, cx - 6, y + 17, 13, 2);
+    for (let k = 0; k < 7; k++) { const w = 11 - k * 2 < 1 ? 1 : 11 - k * 2; P(ink, cx - Math.floor(w / 2), y + 2 + k, 1, 1); P(ink, cx + Math.floor(w / 2), y + 2 + k, 1, 1); P(ink, cx - Math.floor(w / 2), y + 15 - k, 1, 1); P(ink, cx + Math.floor(w / 2), y + 15 - k, 1, 1); }
+    P('#feae34', cx - 3, y + 4, 7, 1); P('#feae34', cx - 2, y + 5, 5, 1); P('#feae34', cx, y + 9, 1, 3); P('#feae34', cx - 2, y + 13, 5, 1); P('#feae34', cx - 3, y + 14, 7, 1);
+  },
+  echoPic(P, ink, a) {
+    const cx = Math.round((a.x0 + a.x1) / 2), cy = 25, r = [[-2, -6, 5], [-4, -5, 2], [3, -5, 2], [-5, -4, 1], [5, -4, 1], [-6, -2, 1], [6, -2, 1], [-6, -1, 1], [-6, 0, 1], [-6, 1, 1], [-6, 2, 1], [6, 1, 1], [6, 2, 1], [-5, 3, 1], [5, 3, 1], [-4, 4, 2], [3, 4, 2], [-2, 5, 5]];
+    r.forEach(([x, y, w]) => P(ink, cx + x, cy + y, w, 1));
+    P(ink, cx + 5, cy - 2, 3, 1); P(ink, cx + 6, cy - 3, 1, 1); P('#fbf7ee', cx + 6, cy - 1, 1, 3);   // arrow head, with a gap in the ring
+    const t = 'x2', tw = PixelFont.width(t);
+    PixelCard.text(P, t, cx - Math.floor(tw / 2), cy - 2, ink);
+  },
+  text(P, s, x, y, col) {                  // PixelFont.draw for a P() painter
+    let cx = x;
+    for (const ch of s) { const gl = PixelFont.glyphs[ch]; if (!gl) { cx += 3; continue; } gl.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') P(col, cx + i, y + j); }); cx += gl[0].length + 1; }
+  },
+  // the ×n tag on a stack of matching cards
+  badge(n) {
+    const t = 'x' + n, w = PixelFont.width(t) + 4, c = document.createElement('canvas'); c.width = w; c.height = 9; c.className = 'pbadge';
+    const g = c.getContext('2d'); Pixel.px(g, '#2b1b24', 0, 0, w, 9); Pixel.px(g, '#ffcc33', 1, 1, w - 2, 7); PixelFont.draw(g, t, 2, 2, '#2b1b24');
+    return c;
+  },
+};
+
+/* =====================================================================
+   Pixel HUD — drawn straight onto the level (no box behind it), in the
+   pixel font with a dark outline. Endless: timer line along the top,
+   hearts, the gem meter and distance. Puzzles: gems, the key, and the
+   turn count on levels with timed spikes.
+   ===================================================================== */
+const HUD_ICONS = {
+  heart: ['.oo.oo.', 'oRRoRRo', 'oRRRRRo', '.oRRRo.', '..oRo..', '...o...'],
+  gem: ['.ooooo.', 'oCwCCCo', 'oCCCBBo', '.oCBBo.', '..oBo..', '...o...'],
+  key: ['.ooo.....', 'oYwYoooo.', 'oYoYYYYYo', 'oYYYooYoY', '.ooo..o.o'],
+};
+// k: size of one HUD pixel in art pixels: 2 on small screens (phones), so it stays readable
+Pixel.hud = function (g, map, v, k = 1) {
+  const P = Pixel.px, LW = W * U, fw = (s) => PixelFont.width(s) * k;
+  const icon = (rows, x, y, pal) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (pal[r[i]]) P(g, pal[r[i]], x + i * k, y + j * k, k, k); });
+  const heart = (x, y, full) => icon(HUD_ICONS.heart, x, y, { o: '#2b1b24', R: full ? '#e43b44' : '#5a6988' });
+  const gem = (x, y) => icon(HUD_ICONS.gem, x, y, { o: '#2b1b24', C: '#2ce8f5', w: '#ffffff', B: '#0099db' });
+  const ta = app.mode === 'time' && app.ta;
+  if (ta) {
+    const T = CONFIG.timeAttack, N = T.gemsPerHeart;
+    if (ta.deadline || ta.paused != null) {           // the timer: a line along the top edge
+      const left = ta.paused ?? (ta.deadline - performance.now()), frac = ta.deadline === Infinity ? 1 : Math.max(0, Math.min(1, left / ta.limitMs));
+      P(g, '#2b1b24', 0, 0, LW, 3); P(g, '#5a6988', 0, 0, LW, 2);
+      P(g, frac < .3 ? '#e43b44' : ta.deadline === Infinity ? '#5cd18b' : '#ffcc33', 0, 0, Math.round(LW * frac), 2);
+    }
+    const top = 4 + 2 * k;
+    for (let h = 0; h < T.hearts; h++) heart(4 + h * 9 * k, top, h < ta.hearts);
+    let x = 6 + T.hearts * 9 * k;
+    gem(x, top);
+    const meter = N ? `${ta.gemMeter || 0}/${N}` : String(ta.gems);
+    PixelFont.outlined(g, meter, x + 10 * k, top + k, '#ffffff', k);
+    if (N && ta.gemMeter >= N) heart(x + 12 * k + fw(meter), top, true);   // a spare heart, waiting
+    const dist = `${ta.dist}m`;
+    PixelFont.outlined(g, dist, LW - 4 - k - fw(dist), top + k, '#ffffff', k);
+    if (ta.deadline === Infinity) { const f = `FREE ${T.freeCards - ta.plays}`; PixelFont.outlined(g, f, LW - 4 - k - fw(f), top + 9 * k, '#a6f0c0', k); }
+    return;
+  }
+  let x = 4, top = 4;
+  const total = gemTotal(map);
+  if (total) { const t = `${gemCount(map, v)}/${total}`; gem(x, top); PixelFont.outlined(g, t, x + 10 * k, top + k, '#ffffff', k); x += 10 * k + fw(t) + 6 * k; }
+  if (map.keyMask) {
+    const has = hasAllKeys(map, v);
+    g.globalAlpha = has ? 1 : .45; icon(HUD_ICONS.key, x, top + k, { o: '#2b1b24', Y: '#fee761', w: '#ffffff' }); g.globalAlpha = 1;
+    x += 15 * k;
+  }
+  if (map.grid.some((r) => r.includes('t'))) PixelFont.outlined(g, `TURN ${v.turn}`, x, top + k, '#ffffff', k);   // only matters with timed spikes
+};
+
+/* =====================================================================
+   PixelUI — pixel titles, button labels, icons and badges for the HTML
+   parts of the game (message boxes, buttons). Each is a little canvas
+   drawn in PixelFont and scaled up by a whole number.
+   ===================================================================== */
+const PIXEL_ICONS = {
+  play: ['#....', '###..', '#####', '###..', '#....'], retry: ['.###.', '#...#', '#..##', '#...#', '.##..'], hint: ['.###.', '#####', '#####', '.###.', '.###.'],
+  next: ['#.#..', '.#.#.', '..#.#', '.#.#.', '#.#..'], grid: ['##.##', '##.##', '.....', '##.##', '##.##'], pause: ['##.##', '##.##', '##.##', '##.##', '##.##'],
+  redraw: ['###.#', '#...#', '#.#.#', '#...#', '#.###'], back: ['..#..', '.#...', '#####', '.#...', '..#..'], edit: ['...##', '..###', '.###.', '###..', '##...'],
+  flag: ['#....', '####.', '####.', '#....', '#....'], gem: ['.###.', '#####', '.###.', '..#..', '.....'],
+  infinity: ['.##.##.', '#..#..#', '#..#..#', '#..#..#', '.##.##.'],
+  gear: ['..#.#..', '.#####.', '##...##', '.#...#.', '##...##', '.#####.', '..#.#..'],
+  trash: ['.###.', '#####', '.#.#.', '.#.#.', '.###.'],
+};
+const PixelUI = {
+  supported: (s) => [...s].every((ch) => ch === ' ' || PixelFont.glyphs[ch]),
+  // a line of pixel text as a canvas, k screen pixels per pixel, with an optional 1-pixel outline
+  text(s, col, k = 2, outline) {
+    const pad = outline ? 1 : 0, c = document.createElement('canvas');
+    c.width = PixelFont.width(s) + pad * 2; c.height = 5 + pad * 2; c.className = 'ptext';
+    const g = c.getContext('2d');
+    if (outline) PixelFont.outlined(g, s, pad, pad, col, 1, outline); else PixelFont.draw(g, s, 0, 0, col);
+    c.style.width = c.width * k + 'px'; c.style.height = c.height * k + 'px';
+    return c;
+  },
+  icon(name, col, k = 2) {
+    const rows = PIXEL_ICONS[name], c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length; c.className = 'picon';
+    const g = c.getContext('2d');
+    rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') Pixel.px(g, col, i, j); });
+    c.style.width = c.width * k + 'px'; c.style.height = c.height * k + 'px';
+    return c;
+  },
+  // pixel text wrapped onto lines no wider than maxW (in pixels), centred
+  lines(s, col, k = 2, maxW = 40) {
+    const out = [];
+    for (const w of s.split(' ')) { const last = out[out.length - 1]; if (last && PixelFont.width(last + ' ' + w) <= maxW) out[out.length - 1] = last + ' ' + w; else out.push(w); }
+    const c = document.createElement('canvas'), wid = Math.max(...out.map((l) => PixelFont.width(l)));
+    c.width = wid; c.height = out.length * 7 - 2; c.className = 'ptext';
+    const g = c.getContext('2d');
+    out.forEach((l, i) => PixelFont.draw(g, l, Math.floor((wid - PixelFont.width(l)) / 2), i * 7, col));
+    c.style.width = c.width * k + 'px'; c.style.height = c.height * k + 'px';
+    return c;
+  },
+  // put pixel text into an element (falls back to plain text for characters the font can't draw)
+  set(elm, s, col, k = 2, outline) {
+    const up = s.toUpperCase(); elm.textContent = '';
+    if (PixelUI.supported(up)) elm.appendChild(PixelUI.text(up, col, k, outline)); else elm.textContent = s;
+    elm.setAttribute('aria-label', s);
+    return elm;
+  },
+  // an icon-only pixel button (e.g. Back)
+  iconButton(b, icon, label) {
+    b.classList.add('pb'); b.textContent = ''; b.title = label; b.setAttribute('aria-label', label);
+    b.appendChild(PixelUI.icon(icon, '#ffffff'));
+    return b;
+  },
+  // which icon goes with a button label
+  iconFor(label) {
+    const l = label.toLowerCase();
+    return /^(play|start|resume)/.test(l) ? 'play' : /hint/.test(l) ? 'hint' : /^next/.test(l) ? 'next' : /levels|menu/.test(l) ? 'grid'
+      : /pause/.test(l) ? 'pause' : /redraw/.test(l) ? 'redraw' : /undo/.test(l) ? 'back' : /editor/.test(l) ? 'edit'
+      : /reset|restart|replay|try again|again/.test(l) ? 'retry' : null;
+  },
+  // turn a button into a chunky pixel button with a pixel label (labels the font can't draw stay as text)
+  button(b, label, primary) {
+    const clean = label.replace(/^[^A-Za-z0-9]+\s*/, '').replace(/\s*[→←]$/, '').trim(), up = clean.toUpperCase();
+    b.classList.add('pb'); if (primary) b.classList.add('pri');
+    b.textContent = ''; b.title = clean; b.setAttribute('aria-label', clean);
+    if (!PixelUI.supported(up)) { b.textContent = label; return b; }
+    const col = primary ? '#2b1b24' : '#ffffff', ic = PixelUI.iconFor(clean);
+    if (ic) b.appendChild(PixelUI.icon(ic, ic === 'hint' && !primary ? '#fee761' : col));
+    b.appendChild(PixelUI.text(up, col));
+    return b;
   },
 };

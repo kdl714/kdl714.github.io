@@ -272,7 +272,7 @@ function beatNow(e) {
   else if (e.k === 'collect') {
     v.got |= 1 << e.i;
     burst(e.x, e.y, e.t === 'K' ? '#ffcc33' : '#4fd8e8');
-    app.flash = { text: e.t === 'K' ? 'Got the key!' : `Gem! +${CONFIG.score.gem}`, t0: performance.now() };
+    app.flash = { text: e.t === 'K' ? 'Got the key!' : 'Gem!', t0: performance.now() };
   }
 }
 
@@ -368,8 +368,7 @@ const Plan = {
   clickSeq(uid) {
     if (app.running) return;
     const i = app.seq.findIndex((c) => c && c.uid === uid);
-    app.hand.push(app.seq[i]); app.seq[i] = null; Slots.trim();
-    app.hand.sort((a, b) => a.uid - b.uid);
+    app.hand.push(app.seq[i]); app.seq[i] = null; Slots.trim();   // back to the end of your hand (or onto its matching stack)
     if (app.cursor) resetRun(); else renderDeck();
   },
   async play() {
@@ -399,12 +398,12 @@ const Plan = {
     return [
       ['▶ Play', 'primary', Plan.play, !Slots.filled().length || Slots.gap() >= 0 || app.running],
       ['↺ Reset', '', Plan.reset, app.running || (!Slots.filled().length && !app.cursor && app.state.status === 'playing')],
-      ...(CONFIG.features.hints && settings.hints && app.fails > 0 ? [[`💡 Hint${CONFIG.features.gems ? ` (−${CONFIG.hints.penalty})` : ''}`, '', Hints.next, app.running]] : []),
+      ...(CONFIG.features.hints && settings.hints && app.fails > 0 ? [['💡 Hint', '', Hints.next, app.running]] : []),
     ];
   },
 };
 
-// Hints (Plan & Run): unlocked after a failed run, each one costs points.
+// Hints (Plan & Run): unlocked after a failed run; free to use.
 // First hint is the level's own nudge (if it has one); after that, compare
 // the player's sequence with the closest solution and reveal one more card.
 const Hints = {
@@ -477,13 +476,14 @@ const TimeAttack = {
     app.state = initialState(app.map);
     app.view = { ...clone(app.state), ox: 0, oy: 0 }; app.cam = 0; app.particles = [];
     app.ta = { hearts: T.hearts, dist: 0, gems: 0, deadline: null, limitMs: 0, paused: null, over: false, plays: 0, nextHeart: T.heartEvery,
-      next: TimeAttack.pick(), band: 0 };
+      next: TimeAttack.pick(), band: 0, gemMeter: 0 };
     $('hand').style.setProperty('--hand', T.handSize);
     $('hand').style.setProperty('--pic', T.handSize >= 5 ? .92 : 1.25);   // card pictures sized to fit the row
     app.hand = []; app.played = []; app.seq = [];
     TimeAttack.fill(true);
     renderDeck();
-    showBanner('Endless', `Go as far as you can. Your first ${T.freeCards} moves are free, then you get ${T.startSeconds}s per card, a little less the further you go.\nToo slow or a bad move costs a heart${T.restHeal ? `; each new biome (every ${T.biomeLength} tiles) starts with a rest stop that heals one` : ''}. Keys 1–${T.handSize} pick cards.`,
+    showBanner('Endless', `Go as far as you can. Your first ${T.freeCards} moves are free; after that, pick each card before the timer runs out.\nA bad move or running out of time costs a heart.${T.restHeal ? ' Rest stops' : ''}${T.restHeal && T.gemsPerHeart ? ' and' : ''}${T.gemsPerHeart ? ` every ${T.gemsPerHeart} gems` : ''}${T.restHeal || T.gemsPerHeart ? ' heal one.' : ''}`
+      + (matchMedia('(pointer: fine)').matches ? ` Keys 1–${T.handSize} pick cards.` : ''),
       [['Start', () => { hideBanner(); TimeAttack.arm(); renderDeck(); }]]);
   },
   pick() {
@@ -544,12 +544,17 @@ const TimeAttack = {
     renderDeck();
   },
   loseHeart() {
-    const ta = app.ta;
-    if (--ta.hearts > 0) return true;
+    const ta = app.ta, N = CONFIG.timeAttack.gemsPerHeart;
+    ta.hearts--;
+    if (N && ta.gemMeter >= N) {               // a full gem meter (saved up at full hearts) refills the heart you just lost
+      ta.hearts++; ta.gemMeter = 0;
+      app.flash = { text: 'Gems to the rescue! +♥', t0: performance.now() };
+    }
+    if (ta.hearts > 0) return true;
     ta.over = true; ta.deadline = null;
-    const T = CONFIG.timeAttack, score = ta.dist * T.pointsPerTile + ta.gems * T.pointsPerGem + (ta.combos || 0) * (T.pointsPerCombo || 0);
-    const best = recordBest('time attack', score);
-    showBanner('Out of hearts', `Distance ${ta.dist} tiles · ${ta.gems} gem${ta.gems === 1 ? '' : 's'} · ${ta.combos || 0} combo${ta.combos === 1 ? '' : 's'}\nScore ${score}` + (best.isNew ? (best.prev ? ` — new best! (was ${best.prev})` : '') : ` (best ${best.prev})`),
+    const best = recordBest('endless distance', ta.dist);   // Endless is scored by distance alone
+    showBanner('Out of hearts', `You made it ${ta.dist} tiles` + (best.isNew ? (best.prev ? ` — a new best! (was ${best.prev})` : ' — your first best!') : ` (best ${best.prev})`)
+      + `\n◆ ${ta.gems} gem${ta.gems === 1 ? '' : 's'} collected`,
       [['Play again', TimeAttack.start], ['Menu', Router.up, true]]);
     return false;
   },
@@ -566,7 +571,12 @@ const TimeAttack = {
     // bank collected gems and drop them from the map (keeps the bitmask small)
     const got = app.state.got;
     if (got) {
-      ta.gems += app.map.items.filter((it, i) => got & (1 << i)).length;
+      const n = app.map.items.filter((it, i) => got & (1 << i)).length, N = CONFIG.timeAttack.gemsPerHeart;
+      ta.gems += n;
+      if (N) for (let k = 0; k < n; k++) {      // every N gems restores a heart; at full hearts the meter waits, full
+        ta.gemMeter = Math.min(N, (ta.gemMeter || 0) + 1);
+        if (ta.gemMeter >= N && ta.hearts < CONFIG.timeAttack.hearts) { ta.hearts++; ta.gemMeter = 0; app.flash = { text: '◆ ×' + N + '  +♥', t0: performance.now() }; }
+      }
       app.map.items = app.map.items.filter((it, i) => !(got & (1 << i)));
       app.state.got = app.view.got = 0;
     }
@@ -574,7 +584,7 @@ const TimeAttack = {
     if (status === 'dead') {
       app.flash = { text: (app.state.why === 'pit' ? 'Fell!' : app.state.why === 'enemy' ? 'Caught!' : app.state.why === 'cactus' ? 'Ouch!' : 'Spiked!') + ' −♥', t0: performance.now() };
       alive = TimeAttack.loseHeart();
-      if (alive) { app.state = { ...before, got: 0 }; app.view = { ...clone(app.state), ox: 0, oy: 0 }; }
+      if (alive) { app.state = { ...before, got: 0, streak: 0, lastKind: null }; app.view = { ...clone(app.state), ox: 0, oy: 0 }; }   // back where you were, but losing a heart breaks your momentum
     }
     ta.plays++;
     ta.dist = Math.max(ta.dist, app.state.x - app.map.start.x);
@@ -587,7 +597,7 @@ const TimeAttack = {
     const band = Math.floor(app.state.x / (T.biomeLength || 150));
     if (alive && band > ta.band) {
       ta.band = band;
-      let text = { meadow: 'Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[biomeAt(app.state.x)];
+      let text = { meadow: 'Sunny Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[biomeAt(app.state.x)];
       if (T.restHeal && ta.hearts < T.hearts) { ta.hearts++; text += '  +♥'; }
       app.flash = { text, t0: performance.now() };
     }
@@ -620,7 +630,7 @@ const TimeAttack = {
   actions() {
     const ta = app.ta, live = ta && ta.deadline && !ta.paused && !app.running;
     return [
-      ['↻ Redraw (clock runs)', '', TimeAttack.redraw, !live],
+      ['↻ Redraw', '', TimeAttack.redraw, !live],
       [ta?.paused != null ? '▶ Resume' : '⏸ Pause', '', TimeAttack.pause, !ta || ta.over || (!ta.deadline && ta.paused == null)],
       ['↺ Restart', '', TimeAttack.start, app.running],
     ];
@@ -1023,17 +1033,15 @@ const Run = {
 };
 const ctrl = () => (app.mode === 'quest' ? Quest : app.mode === 'run' ? Run : app.mode === 'time' ? TimeAttack : app.mode === 'instant' ? Instant : Plan);
 
-// Score = (flag + gems + spare cards/steps) × multiplier if every gem was collected.
-function scoreFor(map, st, spare, hints = 0) {
+// Roguelite only: score = (flag + gems + spare steps) × multiplier if every gem was collected.
+function scoreFor(map, st, spare) {
   const sc = CONFIG.score, gems = gemCount(map, st), total = gemTotal(map);
   const parts = [['Flag', sc.clear]];
   if (gems) parts.push([`${gems} gem${gems > 1 ? 's' : ''}`, gems * sc.gem]);
   if (spare > 0) parts.push([`${spare} spare`, spare * sc.spare]);
   const mult = total && gems === total ? sc.allGemsMultiplier : 1;
-  const penalty = hints * CONFIG.hints.penalty;
-  const points = Math.max(0, parts.reduce((a, [, v]) => a + v, 0) * mult - penalty);
-  const text = parts.map(([k, v]) => `${k} ${v}`).join(' + ') + (mult > 1 ? ` × ${mult} (all gems!)` : '')
-    + (penalty ? ` − ${penalty} for ${hints} hint${hints > 1 ? 's' : ''}` : '') + ` = ${points}`;
+  const points = parts.reduce((a, [, v]) => a + v, 0) * mult;
+  const text = parts.map(([k, v]) => `${k} ${v}`).join(' + ') + (mult > 1 ? ` × ${mult} (all gems!)` : '') + ` = ${points}`;
   return { points, text, gems, total };
 }
 function recordBest(name, points) {
@@ -1050,19 +1058,15 @@ function finishCheck(status, outOfCards, unused) {
     const all = allLevels(), idx = all.findIndex((l) => l.key === app.levelKey);
     const next = all[idx + 1]?.key[0] === app.levelKey[0] ? all[idx + 1] : null;   // the next level in the same list (built-in or yours)
     const used = app.mode === 'instant' ? app.played.length : app.cursor;
-    let text = `Reached the flag in ${used} card${used === 1 ? '' : 's'}.`, badges;
-    if (CONFIG.features.gems) {
-      const sc = scoreFor(app.map, app.state, app.level.cards.length - used, app.mode === 'plan' ? app.hintsUsed : 0);
-      const best = app.playtesting ? null : recordBest(app.level.name, sc.points);
-      text = (sc.total > sc.gems ? `${sc.total - sc.gems} gem${sc.total - sc.gems > 1 ? 's' : ''} left behind — there's a harder way.\n` : '')
-        + `Score ${sc.points}` + (best ? (best.isNew ? (best.prev ? ` · new best! (was ${best.prev})` : '') : ` · best ${best.prev}`) : '');
-      const run = { flag: true, gems: !!sc.total && sc.gems === sc.total, clean: !app.hintsUsed };
-      if (!app.playtesting) Progress.earn(app.level.name, run);
-      badges = badgeRow(run, sc.total > 0);
-    }
+    // puzzles: cleared or not, plus every gem (if the level has any). No points.
+    const total = CONFIG.features.gems ? gemTotal(app.map) : 0, gems = total ? gemCount(app.map, app.state) : 0;
+    const text = total > gems ? `${total - gems} gem${total - gems > 1 ? 's' : ''} left behind — there's a harder way.` : total ? 'Every gem collected!' : `Reached the flag in ${used} card${used === 1 ? '' : 's'}.`;
+    const run = { flag: true, gems: !!total && gems === total };
+    if (!app.playtesting) Progress.earn(app.level.name, run);
+    const badges = badgeRow(run, total > 0);
     const replay = ['Replay', retry[retry.length - 1][1]];
     showBanner('Level complete!', text, app.playtesting ? [replay]
-      : [...(next ? [['Next level →', () => Router.go('#/play/' + next.key)]] : []), replay, ['Levels', Router.up, true]], badges);
+      : [...(next ? [['Next →', () => Router.go('#/play/' + next.key)]] : []), replay, ['Levels', Router.up, true]], badges);
   } else if (status === 'dead') {
     if (app.mode === 'plan') app.fails++;
     const hint = Hints.available() ? [[`💡 Hint`, () => { hideBanner(); Hints.next(); }]] : [];
@@ -1155,6 +1159,8 @@ function draw() {
   A.effects(ctx, map, got);
   ctx.restore();
   A.ambient(ctx, tname);
+  const pixelHud = pixel && !app.editing && (app.mode === 'plan' || app.mode === 'time') && !document.body.classList.contains('home');
+  if (pixelHud) Pixel.hud(ctx, map, v, fullTS < 30 ? 2 : 1);   // status drawn straight onto the level (pixel.js); chunkier on phones
   if (pixel) { ctx = screen; TS = fullTS; Pixel.end(ctx); }
   else Art.vignette(ctx);
   // text and the editor cursor go on at full resolution, so they stay sharp in every style
@@ -1177,24 +1183,28 @@ function draw() {
   }
   ctx.restore();
   const run = app.mode === 'run' && app.run, ta = app.mode === 'time' && app.ta, q = app.mode === 'quest' && app.q;
+  if (ta) TimeAttack.tick();
   if (ta) {
-    TimeAttack.tick();
-    // the timer lives on the game itself, so it's visible however the page is laid out
+    // the timer lives on the game itself, so it's visible however the page is laid out (pixel style: drawn by Pixel.hud)
     if (ta.deadline || ta.paused != null) {
       const left = ta.paused ?? (ta.deadline - performance.now()), frac = Math.max(0, Math.min(1, left / ta.limitMs));
       const low = frac < .3;
-      ctx.fillStyle = '#0006'; ctx.fillRect(0, 0, W * TS, Math.max(6, TS * .18));
-      ctx.fillStyle = low ? '#ff4d4d' : '#ffcc33'; ctx.fillRect(0, 0, W * TS * frac, Math.max(6, TS * .18));
+      if (!pixelHud) {
+        ctx.fillStyle = '#0006'; ctx.fillRect(0, 0, W * TS, Math.max(6, TS * .18));
+        ctx.fillStyle = low ? '#ff4d4d' : '#ffcc33'; ctx.fillRect(0, 0, W * TS * frac, Math.max(6, TS * .18));
+      }
       if (low && !ta.paused) {                       // pulsing red edge as a second warning
         ctx.strokeStyle = `rgba(255,77,77,${.45 + .4 * Math.sin(performance.now() / 70)})`; ctx.lineWidth = Math.max(4, TS * .15);
         ctx.strokeRect(0, 0, W * TS, H * TS);
       }
     }
   }
+  $('hud').style.display = pixelHud ? 'none' : '';
   $('hud').textContent = app.editing ? 'Editing — click/drag to paint'
     : q ? `Level ${q.depth}  ·  ${'♥'.repeat(q.hearts)}${'♡'.repeat(Math.max(0, q.maxHearts - q.hearts))}  ·  ◆ ${q.gems}`
         + (app.map.keyMask ? (hasAllKeys(app.map, v) ? '  ·  🔑 ✓' : '  ·  🔑 needed') : '') + (gemTotal(map) ? `  ·  gems ${gemCount(map, v)}/${gemTotal(map)}` : '')
-    : ta ? (ta.deadline === Infinity ? `Free moves: ${CONFIG.timeAttack.freeCards - ta.plays}  ·  ` : '') + `Distance ${ta.dist}  ·  ${'♥'.repeat(Math.max(0, ta.hearts))}${'♡'.repeat(Math.max(0, CONFIG.timeAttack.hearts - ta.hearts))}  ·  ◆ ${ta.gems}  ·  Score ${ta.dist * CONFIG.timeAttack.pointsPerTile + ta.gems * CONFIG.timeAttack.pointsPerGem + (ta.combos || 0) * (CONFIG.timeAttack.pointsPerCombo || 0)}`
+    : ta ? (ta.deadline === Infinity ? `Free moves: ${CONFIG.timeAttack.freeCards - ta.plays}  ·  ` : '') + `Distance ${ta.dist}  ·  ${'♥'.repeat(Math.max(0, ta.hearts))}${'♡'.repeat(Math.max(0, CONFIG.timeAttack.hearts - ta.hearts))}`
+      + (CONFIG.timeAttack.gemsPerHeart ? `  ·  ◆ ${ta.gemMeter || 0}/${CONFIG.timeAttack.gemsPerHeart}${ta.gemMeter >= CONFIG.timeAttack.gemsPerHeart ? ' spare ♥' : ''}` : `  ·  ◆ ${ta.gems}`)
     : (run ? `Level ${run.depth}  ·  ${'♥'.repeat(run.hearts)}${'♡'.repeat(Math.max(0, CONFIG.run.hearts - run.hearts))}  ·  Steps left ${run.steps}  ·  `
         + (CONFIG.features.gems ? `Score ${run.score}  ·  ` : '') : '')
       + (map.keyMask ? (hasAllKeys(map, v) ? '🔑 ✓  ·  ' : '🔑 needed  ·  ') : '')
@@ -1310,14 +1320,26 @@ function effectiveCard(id, live = true) {
   if (mods.jumpExtra && id === 'jump') return { ...d, moves: [{ path: [...d.moves[0].path, [1, 0]] }], boosted: true };
   return d;
 }
-// A tiny inline picture of a card, for text that refers to specific cards
-const cardChip = (id) => `<span class="chip" title="${CARDS[id].name}">${cardIcon(id, effectiveCard(id))}</span>`;
+// A small inline picture of a card (the pixel card itself), for text that refers to specific cards
+const cardChip = (id) => `<img class="chip" alt="${CARDS[id].name}" title="${CARDS[id].name}" src="${PixelCard.url(id, effectiveCard(id))}">`;
+// A card: the pixel card picture (pixel.js), plus its slot number in the sequence
 function cardEl(c, cls = '', idx, def) {
-  const d = def || effectiveCard(c.id, !cls.includes('preview'));   // the Next card isn't affected by the current momentum
+  const d = def || effectiveCard(c.id, !cls.includes('preview') && !cls.includes('last'));   // Next/Last cards aren't affected by the current momentum
   const el = document.createElement('div');
   el.className = 'card ' + cls;
-  el.innerHTML = `${idx != null ? `<span class="idx">${idx}</span>` : ''}<div class="nm">${d.name}${d.boosted && !d.combo ? ' +' : ''}</div><div class="pic">${cardIcon(c.id, d)}</div>${d.combo ? `<span class="combo">${d.combo}</span>` : ''}`;
-  if (d.combo) el.classList.add('boosted');
+  el.title = d.combo ? `${d.name} (${d.combo})` : d.name;
+  el.appendChild(PixelCard.canvas(c.id, d, { lucky: app.mode === 'time' && c.lucky }));
+  if (d.combo || d.boosted) el.classList.add('boosted');
+  return el;
+}
+// Plan & Run hand: matching cards share one stack with a ×n tag; tapping or dragging takes the top one
+function stackEl(cards, cls) {
+  const el = cardEl(cards[0], cls + ' stack');
+  for (let k = 1; k < Math.min(3, cards.length); k++) {     // the cards underneath peek out behind
+    const under = PixelCard.canvas(cards[k].id); under.className = 'pcard under'; under.style.setProperty('--k', k);
+    el.prepend(under);
+  }
+  if (cards.length > 1) { const b = PixelCard.badge(cards.length); el.appendChild(b); }
   return el;
 }
 
@@ -1328,7 +1350,7 @@ function renderDeck() {
   const quest = app.mode === 'quest';
   const instant = app.mode !== 'plan' && !quest;
   const time = app.mode === 'time';
-  if (time) $('seqLabel').innerHTML = 'Next';
+  if (time) $('seqLabel').innerHTML = '';
   else $('seqLabel').innerHTML = quest ? `Your plan<small>${Quest.owned()}/${Quest.handLimit()} cards · drag to reorder, tap to sell</small>`
     : instant ? 'Played'
     : 'Sequence' + (Slots.gap() >= 0 ? '<small class="warn">fill the empty slot to play</small>' : '<small>tap a card to remove · drag to move</small>');
@@ -1351,10 +1373,16 @@ function renderDeck() {
   $('levelSel').style.visibility = app.mode === 'run' || time || quest ? 'hidden' : '';
   $('editBtn').disabled = app.mode === 'run' || time || quest;
   const list = time ? [] : instant ? app.played : app.seq;   // Endless shows the Next card instead
-  if (time && app.ta?.next) {
-    const el = cardEl({ id: app.ta.next }, 'preview');
-    el.title = 'Comes into your hand next';
-    seqBox.appendChild(el);
+  if (time) {                    // Endless: the card you just played on the left, the next one on the right
+    const side = (label, card, cls) => {
+      const box = Object.assign(document.createElement('div'), { className: 'pile ' + cls });
+      box.innerHTML = `<div class="pile-label">${label}</div>`;
+      if (card) box.appendChild(cardEl(card, cls));
+      else box.insertAdjacentHTML('beforeend', '<div class="slot"></div>');
+      seqBox.appendChild(box);
+    };
+    side('Last', app.played[app.played.length - 1], 'last');
+    if (app.ta?.next) side('Next', { id: app.ta.next }, 'preview');
   }
   if (app.mode === 'plan') {
     // fixed slots: cards where you put them, dashed outlines for empty ones (red if it's a gap)
@@ -1401,7 +1429,7 @@ function renderDeck() {
     Drag.attach(el, { src: 'seq', uid: c.uid, id: c.id });
     seqBox.appendChild(el);
   });
-  $('timer').style.display = time ? 'block' : 'none';
+  $('timer').style.display = time && Art.style() !== 'pixel' ? 'block' : 'none';   // pixel style: the timer is drawn on the level (Pixel.hud)
   document.body.classList.toggle('endless', time);
   $('hintBox').style.display = app.mode === 'plan' && app.hintText ? 'block' : 'none';
   if (app.hintHtml && app.hintText === 'cards') $('hintBox').innerHTML = `💡 ${app.hintHtml}`;
@@ -1412,10 +1440,17 @@ function renderDeck() {
     el.insertAdjacentHTML('afterbegin', `<span class="price">${c.paid}◆</span>`);
     el.title = `${el.title}\nDrag to reorder · tap or drag off to sell back for ${c.paid}◆`;
   });
-  app.hand.forEach((c, i) => {
-    const el = cardEl(c, app.mode === 'plan' && c.id === app.hintNext && app.hand.findIndex((h) => h.id === c.id) === i ? 'hinted'
-      : app.mode === 'run' && app.run?.cycling ? 'cycling' : '');
-    if (time && c.lucky) { el.classList.add('lucky'); el.title = 'Lucky card: dealt so you always have a way forward'; }
+  if (app.mode === 'plan') {      // matching cards stack, in the order they first appear
+    const groups = [];
+    for (const c of app.hand) { const g = groups.find((x) => x[0].id === c.id); g ? g.push(c) : groups.push([c]); }
+    for (const g of groups) {
+      const top = g[g.length - 1], el = stackEl(g, top.id === app.hintNext ? 'hinted' : '');   // take the last one, so the stack keeps its place
+      el.onclick = Drag.tap(() => C.clickHand(top.uid)); handBox.appendChild(el);
+      Drag.attach(el, { src: 'hand', uid: top.uid, id: top.id });
+    }
+  } else app.hand.forEach((c, i) => {
+    const el = cardEl(c, app.mode === 'run' && app.run?.cycling ? 'cycling' : '');
+    if (time && c.lucky) { el.classList.add('lucky'); el.title = 'Lucky card: dealt so you always have a way forward'; }   // drawn gold by PixelCard
     if (time && app.enter?.has(c.uid)) el.classList.add('enter');
     if (time) el.insertAdjacentHTML('afterbegin', `<span class="key">${i + 1}</span>`);
     el.onclick = Drag.tap(() => C.clickHand(c.uid)); handBox.appendChild(el);
@@ -1449,9 +1484,9 @@ function renderDeck() {
   if (!app.hand.length) handBox.innerHTML = `<span style="color:var(--muted)">${quest && !Quest.owned() ? 'Buy cards from the shop below.' : 'No cards left in hand.'}</span>`;
   $('play').classList.toggle('locked', app.running);
   for (const [label, cls, fn, disabled] of C.actions()) {
-    const b = document.createElement('button'); b.textContent = label; b.className = cls; b.disabled = disabled; b.onclick = fn; act.appendChild(b);
+    const b = PixelUI.button(document.createElement('button'), label, cls === 'primary'); b.disabled = disabled; b.onclick = fn; act.appendChild(b);
   }
-  if (app.playtesting) { const b = document.createElement('button'); b.textContent = '✎ Back to editor'; b.onclick = () => setEditing(true); act.appendChild(b); }
+  if (app.playtesting) { const b = PixelUI.button(document.createElement('button'), '✎ Back to editor'); b.onclick = () => setEditing(true); act.appendChild(b); }
   document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mode === app.mode));
 }
 
@@ -1578,16 +1613,26 @@ document.addEventListener('pointercancel', () => Drag.cancel());   // the browse
 document.addEventListener('touchmove', (e) => { if (Drag.cur?.live) e.preventDefault(); }, { passive: false });
 
 function showBanner(title, text, buttons, extra) {
-  const b = $('banner');
-  b.querySelector('h2').textContent = title; b.querySelector('p').textContent = text;
+  const b = $('banner'), h2 = b.querySelector('h2'), up = title.toUpperCase();
+  // the title in the pixel font: green for a win, yellow otherwise (3× if it fits, else 2×)
+  h2.textContent = '';
+  if (PixelUI.supported(up)) {
+    const win = /complete|cleared|best/i.test(title), k = PixelFont.width(up) * 3 + 40 < Math.min(innerWidth - 40, 560) ? 3 : 2;
+    h2.appendChild(PixelUI.text(up, win ? '#a6f0c0' : '#fee761', k, '#181425'));
+  } else h2.textContent = title;
+  h2.setAttribute('aria-label', title);
+  b.querySelector('p').textContent = text;
   b.querySelectorAll(':scope > .extra, :scope > .reward, :scope > .routes, :scope > .badges').forEach((n) => n.remove());
   if (extra) b.querySelector('.row').before(extra);
   b.classList.toggle('wide', !!extra && !extra.classList.contains('badges'));   // card choices get the whole screen, not just the game area
   const row = b.querySelector('.row'); row.innerHTML = '';
-  buttons.forEach(([label, fn, plain], i) => { const btn = document.createElement('button'); btn.textContent = label; if (!i && !plain) btn.className = 'primary'; btn.onclick = fn; row.appendChild(btn); });
+  buttons.forEach(([label, fn, plain], i) => { const btn = PixelUI.button(document.createElement('button'), label, !i && !plain); btn.onclick = fn; row.appendChild(btn); });
   b.style.display = 'block';
+  b.classList.remove('float');
+  if (b.scrollHeight > $('stage').clientHeight - 8) b.classList.add('float');   // too tall for the game area (small phones): centre it on the screen
+  document.body.classList.add('banner-on');          // dims the level a little behind the message
 }
-function hideBanner() { $('banner').style.display = 'none'; }
+function hideBanner() { $('banner').style.display = 'none'; document.body.classList.remove('banner-on'); }
 
 function refreshLevelSelect() {
   const sel = $('levelSel'); sel.innerHTML = '';
@@ -1767,13 +1812,13 @@ new ResizeObserver(resize).observe($('stage'));
    The address bar hash says where you are (#/, #/puzzles, #/set/0, #/play/b4,
    #/endless, #/editor, #/settings), so Back and the phone's swipe-back work.
    ===================================================================== */
-// badges per level, saved by name: flag (cleared), gems (every gem in one run), clean (no hints)
+// badges per level, saved by name: flag (cleared) and gems (every gem in one run)
 const Progress = {
   all() {
     let b = store.get('cardclimber.badges', null);
     if (!b) {   // first time: anything with a best score was cleared
       b = {};
-      for (const name in store.get('cardclimber.best', {})) if (name !== 'time attack') b[name] = { flag: true };
+      for (const name in store.get('cardclimber.best', {})) if (!['time attack', 'endless distance', 'shop run', 'roguelite run'].includes(name)) b[name] = { flag: true };
       store.set('cardclimber.badges', b);
     }
     return b;
@@ -1785,12 +1830,14 @@ const Progress = {
     all[name] = cur; store.set('cardclimber.badges', all);
   },
 };
-const BADGES = [['flag', '⚑', 'Flag'], ['gems', '◆', 'Every gem'], ['clean', '★', 'No hints']];
+const BADGES = [['flag', '⚑', 'Cleared'], ['gems', '◆', 'Every gem']];
 function badgeRow(got, hasGems) {
   const row = document.createElement('div'); row.className = 'badges';
-  for (const [k, icon, label] of BADGES) {
+  for (const [k, icon, label] of BADGES) {     // pixel tags: an icon and the label, faded if not earned
     if (k === 'gems' && !hasGems) continue;
-    row.insertAdjacentHTML('beforeend', `<span class="badge b-${k}${got[k] ? ' on' : ''}"><b>${icon}</b>${label}</span>`);
+    const tag = Object.assign(document.createElement('span'), { className: `badge b-${k}${got[k] ? ' on' : ''}`, title: label });
+    tag.append(PixelUI.icon(k === 'flag' ? 'flag' : 'gem', k === 'flag' ? '#e43b44' : '#2ce8f5'), PixelUI.text(label.toUpperCase(), got[k] ? '#ffffff' : '#8b9bb4'));
+    row.appendChild(tag);
   }
   return row;
 }
@@ -1804,10 +1851,12 @@ const version = () => /[?&]v=([^&]+)/.exec(document.querySelector('script[src*="
 
 function setTitle() {
   const k = app.levelKey || '';
-  $('gameTitle').textContent = app.editing ? 'Level editor'
+  const t = app.editing ? 'Level editor'
     : app.mode === 'time' ? 'Endless'
-    : k[0] === 'b' ? `${setOf(k) + 1}-${setPos(+k.slice(1)).n + 1} · ${shortName(app.level.name)}`
+    : k[0] === 'b' ? `${setOf(k) + 1}-${setPos(+k.slice(1)).n + 1} ${shortName(app.level.name)}`
     : app.level?.name || '';
+  // pixel font, 3× when it fits beside the back button, otherwise 2×
+  PixelUI.set($('gameTitle'), t, '#ffffff', PixelFont.width(t.toUpperCase()) * 3 + 90 < innerWidth ? 3 : 2);
 }
 
 // leave whatever was running: stop animations, the Endless clock and the editor
@@ -1862,16 +1911,23 @@ const Router = {
 };
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+// a big Start-screen button: pixel icon, pixel title, and a small pixel line under it
 function menuButton(icon, title, sub, onclick, cls = '') {
-  const b = el('button', 'm-btn ' + cls, `<span class="ic">${icon}</span><span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>`);
+  const pri = cls.includes('primary'), danger = cls.includes('danger'), ink = pri ? '#2b1b24' : '#ffffff';
+  const b = el('button', 'm-btn pb ' + (pri ? 'pri ' : '') + cls), words = el('span', 'words');
+  const ic = el('span', 'ic'); ic.append(PixelUI.icon(icon, pri ? '#2b1b24' : danger ? '#ff8a8a' : '#fee761', 3));   // icons sit in a fixed-width slot so titles line up
+  b.append(ic, words);
+  words.append(PixelUI.set(el('b'), title, danger ? '#ff8a8a' : ink, 3));
+  if (sub) words.append(PixelUI.set(el('small'), sub, pri ? '#6b4a10' : '#a9b8d6', 2));
+  b.setAttribute('aria-label', title + (sub ? ', ' + sub : ''));
   b.onclick = onclick; return b;
 }
 // top bar of a menu screen: (deeper in the menus) a Home button, back and the title; it stays put while the screen scrolls
 function menuBar(title, home = false) {
-  const bar = el('div', 'm-bar'), back = el('button', 'm-back', '‹');
-  back.setAttribute('aria-label', 'Back'); back.onclick = Router.up;
-  if (home) { const h = el('button', 'm-home', 'Home'); h.onclick = () => Router.go('#/'); bar.append(h); }   // Home, then Back, side by side
-  bar.append(back, el('h2', '', title));
+  const bar = el('div', 'm-bar'), back = PixelUI.iconButton(el('button', 'm-back'), 'back', 'Back');
+  back.onclick = Router.up;
+  if (home) { const h = PixelUI.button(el('button', 'm-home'), 'Home'); h.onclick = () => Router.go('#/'); bar.append(h); }   // Home, then Back, side by side
+  bar.append(back, PixelUI.set(el('h2'), title, '#ffffff', 3));
   return bar;
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -1881,56 +1937,66 @@ const Screens = {
     const s = el('div', 'm-screen m-home');
     const builtIn = allLevels().filter((l) => l.key[0] === 'b'), prog = Progress.all();
     const flags = builtIn.filter((l) => prog[l.level.name]?.flag).length;
-    const bestEndless = store.get('cardclimber.best', {})['time attack'];
-    s.append(el('h1', 'm-title', 'Card Climber'));
-    s.append(menuButton('▶', 'Puzzles', `${flags} / ${builtIn.length} flags`, () => Router.go('#/puzzles'), 'primary'));
-    if (CONFIG.features.timeAttack) s.append(menuButton('∞', 'Endless', bestEndless ? `Best score ${bestEndless}` : 'How far can you go?', () => Router.go('#/endless')));
-    s.append(menuButton('✎', 'Level editor', app.custom.length ? plural(app.custom.length, 'saved level') : 'Build your own', () => Router.go('#/editor')));
-    s.append(menuButton('⚙︎', 'Settings', '', () => Router.go('#/settings')));
+    const bestEndless = store.get('cardclimber.best', {})['endless distance'];
+    s.append(PixelUI.set(el('h1', 'm-title'), 'Card Climber', '#fee761', 5, '#181425'));
+    s.append(menuButton('play', 'Puzzles', `${flags}/${builtIn.length} flags`, () => Router.go('#/puzzles'), 'primary'));
+    if (CONFIG.features.timeAttack) s.append(menuButton('infinity', 'Endless', bestEndless ? `Best ${bestEndless} tiles` : 'How far can you go?', () => Router.go('#/endless')));
+    s.append(menuButton('edit', 'Level editor', app.custom.length ? plural(app.custom.length, 'saved level') : 'Build your own', () => Router.go('#/editor')));
+    s.append(menuButton('gear', 'Settings', '', () => Router.go('#/settings')));
     return s;
   },
   puzzles() {
     const s = el('div', 'm-screen'), prog = Progress.all();
     s.append(menuBar('Puzzles'));
-    let gems = 0, gemLevels = 0;
     for (const set of sets()) {
       const done = set.levels.filter((l) => prog[l.level.name]?.flag).length;
-      set.levels.forEach((l) => { if (levelHasGems(l.level)) { gemLevels++; if (prog[l.level.name]?.gems) gems++; } });
-      const row = el('button', `m-set t-${set.theme}`, `<span><b>${set.i + 1} · ${set.name}</b><small>${set.blurb}</small></span><span class="n">${done}/${set.levels.length}</span>`);
+      const row = el('button', `m-set pb t-${set.theme}`);
+      row.append(PixelUI.set(el('b'), `${set.i + 1} ${set.name}`, '#ffffff', 3), PixelUI.set(el('span', 'n'), `${done}/${set.levels.length}`, '#ffffff', 3));
       row.onclick = () => Router.go('#/set/' + set.i);
       s.append(row);
     }
-    const mine = el('button', 'm-set t-mine', `<span><b>Your levels</b><small>${app.custom.length ? 'Made in the level editor' : 'Make one in the level editor'}</small></span><span class="n">${app.custom.length}</span>`);
+    const mine = el('button', 'm-set pb t-mine');
+    mine.append(PixelUI.set(el('b'), 'Your levels', '#ffffff', 3), PixelUI.set(el('span', 'n'), String(app.custom.length), '#ffffff', 3));
     mine.onclick = () => Router.go(app.custom.length ? '#/set/mine' : '#/editor');
     s.append(mine);
-    if (gemLevels) s.append(el('p', 'm-foot', `◆ Every gem on ${gems} of ${gemLevels} levels`));
     return s;
   },
   set(arg) {
     const s = el('div', 'm-screen'), prog = Progress.all(), mine = arg === 'mine';
     const set = mine ? { name: 'Your levels', theme: 'mine', levels: allLevels().filter((l) => l.key[0] === 'c') } : sets()[+arg] || sets()[0];
-    s.append(menuBar(mine ? set.name : `${set.i + 1} · ${set.name}`, true));
+    s.append(menuBar(mine ? set.name : `${set.i + 1} ${set.name}`, true));
     const grid = el('div', `m-grid t-${set.theme}`);
     set.levels.forEach(({ key, level }, n) => {
       const got = prog[level.name] || {};
-      const marks = BADGES.filter(([k]) => k !== 'gems' || levelHasGems(level))
-        .map(([k, icon]) => `<i class="b-${k}${got[k] ? ' on' : ''}">${icon}</i>`).join('');
-      const t = el('button', 'm-tile' + (got.flag ? ' done' : ''), `<b>${n + 1}</b><small>${shortName(level.name)}</small><span class="marks">${marks}</span>`);
+      const t = el('button', 'm-tile pb' + (got.flag ? ' done' : '')), marks = el('span', 'marks'), nm = shortName(level.name).toUpperCase();
+      for (const [k] of BADGES) if (k !== 'gems' || levelHasGems(level)) { const ic = PixelUI.icon(k === 'flag' ? 'flag' : 'gem', got[k] ? (k === 'flag' ? '#e43b44' : '#2ce8f5') : '#5a6988'); marks.append(ic); }
+      t.append(PixelUI.set(el('b'), String(n + 1), '#ffffff', 4));
+      if (PixelUI.supported(nm)) t.append(PixelUI.lines(nm, '#c0cbdc', 2, 44)); else t.append(el('small', '', shortName(level.name)));
+      t.append(marks); t.setAttribute('aria-label', `${n + 1}. ${shortName(level.name)}`);
       t.onclick = () => Router.go('#/play/' + key);
       grid.append(t);
     });
     s.append(grid);
-    s.append(el('p', 'm-foot', BADGES.map(([k, icon, label]) => `<span class="b-${k} on">${icon}</span> ${label}`).join(' &nbsp; ')));
+    const legend = el('p', 'm-foot');
+    for (const [k, , label] of BADGES) legend.append(PixelUI.icon(k === 'flag' ? 'flag' : 'gem', k === 'flag' ? '#e43b44' : '#2ce8f5'), PixelUI.text(label.toUpperCase(), '#a9b8d6'));
+    s.append(legend);
     return s;
   },
   settings() {
     const s = el('div', 'm-screen');
     s.append(menuBar('Settings'));
     const choice = (label, sub, key, options, then) => {
-      const row = el('div', 'm-row', `<span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span>`), seg = el('span', 'seg');
+      const row = el('div', 'm-row'), words = el('span', 'words'), seg = el('span', 'pseg');
+      words.append(PixelUI.set(el('b'), label, '#ffffff', 2));
+      if (sub) words.append(el('small', '', sub));
+      row.append(words);
       for (const [text, value] of options) {
-        const b = el('button', settings[key] === value ? 'on' : '', text);
-        b.onclick = () => { settings[key] = value; saveSettings(); seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); then?.(); };
+        const b = PixelUI.button(el('button'), text, settings[key] === value);
+        b.onclick = () => {
+          settings[key] = value; saveSettings();
+          seg.querySelectorAll('button').forEach((x) => { const on = x === b; x.classList.toggle('pri', on); PixelUI.button(x, x.title, on); });
+          then?.();
+        };
         seg.append(b);
       }
       row.append(seg); s.append(row);
@@ -1939,18 +2005,19 @@ const Screens = {
     choice('Animation speed', '', 'speed', [['Relaxed', .75], ['Normal', 1], ['Fast', 1.5]]);
     if (CONFIG.features.hints) choice('Hints', 'Offered after a failed run', 'hints', [['On', true], ['Off', false]]);
     choice('Reduce motion', 'Less screen shake and drifting scenery', 'reduceMotion', [['On', true], ['Off', false]]);
-    const reset = el('button', 'm-btn danger', '<span class="ic">↺</span><span><b>Reset progress</b><small>Clears badges and best scores. Your levels are kept.</small></span>');
-    reset.onclick = () => {
-      if (!confirm('Reset all badges and best scores?')) return;
+    const reset = menuButton('trash', 'Reset progress', '', () => {
+      if (!confirm('Reset all badges and your best Endless distance? Your own levels are kept.')) return;
       store.set('cardclimber.badges', {}); store.set('cardclimber.best', {});
-      reset.querySelector('small').textContent = 'Progress cleared.';
-    };
+      PixelUI.set(reset.querySelector('b'), 'Progress cleared', '#ff8a8a', 3);
+    }, 'danger');
     s.append(reset);
-    s.append(el('p', 'm-foot', 'Version ' + version()));
+    s.append(el('p', 'm-note', 'Reset clears your badges and best Endless distance. Your own levels are kept.'));
+    s.append(PixelUI.set(el('p', 'm-foot'), 'Version ' + version(), '#8b9bb4', 2));
     return s;
   },
 };
 
+PixelUI.iconButton($('backBtn'), 'back', 'Back');
 $('backBtn').onclick = Router.up;
 window.addEventListener('hashchange', Router.show);
 app.mode = 'plan';

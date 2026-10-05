@@ -261,7 +261,7 @@ const Art = {
   },
   // a wooden signpost at each Endless rest stop, naming the biome you're entering
   sign(g, s) {
-    const px = s.x * TS, py = s.y * TS, name = { meadow: 'Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[s.biome];
+    const px = s.x * TS, py = s.y * TS, name = { meadow: 'Sunny Meadow', canyon: 'Dusk Canyon', peaks: 'Snowy Peaks' }[s.biome];
     g.fillStyle = '#7a5229'; g.fillRect(px + TS * .45, py + TS * .3, TS * .1, TS * .7);
     g.font = `bold ${Math.max(9, Math.floor(TS * .26))}px system-ui`; g.textAlign = 'center';
     const w = g.measureText(name).width + TS * .4;

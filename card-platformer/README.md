@@ -32,15 +32,15 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-09e`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-12e`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
 The game opens on a **Start** screen with four buttons: **Puzzles**, **Endless**, **Level editor** and **Settings**.
 
 - **Puzzles** lists the level sets (9 levels each unless a set says otherwise with `size` in `LEVEL_SETS`; Snowy Peaks has 10; one theme per set) plus **Your levels** from the editor. Tap a set to see its levels, then a level to play it. Every level is open.
-- Each level has up to three **badges**: ⚑ cleared, ◆ every gem in one run (only on levels with gems) and ★ cleared without hints. They're shown on the level grid and on the Level complete card. Badges are saved per level name in this browser.
-- **Settings:** animation speed, hints on or off, reduce motion (follows the device until you change it) and Reset progress (clears badges and best scores; your own levels are kept). It also shows the version tag, which helps when a tester reports something.
+- **No points in puzzles:** a level is cleared or not. Each level has up to two **badges**: ⚑ cleared, and ◆ every gem in one run (only on levels with gems). They're shown on the level grid and on the Level complete card, and saved per level name in this browser. Hints are free.
+- **Settings:** animation speed, hints on or off, reduce motion (follows the device until you change it) and Reset progress (clears badges and your best Endless distance; your own levels are kept). It also shows the version tag, which helps when a tester reports something.
 - The ‹ button (or the browser's or phone's Back) goes up a level: level → set → Puzzles → Start. A set's page also has a **Home** button straight to Start, and its top bar stays put while a long set scrolls. Leaving in the middle of a run stops it cleanly.
 - Every screen has its own address (`#/puzzles`, `#/set/1`, `#/play/b4`, `#/endless`, `#/editor`, `#/settings`), so you can link a tester straight to a level.
 
@@ -54,14 +54,14 @@ Everything you can change is in `config.js`:
 
 - `stepMs`, `gravityMs` and `pauseBetweenCards` set the feel of playback: walking pace, how fast falls speed up, and the gap between cards.
 - `features` turns each experiment on or off: `echo`, `crates`, `puzzlePack`, `runMode`, `fairGenerator`, `keys`, `gems`, `hints` and `timeAttack` (Endless; off brings back the old Instant mode).
-- `hints.penalty` sets the points a hint costs. `timeAttack` (Endless) has every Endless knob in one place: `handSize`, `hearts`, `freeCards`, `startSeconds`, `minSeconds`, `secondsLostPer100Tiles`, `terrainRampTiles`, `fairDeal`, `heartEvery` and the card `pool` weights.
-- `score` sets the points: flag, per gem, per spare card or step, and the multiplier for collecting every gem.
+- `timeAttack` (Endless) has every Endless knob in one place: `handSize`, `hearts`, `freeCards`, `startSeconds`, `minSeconds`, `secondsLostPer100Tiles`, `terrainRampTiles`, `fairDeal`, `heartEvery`, `gemsPerHeart` and the card `pool` weights.
+- `score` is only used by the hidden Roguelite now.
 - `run` holds the roguelite tuning: starting deck, reward pool, hearts, hand size, step budget and the fairness bar.
 
 ## Modes
 
 - **Plan & Run:** put cards into the sequence slots, then press Play. You can drop a card into any slot, but Play stays off while there's an empty slot between cards. Tap a planned card to take it back; drag to move it. **Reset** starts the level over (cards back in your hand). After a failed run an optional 💡 Hint unlocks. The first hint is a nudge in words; later ones reveal cards one at a time.
-- **Endless:** an endless runner with a hand of 5 movement cards (no Wait or Echo); a small **Next** card above the hand shows what comes in after you play. Your first 3 moves are untimed; after that, pick a card before the timer strip along the top runs out (4s at first, tightening slowly). The world cycles through biomes every 150 tiles (**Meadow** with slimes, springs and platforms; **Dusk Canyon** with cacti and springs up to ledges; **Snowy Peaks** with ice runs), and from the second lap they mix. Each biome starts with a flat **rest stop** and a signpost, which heals a heart. **Forks:** now and then an upper lane of wooden planks runs over a stretch of hazardous ground. High Jump up onto it (from just before it, or from underneath) to skip the hazards and grab its gems, or stay on the ground and jump the hazards. Both routes rejoin on safe ground. **Extra cards:** Dash (forward 4 in a straight line, skimming gaps and bowling over slimes) and Hop (up 1, forward 1). **Momentum:** order matters. A jump straight after a Walk or Dash gets a **Run-up** (+1 forward), a third Walk in a row **Sprints** (+2), and a jump straight after a jump is a **Double jump** (+1 higher). Redrawing or timing out breaks momentum; bumping into things doesn't. Cards in your hand redraw their pictures live (green, with a tag) to show exactly what they'd do right now, and each combo scores bonus points. **Fair deal:** if nothing in your hand would move you forward safely, a **lucky card** (gold, ✦) cuts in ahead of the Next card. Cards you can already see never change. Number keys 1–5 pick cards, Space redraws your hand (the clock keeps running), and P pauses (which hides the level).
+- **Endless:** an endless runner with a hand of 5 movement cards (no Wait or Echo). Above the hand, **Last** shows the card you just played and **Next** shows what comes in after you play. Your first 3 moves are untimed; after that, pick a card before the timer strip along the top runs out (4s at first, tightening slowly). The world cycles through biomes every 150 tiles (**Meadow** with slimes, springs and platforms; **Dusk Canyon** with cacti and springs up to ledges; **Snowy Peaks** with ice runs), and from the second lap they mix. Each biome starts with a flat **rest stop** and a signpost, which heals a heart. **Forks:** now and then an upper lane of wooden planks runs over a stretch of hazardous ground. High Jump up onto it (from just before it, or from underneath) to skip the hazards and grab its gems, or stay on the ground and jump the hazards. Both routes rejoin on safe ground. **Extra cards:** Dash (forward 4 in a straight line, skimming gaps and bowling over slimes) and Hop (up 1, forward 1). **Momentum:** order matters. A jump straight after a Walk or Dash gets a **Run-up** (+1 forward), a third Walk in a row **Sprints** (+2), and a jump straight after a jump is a **Double jump** (+1 higher). Losing a heart, redrawing or timing out breaks momentum; bumping into things doesn't. Cards in your hand redraw their pictures live (green, with a tag) to show exactly what they'd do right now. **Score = distance:** your best distance is saved. **Gems heal:** every 5 gems restore a heart (the ◆ count in the status line shows your progress); at full hearts the meter waits, full ("spare ♥"), and refills the next heart you lose. **Fair deal:** if nothing in your hand would move you forward safely, a **lucky card** (gold, ✦) cuts in ahead of the Next card. Cards you can already see never change. Number keys 1–5 pick cards, Space redraws your hand (the clock keeps running), and P pauses (which hides the level).
 - **Roguelite** *(tabled for now: hidden from the menu; set `features.runMode: true` in `config.js` to bring it back)*: a run of levels where you buy your cards.
   1. **Pick a route:** *Safe*, *Risky* (tighter budget and more gems, plus a perk), or a *Rest* (heal) or *Shrine* (buy a perk) stop. Each level is previewed.
   2. **Shop:** each level comes with a gem budget, a bit more than its cheapest solution. Tap a shop card to buy it straight into your plan. Drag to reorder, or tap a planned card (or drag it off) to sell it back for a full refund. Every gem on the map can be reached with cards the shop sells.
@@ -72,7 +72,9 @@ Everything you can change is in `config.js`:
 
 ## Reading cards
 
-Cards only show their action (Walk, Jump, Turn, Wait, Echo). The picture shows exactly what each one does: the yellow square is where you start and the line traces your path, so a "Jump" might go up one and over two, up two and over one, or up one and over three. Hints and other text show small card pictures rather than names. The level editor still uses specific names (Walk 2, High Jump…) so you can build levels precisely.
+Every card is a small pixel picture (`PixelCard` in `pixel.js`): its name at the top and its move in the middle. The yellow square is where you start and the line traces your path, so a "Jump" might go up one and over two, up two and over one, or up one and over three. Turn, Wait, Echo and Climb have little pictures of their own, and Dash ends in a red burst (it bowls patrollers over). **Momentum:** when a card would get a bonus, the extra squares it adds are green and the card gets a green border; the combo's name pops up over the hero when it's played. **Lucky** cards in Endless are gold. In Plan & Run cards sit side by side with a small gap (the Endless hand overlaps a little so five fit), and matching cards in your hand share a stack with a ×2 (×3…) tag. Hint text shows the cards themselves. The level editor still uses specific names (Walk 2, High Jump…) so you can build levels precisely.
+
+**Status on the level (pixel style):** drawn straight onto the level in the same pixel font: gems collected (and the key, and the turn count on levels with timed spikes) in puzzles; the timer along the top edge, hearts, the gem meter and distance in Endless.
 
 ## Moving cards
 
@@ -85,7 +87,7 @@ The order of cards matters, like real platformer physics:
 - **Run-up:** a jump straight after a Walk or Dash goes one tile further.
 - **Sprint:** the third Walk in a row goes two tiles further.
 - **Double jump:** a jump straight after a jump goes one tile higher.
-- **Breaking momentum:** a Turn or Wait in between, or (in Endless) a redraw or timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
+- **Breaking momentum:** a Turn or Wait in between, or (in Endless) losing a heart, a redraw or a timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
 
 Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Levels 1-2 to 1-4 introduce momentum, 2-2 introduces Hop, 2-9 introduces Dash and 3-6 (Bowled Over) shows Dash knocking a slime out of the way. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
 
@@ -96,7 +98,7 @@ Cards show their momentum version as you play them: in Plan & Run each card in y
 | `#` | Ground |
 | `^` / `t` | Spikes / timed spikes (up on odd turns) |
 | `C` | Crate: walk into it to push it; it falls and covers spikes |
-| `K` / `*` | Key (unlocks the door) / gem (bonus points) |
+| `K` / `*` | Key (unlocks the door) / gem (a badge in puzzles; heals in Endless) |
 | `I` | **Ice:** if a move ends on ice, you keep sliding until you're off it or blocked |
 | `=` | **One-way platform:** jump up through it, stand on top, walk through it sideways |
 | `S` | **Spring:** landing or stepping on it launches you up 3 and forward 1 |
@@ -113,12 +115,12 @@ Each mechanic can be switched off in `config.js` (`features.ice`, `platforms`, `
 **Art styles:** the game is drawn in **Pixel** art by default (`pixel.js`): every object is a small sprite placed pixel by pixel, 16 art-pixels per tile, with solid outlines on characters, on a palette based on Endesga 32. The hero is rebuilt in pixels at every squash and stretch, so he moves exactly as in the **Smooth** style (`art.js`). Players switch in **Settings → Art style**; `CONFIG.artStyle` in `config.js` sets the default. Pixel palettes for each theme are in `PIXEL_THEMES` at the top of `pixel.js`.
 
 
-Each level set has its own theme: set 1 is a **meadow**, set 2 a **dusk canyon** and set 3 **snowy peaks** (set in `LEVEL_SETS` in `levels.js`). Endless cycles through all three, cross-fading every 150 tiles. Each theme has its own sky, parallax scenery, ground colours and ambient particles (pollen, embers, snow). Theme colours and the parallax strength (`PARALLAX`) live at the top of `art.js`. Effects are deliberately subtle: soft shadows, small landing and spring rings, gem twinkles and a light vignette. The small screen shake on deaths and stomps is switched off with **Reduce motion** in Settings (on by default if the device asks for reduced motion).
+Each level set has its own theme: set 1 is a **sunny meadow**, set 2 a **dusk canyon** and set 3 **snowy peaks** (set in `LEVEL_SETS` in `levels.js`). Endless cycles through all three, cross-fading every 150 tiles. Each theme has its own sky, parallax scenery, ground colours and ambient particles (pollen, embers, snow). Theme colours and the parallax strength (`PARALLAX`) live at the top of `art.js`. Effects are deliberately subtle: soft shadows, small landing and spring rings, gem twinkles and a light vignette. The small screen shake on deaths and stomps is switched off with **Reduce motion** in Settings (on by default if the device asks for reduced motion).
 
 ## Keys, doors and gems
 
 - **Key (K):** if a level has one, the flag is a locked door until you pick it up. You can grab it mid-jump.
-- **Gem (\*):** optional, and placed off the easy route. Score = (100 + 50 per gem + 10 per spare card or step) × 2 if you got every gem. Best scores are saved per level.
+- **Gem (\*):** optional, and placed off the easy route. Collect every gem in one run for the ◆ badge.
 - In the editor, **Check solvable** reports how many solutions collect every gem. A good gem is reachable by only some of the solutions.
 
 Levels you make in the editor are saved in that browser only. Use **Import / Export** to keep them as JSON.
