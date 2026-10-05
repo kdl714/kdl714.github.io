@@ -217,8 +217,8 @@ function runCard(map, st, id) {
   };
   // ice: if a move leaves you standing on ice, keep sliding the way you face until off it or blocked
   const slide = () => {
-    let guard = 0;
-    while (tileAt(map, s.x, s.y + 1) === 'I' && guard++ < map.w) {
+    let guard = 0;    // only stops endless loops (e.g. bouncing between bumpers on ice); a real slide can cross the map several times
+    while (tileAt(map, s.x, s.y + 1) === 'I' && guard++ < map.w * 4) {
       const nx = s.x + s.dir;
       const hit = bumperFace(nx, s.y, s.dir);
       if (hit) { if (fling(hit, nx, s.y) === 'end') return true; continue; }

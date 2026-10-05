@@ -5,14 +5,16 @@
    App state & helpers
    ===================================================================== */
 const $ = (id) => document.getElementById(id);
-const cv = $('cv'), ctx = cv.getContext('2d');
+const cv = $('cv');
+let ctx = cv.getContext('2d');   // swapped for a small canvas while a pixel-art frame is drawn
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 // player settings (Settings screen); `var` so art.js can see them too
-var settings = Object.assign({ speed: 1, hints: true, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches },
+var settings = Object.assign({ artStyle: CONFIG.artStyle || 'classic', speed: 1, hints: true, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches },
   store.get('cardclimber.settings', {}));
+if (!settings.artStyleChosen) settings.artStyle = CONFIG.artStyle || 'classic';   // follow the default until the player picks a style
 const saveSettings = () => store.set('cardclimber.settings', settings);
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1081,6 +1083,12 @@ function resize() {
     : st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   TS = Math.max(8, Math.floor(Math.min(aw / W, ah / H)));
   const dpr = window.devicePixelRatio || 1;
+  // pixel art: a whole number of screen pixels per art-pixel, so every pixel is the same size
+  // (unless that would shrink the game by more than 15%, e.g. on low-density screens)
+  if (Art.style() === 'pixel') {
+    const snapped = Math.floor(TS * dpr / PIXELS_PER_TILE) * PIXELS_PER_TILE / dpr;
+    if (snapped >= TS * .85) TS = snapped;
+  }
   cv.style.width = TS * W + 'px'; cv.style.height = TS * H + 'px';
   cv.width = TS * W * dpr; cv.height = TS * H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1094,6 +1102,9 @@ function burst(x, y, color) {
 }
 
 function draw() {
+  // pixel art: draw the world small with the pixel sprites (pixel.js), then scale it up crisply
+  const pixel = Art.style() === 'pixel', A = pixel ? PixelArt : Art, screen = ctx, fullTS = TS;
+  if (pixel) { ctx = Pixel.start(); TS = PIXELS_PER_TILE; }
   const map = app.editing ? parseLevel(app.level) : app.map;
   const v = app.view;
   const turn = app.editing ? 0 : v.turn;
@@ -1106,36 +1117,42 @@ function draw() {
   const tname = Art.themeName(), px = app.editing ? W / 2 : v.x;
   if (app.mode === 'time') {
     const pos = app.cam + W / 2, f = pos % ENDLESS_THEME_TILES, band = Math.floor(pos / ENDLESS_THEME_TILES);
-    if (band > 0 && f < 12) { Art.background(ctx, ENDLESS_THEME_ORDER[(band - 1) % 3], app.cam, px); ctx.globalAlpha = f / 12; }
+    if (band > 0 && f < 12) { A.background(ctx, ENDLESS_THEME_ORDER[(band - 1) % 3], app.cam, px); ctx.globalAlpha = f / 12; }
   }
-  Art.background(ctx, tname, app.cam, px);
+  A.background(ctx, tname, app.cam, px);
   ctx.globalAlpha = 1;
   const [shx, shy] = Art.shakeOffset();
-  ctx.save(); ctx.translate(-app.cam * TS + shx, shy);
-  Art.grid(ctx, x0, x1);
-  Art.tiles(ctx, map, x0, x1, turn);
-  for (const sg of map.signs || []) if (sg.x >= x0 - 2 && sg.x <= x1 + 2) Art.sign(ctx, sg);
+  ctx.save(); ctx.translate((pixel ? -Math.round(app.cam * TS) : -app.cam * TS) + shx, shy);   // pixel art: scroll by whole pixels
+  A.grid(ctx, x0, x1);
+  A.tiles(ctx, map, x0, x1, turn);
+  for (const sg of map.signs || []) if (sg.x >= x0 - 2 && sg.x <= x1 + 2) A.sign(ctx, sg);
   // keys and gems (collected ones disappear)
   const got = app.editing ? 0 : v.got;
   const bob = Math.sin(performance.now() / 300) * TS * .05;
-  map.items.forEach((it, i) => { if (!(got & (1 << i))) (it.t === 'K' ? Art.key : Art.gem)(ctx, it.x * TS, it.y * TS + bob); });
+  map.items.forEach((it, i) => { if (!(got & (1 << i))) (it.t === 'K' ? A.key : A.gem)(ctx, it.x * TS, it.y * TS + bob); });
   // goal: a locked door while keys are missing, otherwise the flag
-  if (map.goal.x >= 0 && map.keyMask && !hasAllKeys(map, { got })) Art.door(ctx, map.goal.x * TS, map.goal.y * TS);
-  else if (map.goal.x >= 0) Art.flag(ctx, map.goal.x * TS, map.goal.y * TS);
+  if (map.goal.x >= 0 && map.keyMask && !hasAllKeys(map, { got })) A.door(ctx, map.goal.x * TS, map.goal.y * TS);
+  else if (map.goal.x >= 0) A.flag(ctx, map.goal.x * TS, map.goal.y * TS);
   // soft shadows, then crates, patrollers and the player
   const crates = app.editing ? map.crates : v.crates, enemies = app.editing ? map.enemies || [] : v.enemies || [];
-  for (const c of crates) if (!c.gone) Art.shadow(ctx, map, [], c.x, c.y, .9);
-  for (const en of enemies) if (!en.dead) Art.shadow(ctx, map, crates, en.x, en.y, .8);
-  if (!app.editing) Art.shadow(ctx, map, crates, v.x + v.ox, v.y + v.oy, .7);
-  for (const c of crates) if (!c.gone) Art.crate(ctx, c.x, c.y);
+  for (const c of crates) if (!c.gone) A.shadow(ctx, map, [], c.x, c.y, .9);
+  for (const en of enemies) if (!en.dead) A.shadow(ctx, map, crates, en.x, en.y, .8);
+  if (!app.editing) A.shadow(ctx, map, crates, v.x + v.ox, v.y + v.oy, .7);
+  for (const c of crates) if (!c.gone) A.crate(ctx, c.x, c.y);
   enemies.forEach((en, i) => {
     if (en.dead && (!en.deadT || performance.now() - en.deadT > 600)) return;
-    Art.slime(ctx, en.x, en.y, en.dir, en.dead ? Math.min(1, (performance.now() - en.deadT) / 600) : -1, en.step || 0, i);
+    A.slime(ctx, en.x, en.y, en.dir, en.dead ? Math.min(1, (performance.now() - en.deadT) / 600) : -1, en.step || 0, i);
   });
   if (app.editing) drawPlayer(map.start.x, map.start.y, 1, 'playing', .9);
   else drawPlayer(v.x + v.ox, v.y + v.oy, v.dir, v.status, 1, playerFx(v));
-  Art.effects(ctx, map, got);
-
+  A.effects(ctx, map, got);
+  ctx.restore();
+  A.ambient(ctx, tname);
+  if (pixel) { ctx = screen; TS = fullTS; Pixel.end(ctx); }
+  else Art.vignette(ctx);
+  // text and the editor cursor go on at full resolution, so they stay sharp in every style
+  ctx.save(); ctx.translate(-app.cam * TS, 0);
+  if (pixel) for (const sg of map.signs || []) if (sg.x >= x0 - 2 && sg.x <= x1 + 2) Pixel.signText(ctx, sg);
   // floating text (e.g. what Echo repeated)
   if (app.flash && !app.editing) {
     const age = (performance.now() - app.flash.t0) / 1100;
@@ -1152,8 +1169,6 @@ function draw() {
     ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 2; ctx.strokeRect(hover.x * TS + 1, hover.y * TS + 1, TS - 2, TS - 2);
   }
   ctx.restore();
-  Art.ambient(ctx, tname);
-  Art.vignette(ctx);
   const run = app.mode === 'run' && app.run, ta = app.mode === 'time' && app.ta, q = app.mode === 'quest' && app.q;
   if (ta) {
     TimeAttack.tick();
@@ -1199,6 +1214,7 @@ function playerFx(v) {
 }
 
 function drawPlayer(x, y, dir, status, alpha, fx = { sx: 1, sy: 1, rot: 0, lift: 0 }) {
+  if (Art.lowRes) return Pixel.hero(ctx, x, y, dir, status, alpha, fx);   // pixel art: rebuilt in pixels at this squash/stretch (pixel.js)
   const s = TS * .72;
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -1609,6 +1625,7 @@ function playtest() {
 
 function renderEditor() {
   $('edName').value = app.level.name;
+  $('edTheme').value = Art.themeName();
   const tiles = $('edTiles'); tiles.innerHTML = '';
   for (const [ch, label, col] of TILES) {
     const b = document.createElement('button');
@@ -1653,6 +1670,7 @@ cv.addEventListener('pointerup', () => { painting = false; });
 cv.addEventListener('pointerleave', () => { hover = null; });
 
 $('edName').oninput = (e) => { app.level.name = e.target.value; };
+$('edTheme').onchange = (e) => { app.level.theme = e.target.value; };   // saved with the level; any tile works in any location
 $('edPlay').onclick = playtest;
 $('edSolve').onclick = () => {
   const t0 = performance.now();
@@ -1694,7 +1712,7 @@ $('ioImport').onclick = () => {
     const l = JSON.parse($('ioText').value);
     if (!Array.isArray(l.map) || !Array.isArray(l.cards)) throw new Error('needs "map" and "cards" arrays');
     const bad = l.cards.find((c) => !CARDS[c]); if (bad) throw new Error('unknown card "' + bad + '"');
-    app.level = { name: l.name || 'Imported', map: l.map, cards: l.cards };
+    app.level = { name: l.name || 'Imported', map: l.map, cards: l.cards, ...(THEMES[l.theme] ? { theme: l.theme } : {}) };
     app.levelKey = 'new'; refreshLevelSelect(); renderEditor(); $('ioDlg').close();
   } catch (err) { alert('Could not import: ' + err.message); }
 };
@@ -1895,15 +1913,16 @@ const Screens = {
   settings() {
     const s = el('div', 'm-screen');
     s.append(menuBar('Settings'));
-    const choice = (label, sub, key, options) => {
+    const choice = (label, sub, key, options, then) => {
       const row = el('div', 'm-row', `<span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span>`), seg = el('span', 'seg');
       for (const [text, value] of options) {
         const b = el('button', settings[key] === value ? 'on' : '', text);
-        b.onclick = () => { settings[key] = value; saveSettings(); seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); };
+        b.onclick = () => { settings[key] = value; saveSettings(); seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); then?.(); };
         seg.append(b);
       }
       row.append(seg); s.append(row);
     };
+    choice('Art style', '', 'artStyle', [['Pixel', 'pixel'], ['Smooth', 'classic']], () => { settings.artStyleChosen = true; saveSettings(); resize(); });
     choice('Animation speed', '', 'speed', [['Relaxed', .75], ['Normal', 1], ['Fast', 1.5]]);
     if (CONFIG.features.hints) choice('Hints', 'Offered after a failed run', 'hints', [['On', true], ['Off', false]]);
     choice('Reduce motion', 'Less screen shake and drifting scenery', 'reduceMotion', [['On', true], ['Off', false]]);

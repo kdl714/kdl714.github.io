@@ -12,12 +12,13 @@ No build step and no dependencies: just static files.
 | `config.js` | **Every tuning knob** (timers, hand sizes, prices, perks, scoring, feature switches). |
 | `rules.js` | Game rules with no screen code: cards, movement, crates, keys, solvers, level generators. |
 | `levels.js` | The handmade Plan & Run levels (maps, hands, hints). |
+| `pixel.js` | **Pixel art style:** sprites, palettes and pixel backgrounds (the default look). |
 | `art.js` | **Look and feel:** the three themes (colours at the top), parallax backgrounds, tiles, springs, the slime, items, shadows and particles. |
 | `game.js` | Modes, the player character, animation, card UI, drag & drop, editor. |
 | `card-climber.html` | Redirects to `index.html`, so old links and home-screen shortcuts keep working. |
 | `apple-touch-icon.png` | Home-screen icon. |
 
-The scripts load in the order `config.js` → `rules.js` → `levels.js` → `art.js` → `game.js`.
+The scripts load in the order `config.js` → `rules.js` → `levels.js` → `art.js` → `pixel.js` → `game.js`.
 
 ## Play
 
@@ -31,7 +32,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-06c`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-08a`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
@@ -45,7 +46,7 @@ The game opens on a **Start** screen with four buttons: **Puzzles**, **Endless**
 
 ## Adding levels
 
-Build a level in the **Level editor**, check it with **Check solvable**, then use **Import / Export** to copy its JSON. Paste it into `PUZZLE_PACK` in `levels.js`, using the same shape as the other entries. Levels are grouped into sets in order, `SET_SIZE` (9) at a time; the set names, themes and one-line descriptions are in `LEVEL_SETS` at the bottom of `levels.js`.
+Build a level in the **Level editor** (pick its **Location**: Meadow, Dusk Canyon or Snowy Peaks; any tile works in any location), check it with **Check solvable**, then use **Import / Export** to copy its JSON. Paste it into `PUZZLE_PACK` in `levels.js`, using the same shape as the other entries. Levels are grouped into sets in order, `SET_SIZE` (9) at a time; the set names, themes and one-line descriptions are in `LEVEL_SETS` at the bottom of `levels.js`.
 
 ## Tweaking
 
@@ -108,6 +109,9 @@ Cards: Walk (1–3), Jump (three shapes), Turn, Wait, Echo (repeat the last card
 Each mechanic can be switched off in `config.js` (`features.ice`, `platforms`, `springs`, `sideSprings`, `climb`, `enemies`); levels that need a switched-off mechanic are hidden.
 
 ## Look
+
+**Art styles:** the game is drawn in **Pixel** art by default (`pixel.js`): every object is a small sprite placed pixel by pixel, 16 art-pixels per tile, with solid outlines on characters, on a palette based on Endesga 32. The hero is rebuilt in pixels at every squash and stretch, so he moves exactly as in the **Smooth** style (`art.js`). Players switch in **Settings → Art style**; `CONFIG.artStyle` in `config.js` sets the default. Pixel palettes for each theme are in `PIXEL_THEMES` at the top of `pixel.js`.
+
 
 Each level set has its own theme: set 1 is a **meadow**, set 2 a **dusk canyon** and set 3 **snowy peaks** (set in `LEVEL_SETS` in `levels.js`). Endless cycles through all three, cross-fading every 150 tiles. Each theme has its own sky, parallax scenery, ground colours and ambient particles (pollen, embers, snow). Theme colours and the parallax strength (`PARALLAX`) live at the top of `art.js`. Effects are deliberately subtle: soft shadows, small landing and spring rings, gem twinkles and a light vignette. The small screen shake on deaths and stomps is switched off with **Reduce motion** in Settings (on by default if the device asks for reduced motion).
 

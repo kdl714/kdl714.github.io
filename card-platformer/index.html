@@ -13,7 +13,7 @@
 <link rel="icon" href="apple-touch-icon.png">
 <title>Card Climber</title>
 <!-- ?v=… makes phones fetch fresh files after an update: change it whenever you upload new versions -->
-<link rel="stylesheet" href="style.css?v=2026-10-06c">
+<link rel="stylesheet" href="style.css?v=2026-10-08a">
 </head>
 <body>
 <!-- Start, Puzzles, level set and Settings screens (built by game.js) -->
@@ -66,6 +66,12 @@
     <div class="group">
       <b>Level name</b>
       <input id="edName">
+      <b>Location</b>
+      <select id="edTheme" aria-label="Location">
+        <option value="meadow">Meadow</option>
+        <option value="canyon">Dusk Canyon</option>
+        <option value="peaks">Snowy Peaks</option>
+      </select>
       <b>Paint tile</b>
       <div class="tiles" id="edTiles"></div>
     </div>
@@ -101,10 +107,11 @@
   </div>
 </dialog>
 
-<script src="config.js?v=2026-10-06c"></script>
-<script src="rules.js?v=2026-10-06c"></script>
-<script src="levels.js?v=2026-10-06c"></script>
-<script src="art.js?v=2026-10-06c"></script>
-<script src="game.js?v=2026-10-06c"></script>
+<script src="config.js?v=2026-10-08a"></script>
+<script src="rules.js?v=2026-10-08a"></script>
+<script src="levels.js?v=2026-10-08a"></script>
+<script src="art.js?v=2026-10-08a"></script>
+<script src="pixel.js?v=2026-10-08a"></script>
+<script src="game.js?v=2026-10-08a"></script>
 </body>
 </html>

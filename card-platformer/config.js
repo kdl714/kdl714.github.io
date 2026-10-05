@@ -15,6 +15,7 @@
    ===================================================================== */
 const CONFIG = {
   turnMode: 'plan',
+  artStyle: 'pixel',   // default look: 'pixel' or 'classic' (smooth); players can switch in Settings
   features: {
     echo: true,        // "Echo" card: replays the previous card
     crates: true,      // pushable crates (tile C)

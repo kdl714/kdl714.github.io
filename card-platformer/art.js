@@ -56,6 +56,7 @@ const Art = {
   },
   themeName() {
     if (app.mode === 'time') return ENDLESS_THEME_ORDER[Math.floor((app.cam + W / 2) / ENDLESS_THEME_TILES) % 3];
+    if (THEMES[app.level?.theme]) return app.level.theme;   // chosen in the editor
     if (app.levelKey?.[0] === 'b') return setInfo(Math.floor(+app.levelKey.slice(1) / SET_SIZE)).theme;   // built-in: its set's theme
     const n = Art.levelNumber();
     return THEME_BANDS.find((b) => n <= b.upTo).theme;
