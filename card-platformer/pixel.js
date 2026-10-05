@@ -108,11 +108,8 @@ const Pixel = {
 
   /* ---------- frame setup ---------- */
   start() {
-    if (!Pixel.canvas) {
-      Pixel.canvas = document.createElement('canvas');
-      Pixel.canvas.width = W * U; Pixel.canvas.height = H * U;
-      Pixel.g = Pixel.canvas.getContext('2d');
-    }
+    if (!Pixel.canvas) { Pixel.canvas = document.createElement('canvas'); Pixel.g = Pixel.canvas.getContext('2d'); }
+    if (Pixel.canvas.width !== W * U || Pixel.canvas.height !== H * U) { Pixel.canvas.width = W * U; Pixel.canvas.height = H * U; }   // levels come in different sizes
     Art.lowRes = true;
     Pixel.g.setTransform(1, 0, 0, 1, 0, 0);
     Pixel.g.clearRect(0, 0, W * U, H * U);
@@ -182,8 +179,9 @@ const PixelArt = {
   // nearer peaks overlap farther ones (farther ones are a little hazier). Lit on the left; the
   // shaded right face starts at a slanted, slightly ragged ridge line. Snowcaps follow the slopes.
   // Peaks come from a hash, so Endless never repeats.
-  range(g, r, off, seed, haze) {
-    const LW = W * U, LH = H * U, P = Pixel.px;
+  range(g, r0, off, seed, haze) {
+    const LW = W * U, LH = H * U, P = Pixel.px, sc = LH / 144;      // tuned for 9 rows; taller or shorter levels scale
+    const r = { ...r0, hMin: r0.hMin * sc, hMax: r0.hMax * sc };
     const peaks = [];
     for (let k = Math.floor((off - 160) / r.spacing); k <= Math.floor((off + LW + 160) / r.spacing); k++) {
       peaks.push({ x: k * r.spacing + Art.hash(k, seed) * r.spacing * .5, h: r.hMin + Art.hash(k, seed + 1) * (r.hMax - r.hMin),
@@ -216,7 +214,8 @@ const PixelArt = {
   },
   hills(g, th, off) {
     const LW = W * U, LH = H * U, P = Pixel.px, hl = th.hills;
-    const top = (wx) => Math.round(hl.base + 5 * Math.sin(wx * .06 + 2) + 2 * Math.sin(wx * .19));
+    const base = LH - (144 - hl.base) * LH / 144;                       // the same share of the screen at any level height
+    const top = (wx) => Math.round(base + 5 * Math.sin(wx * .06 + 2) + 2 * Math.sin(wx * .19));
     const kind = th.tree === 'round' ? 'tree' : th.tree === 'pine' ? 'pine' : 'saguaro', rows = SPR[kind], pal = SPAL[kind];
     const trees = [];
     for (let k = Math.floor(off / 30) - 1; k <= Math.floor((off + LW) / 30) + 1; k++) {
@@ -251,7 +250,7 @@ const PixelArt = {
   cache: { key: '', canvas: null },
   tiles(g, map, x0, x1, turn) {
     if (map.w === W) {          // fixed screen: static tiles are drawn once into a cached picture
-      const key = map.grid.map((r) => r.join('')).join('') + Art.themeName();
+      const key = map.w + 'x' + map.h + map.grid.map((r) => r.join('')).join('') + Art.themeName();
       if (PixelArt.cache.key !== key) {
         const c = PixelArt.cache.canvas || document.createElement('canvas');
         c.width = W * U; c.height = H * U;
@@ -672,6 +671,17 @@ Pixel.hud = function (g, map, v, k = 1) {
     x += 15 * k;
   }
   if (map.grid.some((r) => r.includes('t'))) PixelFont.outlined(g, `TURN ${v.turn}`, x, top + k, '#ffffff', k);   // only matters with timed spikes
+  if (map.w > W) {               // a wide level: arrows at the edges show there's more to see (drag to look)
+    const my = Math.round(H * U / 2);
+    // a chevron: 4 columns, tallest at its base (x0), narrowing towards the tip in direction dir
+    const arrow = (x0, dir) => {
+      for (let i = 0; i < 4; i++) P(g, '#2b1b24', x0 + dir * i * k - k, my - (4 - i) * k - k, 3 * k, (8 - 2 * i) * k + 2 * k);
+      for (let i = 0; i < 4; i++) P(g, '#ffffff', x0 + dir * i * k, my - (4 - i) * k, k, (8 - 2 * i) * k);
+    };
+    if (app.cam > .05) arrow(7 * k, -1);
+    if (app.cam < map.w - W - .05) arrow(LW - 8 * k, 1);
+  }
+
 };
 
 /* =====================================================================

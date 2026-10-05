@@ -327,7 +327,7 @@ const Art = {
   },
   tiles(g, map, x0, x1, turn) {
     if (map.w === W) {         // fixed screen: use (or build) the cached picture of the static tiles
-      const dpr = window.devicePixelRatio || 1, key = map.grid.map((r) => r.join('')).join('') + TS + dpr + Art.themeName();
+      const dpr = window.devicePixelRatio || 1, key = map.w + 'x' + map.h + map.grid.map((r) => r.join('')).join('') + TS + dpr + Art.themeName();
       if (Art.cache.key !== key) {
         const c = Art.cache.canvas || document.createElement('canvas');
         c.width = W * TS * dpr; c.height = H * TS * dpr;

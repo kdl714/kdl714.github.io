@@ -2,7 +2,11 @@
 // the solvers and the level generators. Also used by the level editor's
 // "Check solvable" and by the roguelite/endless modes to build fair levels.
 
-const W = 16, H = 9;
+// Levels can be any size (each level's size comes from its map). BOARD_W × BOARD_H is the
+// classic size, used by Endless and the generators. W × H is how many tiles are on screen
+// right now: the screen code (game.js) sets it for each level.
+const BOARD_W = 16, BOARD_H = 9;
+let W = BOARD_W, H = BOARD_H;
 
 // Tile legend for level maps:
 //   .  empty      #  ground (solid)     ^  spikes (deadly)
@@ -69,11 +73,12 @@ function carryMomentum(s, resolved) {
 }
 
 function parseLevel(level) {
-  const grid = [], map = { grid, w: W, start: { x: 0, y: 0 }, goal: { x: -1, y: -1 }, crates: [], items: [], keyMask: 0, enemies: [],
+  const h = level.map.length || BOARD_H, w = Math.max(...level.map.map((r) => r.length), 1) || BOARD_W;
+  const grid = [], map = { grid, w, h, start: { x: 0, y: 0 }, goal: { x: -1, y: -1 }, crates: [], items: [], keyMask: 0, enemies: [],
     momentum: !!CONFIG.features.momentum };
   const F = CONFIG.features;
-  for (let y = 0; y < H; y++) {
-    const row = (level.map[y] || '').padEnd(W, '.').slice(0, W).split('');
+  for (let y = 0; y < h; y++) {
+    const row = (level.map[y] || '').padEnd(w, '.').slice(0, w).split('');
     row.forEach((c, x) => {
       if (c === 'P') { map.start = { x, y }; row[x] = '.'; }
       if (c === 'G') { map.goal = { x, y }; row[x] = '.'; }
@@ -112,11 +117,11 @@ const stateKey = (s) => `${s.x},${s.y},${s.dir},${s.turn % 2},${s.last},${s.got}
 
 function wall(map, x, y) {
   if (x < 0 || x >= map.w) return true;      // side walls
-  if (y < 0 || y >= H) return false;         // open sky / bottomless pit
+  if (y < 0 || y >= map.h) return false;     // open sky / bottomless pit
   const c = map.grid[y][x];
   return c === '#' || c === 'I' || c === 'S' || c === '>' || c === '<';  // ground, ice and springs are all solid blocks
 }
-const tileAt = (map, x, y) => (x < 0 || x >= map.w || y < 0 || y >= H ? '' : map.grid[y][x]);
+const tileAt = (map, x, y) => (x < 0 || x >= map.w || y < 0 || y >= map.h ? '' : map.grid[y][x]);
 const crateAt = (s, x, y) => s.crates.findIndex((c) => !c.gone && c.x === x && c.y === y);
 const enemyAt = (s, x, y) => (s.enemies || []).findIndex((e) => !e.dead && e.x === x && e.y === y);
 const solid = (map, s, x, y) => wall(map, x, y) || crateAt(s, x, y) >= 0;
@@ -124,7 +129,7 @@ const solid = (map, s, x, y) => wall(map, x, y) || crateAt(s, x, y) >= 0;
 const supports = (map, s, x, y) => solid(map, s, x, y) || tileAt(map, x, y) === '=';
 
 function spikeUp(map, s, x, y) {
-  if (x < 0 || x >= map.w || y < 0 || y >= H || crateAt(s, x, y) >= 0) return false;
+  if (x < 0 || x >= map.w || y < 0 || y >= map.h || crateAt(s, x, y) >= 0) return false;
   const c = map.grid[y][x];
   return c === '^' || c === 'Y' || (c === 't' && s.turn % 2 === 1);
 }
@@ -142,7 +147,7 @@ function settleCrates(map, s, ev) {
       c.y = by; moved = true;
       const ei = enemyAt(s, c.x, c.y);
       if (ei >= 0) { s.enemies[ei].dead = true; ev.push({ k: 'stomp', i: ei, x: c.x, y: c.y }); }   // a falling crate squashes a patroller
-      if (c.y >= H) { c.gone = true; ev.push({ k: 'cgone', i }); }
+      if (c.y >= map.h) { c.gone = true; ev.push({ k: 'cgone', i }); }
       else ev.push({ k: 'cfall', i, x: c.x, y: c.y });
     });
   }
@@ -186,7 +191,7 @@ function runCard(map, st, id) {
   const fall = () => {
     while (!supports(map, s, s.x, s.y + 1)) {
       s.y++; ev.push({ k: 'fall', x: s.x, y: s.y });
-      if (s.y >= H) { s.status = 'dead'; s.why = 'pit'; ev.push({ k: 'die', x: s.x, y: s.y }); return true; }
+      if (s.y >= map.h) { s.status = 'dead'; s.why = 'pit'; ev.push({ k: 'die', x: s.x, y: s.y }); return true; }
       const ei = enemyAt(s, s.x, s.y);
       if (ei >= 0) { s.enemies[ei].dead = true; ev.push({ k: 'stomp', i: ei, x: s.x, y: s.y }); }   // landed on it: squashed
       if (check()) return true;
@@ -431,13 +436,13 @@ function generateLevel(depth, deck, rand = Math.random, opts = {}) {
       if (id) budget[id]--;
       return !!id;
     };
-    const rows = Array.from({ length: H }, () => Array(W).fill('.'));
+    const rows = Array.from({ length: BOARD_H }, () => Array(BOARD_W).fill('.'));
     let top = 7 - Math.floor(rand() * 2);   // row of the top ground tile
-    const column = (x, t) => { for (let y = t; y < H; y++) rows[y][x] = '#'; };
+    const column = (x, t) => { for (let y = t; y < BOARD_H; y++) rows[y][x] = '#'; };
     column(0, top); column(1, top);
     let x = 2;
     const danger = Math.min(.15 + depth * .07, .5);
-    while (x < W - 2) {
+    while (x < BOARD_W - 2) {
       const opts = ['flat', 'flat', 'up', 'down', 'gap'];
       if (rand() < danger) opts.push('spike', 'spike', 'timed');
       if (CONFIG.features.crates && depth >= 2 && rand() < .3) opts.push('crate');
@@ -460,11 +465,11 @@ function generateLevel(depth, deck, rand = Math.random, opts = {}) {
       }
       if (f === 'flat') {
         const n = 1 + Math.floor(rand() * 2);
-        for (let i = 0; i < n && x < W - 2; i++, x++) column(x, top);
+        for (let i = 0; i < n && x < BOARD_W - 2; i++, x++) column(x, top);
       }
     }
-    for (; x < W; x++) column(x, top);
-    rows[top - 1][W - 1] = 'G';             // last column: the wall stops you overshooting it
+    for (; x < BOARD_W; x++) column(x, top);
+    rows[top - 1][BOARD_W - 1] = 'G';             // last column: the wall stops you overshooting it
     const standY = (cx) => { const t = rows.findIndex((r) => r[cx] === '#'); return t > 0 ? t - 1 : -1; };
     const free = (cx, cy) => cy >= 0 && rows[cy][cx] === '.';
     let px = 0;
@@ -474,14 +479,14 @@ function generateLevel(depth, deck, rand = Math.random, opts = {}) {
       if (behind) { px = 3; rows[standY(0)][0] = 'K'; }
       else {
         const xs = [];
-        for (let c = 3; c < W - 3; c++) if (free(c, standY(c)) && free(c, standY(c) - 1)) xs.push(c);
+        for (let c = 3; c < BOARD_W - 3; c++) if (free(c, standY(c)) && free(c, standY(c) - 1)) xs.push(c);
         if (xs.length && spend('jump', 'highjump', 'longjump')) { const c = pick(xs); rows[standY(c) - 1][c] = 'K'; }
       }
     }
     // Gems: floating 1 or 2 tiles up, so grabbing one means jumping where you'd rather walk
     if (CONFIG.features.gems) {
       for (let n = (rand() < .4 ? 2 : 1) + (opts.extraGems || 0); n > 0; n--) {
-        const c = 2 + Math.floor(rand() * (W - 5)), h = has('highjump') && rand() < .5 ? 2 : 1;
+        const c = 2 + Math.floor(rand() * (BOARD_W - 5)), h = has('highjump') && rand() < .5 ? 2 : 1;
         if (standY(c) >= 0 && free(c, standY(c) - h) && free(c, standY(c))) rows[standY(c) - h][c] = '*';
       }
     }
@@ -562,20 +567,20 @@ function drawOdds(level, par, deck, trials, rand = Math.random) {
 const ENDLESS_BIOMES = ['meadow', 'canyon', 'peaks'];
 const biomeAt = (x) => ENDLESS_BIOMES[Math.floor(x / (CONFIG.timeAttack.biomeLength || 150)) % 3];
 function makeEndlessMap(rand = Math.random) {
-  const map = { grid: Array.from({ length: H }, () => []), w: 0, start: { x: 1, y: 6 }, goal: { x: -1, y: -1 },
+  const map = { grid: Array.from({ length: BOARD_H }, () => []), w: 0, h: BOARD_H, start: { x: 1, y: 6 }, goal: { x: -1, y: -1 },
     crates: [], items: [], keyMask: 0, enemies: [], signs: [], gen: { top: 7 }, momentum: !!CONFIG.features.momentum };
-  extendTerrain(map, W + 6, rand);
+  extendTerrain(map, BOARD_W + 6, rand);
   return map;
 }
 // Returns any patrollers it added, so the running game can start tracking them.
 function extendTerrain(map, upto, rand = Math.random) {
   const T = CONFIG.timeAttack, F = CONFIG.features, L = T.biomeLength || 150, g = map.gen, added = [];
   const col = (t, mark, surface = '#') => {
-    for (let y = 0; y < H; y++) map.grid[y].push(y > t ? '#' : y === t ? surface : '.');
+    for (let y = 0; y < map.h; y++) map.grid[y].push(y > t ? '#' : y === t ? surface : '.');
     if (mark) map.grid[t - 1][map.w] = mark;
     map.w++;
   };
-  const gap = () => { for (let y = 0; y < H; y++) map.grid[y].push('.'); map.w++; };
+  const gap = () => { for (let y = 0; y < map.h; y++) map.grid[y].push('.'); map.w++; };
   const flat = (n) => { for (let i = 0; i < n; i++) col(g.top); };
   if (map.w === 0) flat(6);
   while (map.w < upto) {

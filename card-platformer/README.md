@@ -11,7 +11,8 @@ No build step and no dependencies: just static files.
 | `style.css` | All styling. Phone layouts are at the bottom. |
 | `config.js` | **Every tuning knob** (timers, hand sizes, prices, perks, scoring, feature switches). |
 | `rules.js` | Game rules with no screen code: cards, movement, crates, keys, solvers, level generators. |
-| `levels.js` | The handmade Plan & Run levels (maps, hands, hints). |
+| `levels.js` | The handmade Plan & Run levels (maps, hands, hints) and the level sets. |
+| `levels-archive.js` | Retired levels, kept for reuse (not loaded by the game). |
 | `pixel.js` | **Pixel art style:** sprites, palettes and pixel backgrounds (the default look). |
 | `art.js` | **Look and feel:** the three themes (colours at the top), parallax backgrounds, tiles, springs, the slime, items, shadows and particles. |
 | `game.js` | Modes, the player character, animation, card UI, drag & drop, editor. |
@@ -32,7 +33,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-12f`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-13b`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 
@@ -43,6 +44,19 @@ The game opens on a **Start** screen with four buttons: **Puzzles**, **Endless**
 - **Settings:** animation speed, hints on or off, reduce motion (follows the device until you change it) and Reset progress (clears badges and your best Endless distance; your own levels are kept). It also shows the version tag, which helps when a tester reports something.
 - The ‹ button (or the browser's or phone's Back) goes up a level: level → set → Puzzles → Start. A set's page also has a **Home** button straight to Start, and its top bar stays put while a long set scrolls. Leaving in the middle of a run stops it cleanly.
 - Every screen has its own address (`#/puzzles`, `#/set/1`, `#/play/b4`, `#/endless`, `#/editor`, `#/settings`), so you can link a tester straight to a level.
+
+## Level sizes
+
+Levels can be different sizes; a level's size is simply the size of its map. The editor offers four presets under **Size**:
+
+| Preset | Tiles | On screen |
+|---|---|---|
+| Small | 12 × 7 | whole level, bigger tiles: good for early, friendly levels |
+| Medium | 16 × 9 | whole level (the classic size, and Endless) |
+| Large | 20 × 11 | whole level, smaller tiles |
+| Wide | 28 × 11 | 20 columns at a time: it scrolls to follow the hero, and while planning you can drag the level sideways to look around (arrows at the edges show there's more) |
+
+Changing the size in the editor keeps the bottom-left corner where it is, so the ground stays put. The widest a level shows at once is `VIEW_MAX_W` (20) in `game.js`; the presets are `LEVEL_SIZES`.
 
 ## Adding levels
 
@@ -89,7 +103,7 @@ The order of cards matters, like real platformer physics:
 - **Double jump:** a jump straight after a jump goes one tile higher.
 - **Breaking momentum:** a Turn or Wait in between, or (in Endless) losing a heart, a redraw or a timeout. Bumping into a wall doesn't break it: momentum depends only on the order of your cards.
 
-Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Levels 1-2 to 1-4 introduce momentum, 2-2 introduces Hop, 2-9 introduces Dash and 3-6 (Bowled Over) shows Dash knocking a slime out of the way. Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
+Cards show their momentum version as you play them: in Plan & Run each card in your sequence redraws to show what it will really do given the cards before it, and in Endless the cards in your hand do. Boosted cards get a green border and a tag. Set 1 (Sunny Meadow) eases you in: walking, the first Jump, Run-up (1-3), spikes, High and Long jumps, a first gem, and a review. 2-2 introduces Hop, 2-9 Dash, and 3-6 (Bowled Over) shows Dash knocking a slime out of the way. (Sets 2–4 are being redone next; the original Meadow levels are kept in `levels-archive.js`.) Switch: `features.momentum` in `config.js` (switching it off also hides the momentum lessons).
 
 ## Tiles, cards and the patroller
 

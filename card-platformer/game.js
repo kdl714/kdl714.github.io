@@ -60,7 +60,20 @@ function loadLevel(key, levelObj) {
   refreshLevelSelect();
 }
 
+// level sizes the editor offers (width × height in tiles)
+const LEVEL_SIZES = [['Small', 12, 7], ['Medium', 16, 9], ['Large', 20, 11], ['Wide', 28, 11]];
+function blankLevel(w, h) {
+  return { name: 'My Level', map: [...Array(h - 2).fill('.'.repeat(w)), 'P' + '.'.repeat(w - 3) + 'G.', '#'.repeat(w)], cards: ['walk3'] };
+}
+// resize a level's map, keeping its bottom-left corner where it is (so the ground stays put)
+function resizeLevel(level, w, h) {
+  const rows = level.map.slice(-h).map((r) => r.padEnd(w, '.').slice(0, w));
+  while (rows.length < h) rows.unshift('.'.repeat(w));
+  level.map = rows;
+}
+
 function resetRun() {
+  app.camHold = null;                        // wide levels: the camera follows the hero again
   app.map = parseLevel(app.level);
   if (app.mode === 'quest' && app.q) app.map.mods = Quest.mods();
   app.state = initialState(app.map);
@@ -120,7 +133,7 @@ async function animate(ev) {
   }
 }
 
-const groundBelow = (x, y) => y + 1 >= H ? false : wall(app.map, x, y + 1) || tileAt(app.map, x, y + 1) === '=' || app.view.crates.some((c) => !c.gone && Math.round(c.x) === x && Math.round(c.y) === y + 1);
+const groundBelow = (x, y) => y + 1 >= app.map.h ? false : wall(app.map, x, y + 1) || tileAt(app.map, x, y + 1) === '=' || app.view.crates.some((c) => !c.gone && Math.round(c.x) === x && Math.round(c.y) === y + 1);
 
 function glide(run) {
   const v = app.view, speed = animSpeed(), gen = app.gen;
@@ -214,7 +227,7 @@ function glide(run) {
       const end = pts[pts.length - 1];
       v.x = end.x; v.y = end.y; v.vx = v.vy = 0; v.air = false;
       fire(pts.length - 1);
-      if (!segs[segs.length - 1].ground && end.y < H && groundBelow(end.x, end.y)) land();
+      if (!segs[segs.length - 1].ground && end.y < app.map.h && groundBelow(end.x, end.y)) land();
       resolve();
     };
     requestAnimationFrame(frame);
@@ -300,7 +313,7 @@ async function beat(e) {
     await nap(CONFIG.stepMs * 1.2);
   } else if (e.k === 'die') {
     v.status = 'dead'; Art.shake(.08, 260);
-    burst(e.x, Math.min(e.y, H - 1), '#ff6b6b');
+    burst(e.x, Math.min(e.y, app.map.h - 1), '#ff6b6b');
     await tween(260, (t) => { v.ox = Math.sin(t * Math.PI * 6) * .08 * (1 - t); });   // a shudder
     v.ox = 0;
     await nap(250);
@@ -373,6 +386,7 @@ const Plan = {
   },
   async play() {
     if (app.running || !Slots.filled().length) return;
+    app.camHold = null;                      // stop looking around: follow the hero
     if (Slots.gap() >= 0) { renderDeck(); return; }      // an empty slot between cards: fill it first
     Slots.trim();
     hideBanner();
@@ -644,7 +658,7 @@ const Quest = {
     const Q = CONFIG.quest;
     app.q = { depth: 0, cleared: 0, hearts: Q.hearts, maxHearts: Q.hearts, gems: Q.startGems, perks: [], route: null, earned: 0 };
     app.hand = []; app.seq = []; app.played = [];
-    app.level = { name: 'Roguelite', map: Array(H).fill('.'.repeat(W)), cards: [] }; app.levelKey = 'quest';
+    app.level = { name: 'Roguelite', map: Array(BOARD_H).fill('.'.repeat(BOARD_W)), cards: [] }; app.levelKey = 'quest';
     resetRun();
     Quest.showRoutes();
   },
@@ -1084,6 +1098,14 @@ function finishCheck(status, outOfCards, unused) {
    Rendering — canvas world
    ===================================================================== */
 let TS = 40; // tile size in CSS px
+// How much of the level is on screen: the whole level up to VIEW_MAX_W tiles wide (it zooms to
+// fit); wider levels scroll sideways and follow the hero (drag the level to look around while
+// planning). The editor always shows the whole level.
+const VIEW_MAX_W = 20;
+function setView(map) {
+  const w = app.editing || app.mode === 'time' ? (app.mode === 'time' ? BOARD_W : map.w) : Math.min(map.w, VIEW_MAX_W), h = map.h || BOARD_H;
+  if (w !== W || h !== H) { W = w; H = h; resize(); }
+}
 function resize() {
   const st = $('stage'), cs = getComputedStyle(st);
   const aw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
@@ -1118,9 +1140,11 @@ function draw() {
   if (pixel) { ctx = Pixel.start(); TS = PIXELS_PER_TILE; }
   const map = app.editing ? parseLevel(app.level) : app.map;
   const v = app.view;
+  setView(map);
   const turn = app.editing ? 0 : v.turn;
   // camera: follows the player on maps wider than the screen (Endless)
-  const camTarget = Math.max(0, Math.min(map.w - W, (app.editing ? 0 : v.x) - 4));
+  const follow = app.mode === 'time' ? v.x - 4 : v.x - W / 2 + .5;          // Endless looks ahead; wide puzzles keep the hero centred
+  const camTarget = Math.max(0, Math.min(map.w - W, app.editing ? 0 : app.camHold ?? follow));
   app.cam += (camTarget - app.cam) * .12;
   if (Math.abs(camTarget - app.cam) < .01) app.cam = camTarget;
   const x0 = Math.floor(app.cam), x1 = Math.min(map.w, x0 + W + 1);
@@ -1257,9 +1281,9 @@ function drawPlayer(x, y, dir, status, alpha, fx = { sx: 1, sy: 1, rot: 0, lift:
 // Small static picture of a level (used for the roguelite "next level" preview).
 function drawMini(level, canvas, t = 9) {
   const m = parseLevel(level), c = canvas.getContext('2d');
-  canvas.width = W * t; canvas.height = H * t; canvas.className = 'mini';
-  c.fillStyle = '#9fd6fa'; c.fillRect(0, 0, W * t, H * t);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  canvas.width = m.w * t; canvas.height = m.h * t; canvas.className = 'mini';
+  c.fillStyle = '#9fd6fa'; c.fillRect(0, 0, m.w * t, m.h * t);
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
     const ch = m.grid[y][x];
     if (ch === '#') { c.fillStyle = y && m.grid[y - 1][x] !== '#' ? '#5cb85c' : '#8b5a2b'; c.fillRect(x * t, y * t, t, t); }
     if (ch === 'I') { c.fillStyle = '#bfe8ff'; c.fillRect(x * t, y * t, t, t); }
@@ -1681,6 +1705,8 @@ function playtest() {
 function renderEditor() {
   $('edName').value = app.level.name;
   $('edTheme').value = Art.themeName();
+  const lw = Math.max(...app.level.map.map((r) => r.length)), lh = app.level.map.length;
+  $('edSize').value = LEVEL_SIZES.find(([, w, h]) => w === lw && h === lh)?.[0] || '';
   const tiles = $('edTiles'); tiles.innerHTML = '';
   for (const [ch, label, col] of TILES) {
     const b = document.createElement('button');
@@ -1704,8 +1730,9 @@ function renderEditor() {
 }
 
 function paintAt(x, y) {
-  const rows = app.level.map.map((r) => r.padEnd(W, '.').slice(0, W).split(''));
-  while (rows.length < H) rows.push('.'.repeat(W).split(''));
+  const lw = Math.max(...app.level.map.map((r) => r.length)), lh = app.level.map.length;
+  const rows = app.level.map.map((r) => r.padEnd(lw, '.').slice(0, lw).split(''));
+  while (rows.length < lh) rows.push('.'.repeat(lw).split(''));
   if (app.paint === 'P' || app.paint === 'G') rows.forEach((r) => r.forEach((c, i) => { if (c === app.paint) r[i] = '.'; }));
   rows[y][x] = app.paint;
   app.level.map = rows.map((r) => r.join(''));
@@ -1716,6 +1743,15 @@ function cellFromEvent(e) {
   const x = Math.floor((e.clientX - r.left) / TS), y = Math.floor((e.clientY - r.top) / TS);
   return x >= 0 && x < W && y >= 0 && y < H ? { x, y } : null;
 }
+// wide levels: drag the level sideways to look around while planning
+let look = null;
+cv.addEventListener('pointerdown', (e) => {
+  if (app.editing || app.running || app.mode !== 'plan' || !app.map || app.map.w <= W) return;
+  look = { x: e.clientX, cam: app.cam }; cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', (e) => { if (look) app.camHold = Math.max(0, Math.min(app.map.w - W, look.cam - (e.clientX - look.x) / TS)); });
+cv.addEventListener('pointerup', () => { look = null; });
+cv.addEventListener('pointercancel', () => { look = null; });
 cv.addEventListener('pointerdown', (e) => { if (!app.editing) return; painting = true; cv.setPointerCapture(e.pointerId); const c = cellFromEvent(e); if (c) paintAt(c.x, c.y); });
 cv.addEventListener('pointermove', (e) => {
   if (!app.editing) { hover = null; return; }
@@ -1725,7 +1761,12 @@ cv.addEventListener('pointerup', () => { painting = false; });
 cv.addEventListener('pointerleave', () => { hover = null; });
 
 $('edName').oninput = (e) => { app.level.name = e.target.value; };
-$('edTheme').onchange = (e) => { app.level.theme = e.target.value; };   // saved with the level; any tile works in any location
+$('edTheme').onchange = (e) => { app.level.theme = e.target.value; };
+$('edSize').innerHTML = LEVEL_SIZES.map(([n, w, h]) => `<option value="${n}">${n} · ${w}×${h}${w > VIEW_MAX_W ? ' (scrolls)' : ''}</option>`).join('');
+$('edSize').onchange = (e) => {
+  const [, w, h] = LEVEL_SIZES.find(([n]) => n === e.target.value);
+  resizeLevel(app.level, w, h); $('solveOut').textContent = '';
+};   // saved with the level; any tile works in any location
 $('edPlay').onclick = playtest;
 $('edSolve').onclick = () => {
   const t0 = performance.now();
@@ -1748,7 +1789,7 @@ $('edSave').onclick = () => {
   $('solveOut').textContent = 'Saved to this browser.';
 };
 $('edNew').onclick = () => {
-  app.level = { name: 'My Level', map: [...Array(H - 2).fill('.'.repeat(W)), 'P.............G.', '#'.repeat(W)], cards: ['walk3'] };
+  app.level = blankLevel(16, 9);
   app.levelKey = 'new'; refreshLevelSelect(); renderEditor();
 };
 $('edDelete').onclick = () => {
@@ -1898,7 +1939,7 @@ const Router = {
     if (page === 'editor') {
       app.mode = 'plan';
       if (app.custom.length) loadLevel('c0');
-      else { loadLevel('b0'); app.level = { name: 'My Level', map: [...Array(H - 2).fill('.'.repeat(W)), 'P.............G.', '#'.repeat(W)], cards: ['walk3'] }; app.levelKey = 'new'; refreshLevelSelect(); }
+      else { loadLevel('b0'); app.level = blankLevel(16, 9); app.levelKey = 'new'; refreshLevelSelect(); }
       setEditing(true); return;
     }
     const screen = Screens[page] ? page : 'home';

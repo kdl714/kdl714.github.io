@@ -1,162 +1,143 @@
 // Card Climber — handmade Plan & Run levels.
 // Map legend: . empty  # ground  ^ spikes  t timed spikes  C crate  K key  * gem  P start  G flag/door
-// Each level: name, optional hint (first hint shown), 9 rows × 16 columns, and the cards in your hand.
+// Each level: name, optional hint (first hint shown), the map (any size: see LEVEL_SIZES in game.js), and the cards in your hand.
 // Levels you build in the editor can be exported as JSON and pasted in here.
 
-const BASE_LEVELS = [
+const SET_1 = [
   {
-    name: '1. Mind the Gap',
-    hint: 'The pit is two tiles wide, so only one card can clear it. Where do you need to be standing first?',
+    name: 'First Steps',
+    hint: 'Put both Walk cards into the sequence, then press Play.',
     map: [
-      '................',
-      '..........*.....',
-      '................',
-      '................',
-      '...........G....',
-      '.........#######',
-      '.........#######',
-      '.P......########',
-      '####..##########',
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '...P....G...',
+      '############',
     ],
-    cards: ['jump', 'walk1', 'highjump', 'walk2', 'longjump'],
-    gemBonus: ['jump'],               // extra card dealt only when gems are on
+    cards: ['walk3', 'walk2'],
   },
   {
-    name: '2. Run-Up',                // walk first and the jump goes one tile further
-    hint: "A Jump on its own won't clear that pit. Get moving first.",
+    name: 'Mind the Gap',
+    hint: 'A Jump goes up and over. Jump straight across the gap.',
     map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '.P......G.......',
-      '####..##########',
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '...P....G...',
+      '####.#######',
     ],
-    cards: ['jump', 'walk2', 'walk2'],
-    needs: ['momentum'],               // hidden if these features are switched off
+    cards: ['jump', 'walk3'],
   },
   {
-    name: '3. Double Jump',           // jump straight after a jump to go one tile higher
-    hint: 'That wall is too tall for one Jump. What if you jump again straight away?',
+    name: 'Run-Up',                   // momentum: Walk then Jump goes one tile further (one solution)
+    hint: "This gap is too wide to jump from standing still. A Jump straight after a Walk goes one tile further.",
     map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '....###.G.......',
-      '.P..############',
-      '################',
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '.P.......G..',
+      '####..######',
     ],
-    cards: ['jump', 'jump', 'walk3'],
-    needs: ['momentum'],               // hidden if these features are switched off
+    cards: ['walk2', 'jump', 'walk3'],
   },
   {
-    name: '4. Full Sprint',           // the third Walk in a row sprints two tiles further
-    hint: 'No jumping under that ceiling. Keep walking: the third Walk in a row really gets going. Mind the orange spikes.',
+    name: 'Ouch',
+    hint: 'Spikes hurt! Take a run-up, then jump clean over them.',
     map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '################',
-      'P.....t.G.......',
-      '################',
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '.P...^...G..',
+      '############',
     ],
-    cards: ['walk2', 'walk2', 'walk2', 'wait'],
-    needs: ['momentum'],               // hidden if these features are switched off
+    cards: ['walk3', 'jump', 'walk2'],
   },
   {
-    name: '5. Up and Back',
-    hint: 'The orange spikes flip after every card you play. Sometimes the best move is no move at all.',
+    name: 'Step Up',                  // High Jump onto a 2-high ledge (one solution)
+    hint: 'That ledge is two tiles high. One of the jumps goes higher than the others.',
+    map: [
+      '............',
+      '............',
+      '............',
+      '..........G.',
+      '.......#####',
+      '....P..#####',
+      '############',
+    ],
+    cards: ['walk1', 'highjump', 'walk3'],
+  },
+  {
+    name: 'The Long Way',             // Long Jump over a 3-wide gap (one solution)
+    hint: 'Three tiles is a long way. Look for the longest jump.',
+    map: [
+      '............',
+      '............',
+      '............',
+      '............',
+      '............',
+      '..P.......G.',
+      '####...#####',
+    ],
+    cards: ['walk1', 'longjump', 'walk3'],
+  },
+  {
+    name: 'Shiny',                    // first gem: High Jump grabs it, a plain Jump goes under it
+    hint: 'Gems are optional extras. This one is up high: which jump could reach it?',
+    map: [
+      '............',
+      '............',
+      '............',
+      '.....*......',
+      '............',
+      '..P......G..',
+      '#####.######',
+    ],
+    cards: ['walk2', 'jump', 'highjump', 'walk3'],
+  },
+  {
+    name: 'Which Jump?',              // a wide gap, then a tall step: each needs a different jump
+    hint: 'A wide gap, then a tall step. Each one needs a different jump.',
     map: [
       '................',
       '................',
       '................',
       '................',
-      '...G............',
-      '.######.........',
-      '.........##.....',
-      'P^.t.....##.....',
-      '################',
+      '................',
+      '............G...',
+      '..........######',
+      '.P........######',
+      '####...#########',
     ],
-    cards: ['walk3', 'highjump', 'turn', 'jump', 'walk2', 'wait', 'longjump', 'walk3'],
+    cards: ['walk2', 'longjump', 'walk1', 'highjump', 'walk2', 'jump'],
+  },
+  {
+    name: 'Meadow Run',               // review of the set; the gem asks for a different first card
+    hint: "Everything you've learned in the meadow. The gem needs a different first card.",
+    map: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '........*.......',
+      '..............G.',
+      '......^....#####',
+      '.P..#####...####',
+      '####.....#######',
+    ],
+    cards: ['walk2', 'jump', 'walk2', 'highjump', 'longjump', 'walk2', 'walk2', 'walk1'],
   },
 ];
 
 // Experiment 1: levels built around a single "aha" each (verified with solve()).
 const PUZZLE_PACK = [
-  {
-    name: '6. Echo Chamber',          // one High Jump, two tall steps
-    hint: 'Two tall steps, but only one card that climbs that high. Look closely at the purple card.',
-    map: [
-      '................',
-      '................',
-      '................',
-      '..........G.....',
-      '....#..#..######',
-      '....#..#..######',
-      '...##..#..######',
-      '..P##..#..######',
-      '#####..#..######',
-    ],
-    cards: ['highjump', 'walk1', 'longjump', 'echo', 'jump', 'echo'],
-  },
-  {
-    name: '7. Crate Expectations',    // jumping the pit wastes a jump you need later
-    hint: "Do you really need to jump that spike pit? Crates fall into holes, and you'll want both jumps later.",
-    map: [
-      '................',
-      '................',
-      '................',
-      '................',
-      '.........G......',
-      '........########',
-      '.P.C...C########',
-      '#####^##########',
-      '################',
-    ],
-    cards: ['jump', 'jump', 'walk3'],
-  },
-  {
-    name: '8. Down and Under',        // crate covers spikes, echo + timing
-    hint: 'Get the crate onto the spikes first. Then count turns: orange spikes are down on even turns.',
-    map: [
-      '................',
-      '................',
-      '................',
-      '.P.C............',
-      '#####...........',
-      '#####...........',
-      '#####...........',
-      '#####^.t..t.G...',
-      '################',
-    ],
-    cards: ['walk2', 'walk3', 'echo', 'wait', 'walk3'],
-  },
-  {
-    name: '9. Turn the Key',          // key is behind you; gem route = same cards, different order
-    hint: "The key is behind you, past a spike. You'll have to turn around, then turn back again.",
-    map: [
-      '................',
-      '................',
-      '...........*....',
-      '................',
-      '................',
-      '................',
-      '...........#....',
-      '..K^P......#.G..',
-      '################',
-    ],
-    cards: ['walk3', 'turn', 'highjump', 'echo', 'jump', 'turn', 'echo', 'jump'],
-    gemBonus: ['echo'],               // extra card dealt only when gems are on
-  },
   {
     name: '10. Back for the Key',     // key on a ledge behind you, spike on the way back
     hint: 'The door is locked and the key is on the ledge behind you. That ledge is two tiles tall.',
@@ -468,7 +449,7 @@ const usesDisabled = (l) => (l.needs || []).some((f) => !CONFIG.features[f]) || 
   || [['ice', 'I'], ['platforms', '='], ['springs', 'S'], ['enemies', 'E'], ['sideSprings', '>'], ['sideSprings', '<']].some(([f, ch]) => !CONFIG.features[f] && l.map.some((r) => r.includes(ch)))
   || (!CONFIG.features.keys && l.map.some((r) => r.includes('K'))) || l.cards.some((c) => !CARDS[c]);
 const withGemBonus = (l) => CONFIG.features.gems && l.gemBonus?.every((c) => CARDS[c]) ? { ...l, cards: [...l.cards, ...l.gemBonus] } : l;
-const BUILTIN_LEVELS = [...BASE_LEVELS, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);
+const BUILTIN_LEVELS = [...SET_1, ...(CONFIG.features.puzzlePack ? PUZZLE_PACK : [])].filter((l) => !usesDisabled(l)).map(withGemBonus);
 
 // Level sets: the Puzzles screen groups the levels above, in order: each set takes its
 // `size` levels (SET_SIZE if it doesn't say). Each set has its own theme (see THEMES in
