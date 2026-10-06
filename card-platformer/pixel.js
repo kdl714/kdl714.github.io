@@ -71,6 +71,62 @@ const SPAL = {
   saguaro: { o: '#5e3a2a', T: '#8a9a52', t: '#a9b86a', S: '#6e7c3e' },
 };
 
+/* =====================================================================
+   Assets — your own art from Aseprite (see ASSETS.md). Each name in
+   assets/manifest.json is loaded from assets/<name>.png + .json (an Aseprite
+   sprite sheet, JSON hash, with tags). Any frame you've drawn replaces the
+   built-in art for that piece; empty frames, and anything not listed, keep
+   the built-in art. (Opened straight from disk, browsers block loading these
+   files, so you'll see the built-in art there; it works on GitHub Pages and
+   any local web server.)
+   ===================================================================== */
+const Assets = {
+  sheets: {},
+  ver: () => /[?&]v=([^&]+)/.exec(document.querySelector('script[src*="pixel.js"]')?.src || '')?.[1] || '',
+  async init() {
+    try {
+      const list = await (await fetch('assets/manifest.json?v=' + Assets.ver())).json();
+      await Promise.all(list.map((n) => Assets.load(n).catch((e) => console.warn('Could not load asset', n, e))));
+      PixelArt.cache.key = '';            // redraw cached tiles with the new art
+    } catch { /* no manifest (or opened from disk): built-in art everywhere */ }
+  },
+  async load(name) {
+    const v = Assets.ver(), data = await (await fetch(`assets/${name}.json?v=${v}`)).json(), img = new Image();
+    img.src = `assets/${name}.png?v=${v}`; await img.decode();
+    const frames = Object.values(data.frames).map((f) => ({ ...f.frame, dur: f.duration || 100 }));
+    // which frames are blank? (those fall back to the built-in art)
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+    for (const f of frames) { const d = g.getImageData(f.x, f.y, f.w, f.h).data; let any = false; for (let i = 3; i < d.length; i += 4) if (d[i]) { any = true; break; } f.empty = !any; }
+    const tags = {};
+    for (const t of data.meta.frameTags || []) tags[t.name] = frames.slice(t.from, t.to + 1);
+    Assets.sheets[name] = { img, frames, tags };
+  },
+  // the frame for name/tag (number i, wrapping), or null if there's no drawn art for it
+  frame(name, tag, i = 0) {
+    const sh = Assets.sheets[name], list = sh?.tags[tag];
+    if (!list || !list.length) return null;
+    const f = list[((i % list.length) + list.length) % list.length];
+    return f.empty ? null : { img: sh.img, ...f };
+  },
+  // the frame of a tag's animation at time t (ms), using your frame durations; null if not drawn
+  anim(name, tag, t) {
+    const list = Assets.sheets[name]?.tags[tag];
+    if (!list || !list.length) return null;
+    const total = list.reduce((a, f) => a + f.dur, 0);
+    let r = ((t % total) + total) % total, i = 0;
+    while (i < list.length - 1 && r >= list[i].dur) r -= list[i++].dur;
+    return Assets.frame(name, tag, i);
+  },
+  // how many frames a tag has (0 if none; a blank one just shows the main version)
+  count(name, tag) { return (Assets.sheets[name]?.tags[tag] || []).length; },
+  // a frame repeated across the screen (backgrounds), shifted left by `off`, bottom-aligned
+  tileAcross(g, f, off, LW, LH) {
+    const y = LH - f.h;
+    for (let x = -(((off % f.w) + f.w) % f.w); x < LW; x += f.w) g.drawImage(f.img, f.x, f.y, f.w, f.h, x, y, f.w, f.h);
+  },
+};
+
 const Pixel = {
   px(g, c, x, y, w = 1, h = 1) { g.fillStyle = c; g.fillRect(x, y, w, h); },
   mix(a, b, f) {             // blend two #rrggbb colours (cached: called every frame)
@@ -140,7 +196,30 @@ const Pixel = {
     }
     return rows;
   },
+  // your hero (assets/hero): the tag for this moment, mirrored for left, still leaning, bobbing and
+  // squeezing through a turn in whole pixels. Returns false (built-in hero) when that frame isn't drawn
+  heroSprite(g, x, y, dir, status, alpha, fx) {
+    if (!Assets.sheets.hero) return false;
+    const now = performance.now(), A = (tag, t = now) => Assets.anim('hero', tag, t);
+    const f = status === 'dead' ? A('dead') : status === 'won' ? A('win')
+      : fx.air ? (fx.vy < 0 ? A('jump') : A('fall') || A('jump'))
+      : fx.sy < .9 ? A('land') || A('crouch')
+      : fx.walking ? A('walk', (fx.bob || 0) / Math.PI * 300) || A('idle')
+      : fx.blink ? A('blink') || A('idle') : A('idle');
+    if (!f) return false;
+    const w = Math.max(2, Math.round(f.w * Math.min(1, fx.flip ?? 1))), lean = Math.sin(fx.rot || 0);
+    const left = Math.round((x + .5) * U) - Math.floor(w / 2), by = Math.round((y + 1 - (fx.lift || 0)) * U);
+    g.save(); g.globalAlpha = alpha; g.imageSmoothingEnabled = false;
+    if (dir < 0) { g.translate(2 * left + w, 0); g.scale(-1, 1); }       // mirror for facing left
+    for (let j = 0; j < f.h; j++) {                                      // row by row, so leaning stays crisp
+      const shift = Math.round((f.h - 1 - j) * lean) * (dir < 0 ? -1 : 1);
+      g.drawImage(f.img, f.x, f.y + j, f.w, 1, left + shift, by - f.h + j, w, 1);
+    }
+    g.restore();
+    return true;
+  },
   hero(g, x, y, dir, status, alpha, fx) {
+    if (Pixel.heroSprite(g, x, y, dir, status, alpha, fx)) return;
     const w = Math.max(4, Math.round(12 * fx.sx)), h = Math.max(4, Math.round(12 * fx.sy));
     const rows = Pixel.heroRows(w, h, dir, status, fx.blink), pal = status === 'dead' ? SPAL.heroDead : SPAL.hero;
     const cx = Math.round((x + .5) * U), by = Math.round((y + 1 - (fx.lift || 0)) * U), lean = Math.sin(fx.rot || 0);
@@ -165,15 +244,23 @@ const Pixel = {
 const PixelArt = {
   /* ---------- background: banded sky, sun, two mountain ranges, hills with trees, clouds ---------- */
   background(g, name, camX, px) {
-    const th = PIXEL_THEMES[name], LW = W * U, LH = H * U, t = performance.now() / 1000, P = Pixel.px;
-    th.sky.forEach((c, i) => P(g, c, 0, Math.round(i * LH / th.sky.length), LW, Math.ceil(LH / th.sky.length)));
-    P(g, th.sun[0], 206, 12, 14, 14); P(g, th.sun[0], 204, 15, 18, 8); P(g, th.sun[1], 209, 15, 6, 6);
+    const th = PIXEL_THEMES[name], LW = W * U, LH = H * U, t = performance.now() / 1000, P = Pixel.px, bg = 'bg-' + name;
+    const sky = Assets.frame(bg, 'sky');
+    if (sky) {                                    // your sky: stretched sideways, its top row continued upward on taller levels
+      if (LH > sky.h) g.drawImage(sky.img, sky.x, sky.y, sky.w, 1, 0, 0, LW, LH - sky.h);
+      g.drawImage(sky.img, sky.x, sky.y, sky.w, sky.h, 0, LH - sky.h, Math.max(LW, sky.w), sky.h);
+    } else {
+      th.sky.forEach((c, i) => P(g, c, 0, Math.round(i * LH / th.sky.length), LW, Math.ceil(LH / th.sky.length)));
+      P(g, th.sun[0], 206, 12, 14, 14); P(g, th.sun[0], 204, 15, 18, 8); P(g, th.sun[1], 209, 15, 6, 6);
+    }
     const target = reducedMotion() || app.mode === 'time' ? 0 : (px - W / 2) * PARALLAX.followPlayer;
     Art.shiftNow += (target - Art.shiftNow) * .04;
-    PixelArt.range(g, th.far, Math.round((camX * PARALLAX.far + Art.shiftNow * .3) * U), 11, th.sky[3]);
+    // each layer: your drawn frame if there is one (repeated across, bottom-aligned), otherwise the built-in art
+    const layer = (tag, off, builtIn) => { const f = Assets.frame(bg, tag); if (f) Assets.tileAcross(g, f, off, LW, LH); else builtIn(off); };
+    layer('far', Math.round((camX * PARALLAX.far + Art.shiftNow * .3) * U), (o) => PixelArt.range(g, th.far, o, 11, th.sky[3]));
     PixelArt.clouds(g, th, (camX * PARALLAX.clouds + Art.shiftNow * .5) * U, t);
-    PixelArt.range(g, th.near, Math.round((camX * (PARALLAX.far + PARALLAX.near) / 2 + Art.shiftNow * .5) * U), 23, th.sky[4]);
-    PixelArt.hills(g, th, Math.round((camX * PARALLAX.near + Art.shiftNow * .7) * U));
+    layer('near', Math.round((camX * (PARALLAX.far + PARALLAX.near) / 2 + Art.shiftNow * .5) * U), (o) => PixelArt.range(g, th.near, o, 23, th.sky[4]));
+    layer('hills', Math.round((camX * PARALLAX.near + Art.shiftNow * .7) * U), (o) => PixelArt.hills(g, th, o));
   },
   // a mountain range: real peaks (or flat-topped mesas), each drawn whole, back to front, so
   // nearer peaks overlap farther ones (farther ones are a little hazier). Lit on the left; the
@@ -234,8 +321,12 @@ const PixelArt = {
   },
   clouds(g, th, off, t) {
     const LW = W * U, span = LW + 60, P = Pixel.px;
+    const theme = Object.keys(PIXEL_THEMES).find((k) => PIXEL_THEMES[k] === th);
+    let n = 0;
     const one = (cx, cy, w) => {
       cx = Math.round(cx);
+      const f = Assets.frame('clouds-' + theme, 'cloud', n++);          // your clouds, if drawn
+      if (f) { g.drawImage(f.img, f.x, f.y, f.w, f.h, cx, cy - f.h + 3, f.w, f.h); return; }
       for (let i = 0; i < w; i++) { const hh = Math.round(4 + 3 * Math.sin(i / w * Math.PI) + (i % 8 < 3 ? 1 : 0)); P(g, th.cloud[0], cx + i, cy - hh, 1, hh); P(g, th.cloud[1], cx + i, cy, 1, 2); }
     };
     const drift = reducedMotion() ? 0 : t * 4, wrap = (v) => ((v % span) + span) % span - 40;
@@ -270,6 +361,12 @@ const PixelArt = {
       else if (c === '>' || c === '<') PixelArt.bumper(g, x, y, c === '>' ? 1 : -1);
     }
   },
+  // your tile art (assets/tiles-<theme>), if that frame is drawn: true when it drew it
+  drawn(g, tag, x, y, i = 0) {
+    const f = Assets.frame('tiles-' + Pixel.themeName(x), tag, i);
+    if (f) g.drawImage(f.img, f.x, f.y, f.w, f.h, x * U, y * U + U - f.h, f.w, f.h);
+    return !!f;
+  },
   staticTile(g, map, x, y) {
     const c = map.grid[y][x];
     if (c === '#') PixelArt.ground(g, map, x, y, Pixel.theme(x));
@@ -281,6 +378,23 @@ const PixelArt = {
   ground(g, map, x, y, th) {
     const X = x * U, Y = y * U, at = (dx, dy) => tileAt(map, x + dx, y + dy), P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + a, Y + b, w, h);
     const solidAt = (dx, dy) => { const c = at(dx, dy); return c === '#' || c === 'I' || c === 'S' || c === '>' || c === '<' || x + dx < 0 || x + dx >= map.w; };
+    // drawn ground: the autotile number adds up the open sides (top 1, right 2, bottom 4, left 8)
+    const open = (!solidAt(0, -1) && at(0, -1) !== '=' ? 1 : 0) + (!solidAt(1, 0) ? 2 : 0) + (!solidAt(0, 1) && y < map.h - 1 ? 4 : 0) + (!solidAt(-1, 0) ? 8 : 0);
+    // extra versions you've drawn of a tile (tag ground-<number>) take turns with the main one, picked
+    // by position so each spot keeps its look; decorations (tag deco) sit on about a third of the tops
+    const sheet = 'tiles-' + Pixel.themeName(x), alts = Assets.count(sheet, 'ground-' + open), pick = Math.floor(Art.hash(x, y, 50) * (alts + 1));
+    if (pick > 0 && PixelArt.drawn(g, 'ground-' + open, x, y, pick - 1) || PixelArt.drawn(g, 'ground', x, y, open)) {
+      // inside corners (tags inner-tl, inner-tr, inner-bl, inner-br): drawn on top of a tile whose two
+      // sides toward that corner are ground but whose diagonal neighbour there is open, e.g. where a
+      // cliff face meets lower ground
+      for (const [tag, dx, dy] of [['inner-tl', -1, -1], ['inner-tr', 1, -1], ['inner-bl', -1, 1], ['inner-br', 1, 1]]) {
+        const sideY = dy < 0 ? !(open & 1) : !(open & 4), sideX = dx < 0 ? !(open & 8) : !(open & 2);
+        if (sideY && sideX && !solidAt(dx, dy) && !(dy > 0 && y + dy >= map.h)) PixelArt.drawn(g, tag, x, y);
+      }
+      const decos = Assets.count(sheet, 'deco');
+      if (decos && open & 1 && at(0, -1) === '.' && Art.hash(x, y, 51) < .35) PixelArt.drawn(g, 'deco', x, y - 1, Math.floor(Art.hash(x, y, 52) * decos));
+      return;
+    }
     const [base, dark, light, edge] = th.dirt;
     P(base, 0, 0, U, U);
     if (th.strata) {              // canyon: horizontal rock layers that wander a pixel or two between tiles
@@ -321,6 +435,7 @@ const PixelArt = {
     }
   },
   ice(g, x, y) {
+    if (PixelArt.drawn(g, 'ice', x, y)) return;
     const X = x * U, Y = y * U, P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + a, Y + b, w, h);
     P('#3d7fae', 0, 0, U, U); P('#9fdcf7', 1, 1, 14, 14);
     P('#d8f4ff', 1, 1, 14, 2); P('#d8f4ff', 1, 1, 2, 14); P('#6fb2d9', 1, 13, 14, 2); P('#6fb2d9', 13, 1, 2, 14);
@@ -329,6 +444,7 @@ const PixelArt = {
   },
   plank(g, map, x, y) {
     const X = x * U, Y = y * U, l = tileAt(map, x - 1, y) !== '=', r = tileAt(map, x + 1, y) !== '=', P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + a, Y + b, w, h);
+    if (PixelArt.drawn(g, l && r ? 'plank-single' : l ? 'plank-left' : r ? 'plank-right' : 'plank-mid', x, y)) return;
     P('#4a2c14', 0, 0, U, 6); P('#c48b4f', 0, 1, U, 3); P('#e0a86a', 0, 1, U, 1); P('#8a5a2e', 0, 4, U, 1);
     P('#4a2c14', 7, 1, 1, 4); P('#3e2731', 3, 2); P('#3e2731', 12, 2);
     if (l) { P('#4a2c14', 0, 0, 1, 6); P('#4a2c14', 2, 6, 3, 3); P('#8a5a2e', 3, 6, 1, 2); }
@@ -336,9 +452,12 @@ const PixelArt = {
   },
   spikes(g, x, y, kind) {
     const X = x * U, Y = y * U, pal = kind === 'hot' ? SPAL.spikeHot : kind === 'cold' ? SPAL.spikeCold : SPAL.spike;
-    if (kind === 'cold') for (let k = 0; k < 3; k++) Pixel.spr(g, SPR.stub, pal, X + 2 + k * 5, Y + 13);
-    else for (let k = 0; k < 3; k++) Pixel.spr(g, SPR.spike, pal, X + 1 + k * 5, Y + 9);
-    Pixel.px(g, pal.o, X, Y + 15, U, 1);
+    if (PixelArt.drawn(g, kind === 'hot' ? 'timed-up' : kind === 'cold' ? 'timed-down' : 'spikes', x, y)) { if (kind === 'steel') return; }
+    else {
+      if (kind === 'cold') for (let k = 0; k < 3; k++) Pixel.spr(g, SPR.stub, pal, X + 2 + k * 5, Y + 13);
+      else for (let k = 0; k < 3; k++) Pixel.spr(g, SPR.spike, pal, X + 1 + k * 5, Y + 9);
+      Pixel.px(g, pal.o, X, Y + 15, U, 1);
+    }
     if (kind !== 'steel') {        // a tiny arrow: up now, or down now (they swap every turn)
       const c = kind === 'hot' ? '#d94b2b' : '#5b6b7a', cx = X + 8, ty = Y + 2, P = (a, b, w) => Pixel.px(g, c, cx + a, ty + b, w, 1);
       if (kind === 'hot') { P(-1, 0, 2); P(-2, 1, 4); P(-3, 2, 6); } else { P(-3, 0, 6); P(-2, 1, 4); P(-1, 2, 2); }
@@ -365,6 +484,7 @@ const PixelArt = {
   },
   cactus(g, map, x, y) {
     const above = tileAt(map, x, y - 1) === 'Y', below = tileAt(map, x, y + 1) === 'Y';
+    if (PixelArt.drawn(g, above ? 'cactus-mid' : 'cactus-top', x, y)) return;
     const trunk = (i, j) => i >= 6 && i <= 9 && j >= (above ? -1 : 2) && j <= (below ? 16 : 15) && !(!above && j === 2 && (i === 6 || i === 9));
     const arms = (i, j) => !above && ((i >= 3 && i <= 6 && j >= 9 && j <= 10) || (i >= 3 && i <= 4 && j >= 5 && j <= 10) || (i >= 9 && i <= 12 && j >= 6 && j <= 7) || (i >= 11 && i <= 12 && j >= 3 && j <= 7));
     const rows = Pixel.shape(16, 16, (i, j) => trunk(i, j) || arms(i, j), (i, j) => (i === 7 || i === 3 || i === 11 ? 'g' : i === 8 && Art.hash(x, j) > .75 ? 'w' : i === 9 || i === 12 ? 'S' : 'G'));

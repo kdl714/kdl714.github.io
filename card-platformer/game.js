@@ -1253,7 +1253,9 @@ function playerFx(v) {
     blink = now % 3400 < 120;
   }
   sx *= Math.max(.15, v.flip ?? 1);                                                                 // turning around
-  return { sx, sy, rot, lift, blink };
+  // for drawn hero frames (pixel.js heroSprite): which moment this is
+  const walking = app.running && !v.air && Math.abs(v.vx || 0) > .05;
+  return { sx, sy, rot, lift, blink, flip: Math.max(.15, v.flip ?? 1), air: !!v.air, vy: v.vy || 0, walking, bob: v.bob };
 }
 
 function drawPlayer(x, y, dir, status, alpha, fx = { sx: 1, sy: 1, rot: 0, lift: 0 }) {
@@ -2066,6 +2068,7 @@ $('backBtn').onclick = Router.up;
 window.addEventListener('hashchange', Router.show);
 app.mode = 'plan';
 uiPixel();
+Assets.init();          // your Aseprite art (assets/manifest.json), if any; built-in art until it loads
 Router.show();
 resize();
 requestAnimationFrame(draw);
