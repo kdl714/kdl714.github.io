@@ -82,22 +82,30 @@ const SPAL = {
    ===================================================================== */
 const Assets = {
   sheets: {},
-  ver: () => /[?&]v=([^&]+)/.exec(document.querySelector('script[src*="pixel.js"]')?.src || '')?.[1] || '',
+  // always ask the server whether the art changed (a quick "not modified" when it hasn't), so a fresh
+  // export shows up on a normal reload instead of the browser's saved copy
+  get: (path) => fetch(path, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(r.status + ' ' + path); return r; }),
   async init() {
     try {
-      const list = await (await fetch('assets/manifest.json?v=' + Assets.ver())).json();
+      const list = await (await Assets.get('assets/manifest.json')).json();
       await Promise.all(list.map((n) => Assets.load(n).catch((e) => console.warn('Could not load asset', n, e))));
       PixelArt.cache.key = '';            // redraw cached tiles with the new art
+      document.querySelectorAll('canvas[data-logo]').forEach((e) => e.replaceWith(PixelUI.logo(e.dataset.logo)));   // a logo shown before the art arrived
     } catch { /* no manifest (or opened from disk): built-in art everywhere */ }
   },
   async load(name) {
-    const v = Assets.ver(), data = await (await fetch(`assets/${name}.json?v=${v}`)).json(), img = new Image();
-    img.src = `assets/${name}.png?v=${v}`; await img.decode();
+    const data = await (await Assets.get(`assets/${name}.json`)).json(), img = new Image();
+    img.src = URL.createObjectURL(await (await Assets.get(`assets/${name}.png`)).blob()); await img.decode();
     const frames = Object.values(data.frames).map((f) => ({ ...f.frame, dur: f.duration || 100 }));
     // which frames are blank? (those fall back to the built-in art)
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
-    for (const f of frames) { const d = g.getImageData(f.x, f.y, f.w, f.h).data; let any = false; for (let i = 3; i < d.length; i += 4) if (d[i]) { any = true; break; } f.empty = !any; }
+    for (const f of frames) {        // also the drawn area of each frame (bx, by, bw, bh), for icons laid out by size
+      const d = g.getImageData(f.x, f.y, f.w, f.h).data; let x0 = f.w, y0 = f.h, x1 = -1, y1 = -1;
+      for (let i = 3, n = 0; i < d.length; i += 4, n++) if (d[i]) { const x = n % f.w, y = (n - x) / f.w; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      f.empty = x1 < 0;
+      Object.assign(f, f.empty ? { bx: 0, by: 0, bw: 0, bh: 0 } : { bx: x0, by: y0, bw: x1 - x0 + 1, bh: y1 - y0 + 1 });
+    }
     const tags = {};
     for (const t of data.meta.frameTags || []) tags[t.name] = frames.slice(t.from, t.to + 1);
     Assets.sheets[name] = { img, frames, tags };
@@ -377,7 +385,8 @@ const PixelArt = {
   },
   ground(g, map, x, y, th) {
     const X = x * U, Y = y * U, at = (dx, dy) => tileAt(map, x + dx, y + dy), P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + a, Y + b, w, h);
-    const solidAt = (dx, dy) => { const c = at(dx, dy); return c === '#' || c === 'I' || c === 'S' || c === '>' || c === '<' || x + dx < 0 || x + dx >= map.w; };
+    // neighbours that join up with this ground (springs and bumpers don't: the ground keeps its edges around them)
+    const solidAt = (dx, dy) => { const c = at(dx, dy); return c === '#' || c === 'I' || x + dx < 0 || x + dx >= map.w; };
     // drawn ground: the autotile number adds up the open sides (top 1, right 2, bottom 4, left 8)
     const open = (!solidAt(0, -1) && at(0, -1) !== '=' ? 1 : 0) + (!solidAt(1, 0) ? 2 : 0) + (!solidAt(0, 1) && y < map.h - 1 ? 4 : 0) + (!solidAt(-1, 0) ? 8 : 0);
     // extra versions you've drawn of a tile (tag ground-<number>) take turns with the main one, picked
@@ -464,14 +473,24 @@ const PixelArt = {
     }
   },
   spring(g, x, y) {
-    const X = x * U, Y = y * U, n = Math.round(Math.max(0, Art.springSquash(x, y)) * 3), rows = SPR.spring;
+    const q = Math.max(0, Art.springSquash(x, y)), k = Math.round(q * 2);     // your frames: rest, then the two squash frames
+    if (PixelArt.sprite(g, 'spring', k ? 'squash' : 'rest', x * U, y * U, k ? k - 1 : 0)) return;
+    const X = x * U, Y = y * U, n = Math.round(q * 3), rows = SPR.spring;
     Pixel.spr(g, rows.slice(8), SPAL.spring, X, Y + 14);
     Pixel.spr(g, rows.slice(5 + n, 8), SPAL.spring, X, Y + 11 + n);
     Pixel.spr(g, rows.slice(0, 5), SPAL.spring, X, Y + 6 + n);
   },
   // bumper (side spring): wall plate, a zigzag coil, and a red pad with a big arrow the way it flings you
   bumper(g, x, y, face) {
-    const X = x * U, Y = y * U, comp = Math.round(Math.max(0, Art.springSquash(x, y)) * 3);
+    const q = Math.max(0, Art.springSquash(x, y));
+    const f = Assets.frame('bumper', q >= .4 ? 'squash' : 'rest');   // your bumper, drawn facing right and mirrored for left
+    if (f) {
+      g.save();
+      if (face < 0) { g.translate(2 * x * U + U, 0); g.scale(-1, 1); }
+      g.drawImage(f.img, f.x, f.y, f.w, f.h, x * U, y * U + U - f.h, f.w, f.h);
+      g.restore(); return;
+    }
+    const X = x * U, Y = y * U, comp = Math.round(q * 3);
     const P = (c, a, b, w = 1, h = 1) => Pixel.px(g, c, X + (face > 0 ? a : U - a - w), Y + b, w, h);   // drawn facing right, mirrored for left
     P('#2b1b24', 0, 1, 3, 14); P('#8b9bb4', 1, 2, 1, 12);                                // wall plate
     const padX = 10 - comp, a = 3, b = padX - 1;                                       // coil between plate and pad
@@ -508,12 +527,47 @@ const PixelArt = {
     const hw = Math.round(U * width * s * .45);
     Pixel.px(g, `rgba(24,20,37,${a})`, Math.round((x + .5) * U) - hw, gy * U, hw * 2, 1);
   },
+  // your art for a thing (assets/<name>, tag), bottom-aligned on the tile at pixel (px, py); false if not drawn
+  sprite(g, name, tag, px, py, i) {
+    const f = i === undefined ? Assets.anim(name, tag, reducedMotion() ? 0 : performance.now()) : Assets.frame(name, tag, i);
+    if (f) g.drawImage(f.img, f.x, f.y, f.w, f.h, Math.round(px), Math.round(py) + U - f.h, f.w, f.h);
+    return !!f;
+  },
   crate(g, x, y) {
+    if (PixelArt.sprite(g, 'things', 'crate', x * U, y * U)) return;
     const rows = Pixel.shape(14, 14, (i, j) => i >= 0 && j >= 0 && i < 14 && j < 14,
       (i, j) => ((i === 2 || i === 11) && (j === 2 || j === 11) ? 'n' : j === 1 ? 'h' : i === 1 || j === 12 || i === 12 ? 'f' : Math.abs(i - (13 - j)) <= 0 ? 'f' : 'B'));
     Pixel.spr(g, rows, { o: '#4a2c14', B: '#d79a52', h: '#ecc08a', f: '#a8702f', n: '#4a3216' }, Math.round(x * U) + 1, Math.round(y * U) + 1);
   },
+  // your slime (assets/slime), drawn facing left like the template, mirrored for right; false when that frame isn't drawn
+  slimeSprite(g, x, y, dir, t, stepT, seed, kind, flyDir) {
+    if (!Assets.sheets.slime) return false;
+    const draw = (f, px, py, flip, alpha = 1) => {
+      if (!f) return false;
+      g.save(); g.globalAlpha = alpha;
+      if (flip) { g.translate(2 * px + f.w, 0); g.scale(-1, 1); }
+      g.drawImage(f.img, f.x, f.y, f.w, f.h, px, py, f.w, f.h);
+      g.restore(); return true;
+    };
+    const left = Math.round((x + .5) * U) - 8, top = Math.round((y + 1) * U) - U;
+    if (t >= 0 && kind === 'dash') {          // bowled over: your tumble frames along the same arc, fading out
+      const dx = Math.round(flyDir * t * 30), dy = Math.round(-Math.sin(Math.min(1, t * 1.4) * Math.PI) * 15 + t * t * 14);
+      return draw(Assets.frame('slime', 'tumble', Math.floor(t * 10)), left + dx, top + dy, flyDir > 0, 1 - Math.max(0, t - .55) / .45);
+    }
+    if (t >= 0) {                             // stomped: your squash frames, then a fade (the droplets stay)
+      if (!draw(Assets.frame('slime', 'squash', t < .1 ? 0 : t < .22 ? 1 : 2), left, top, dir > 0, 1 - Math.max(0, t - .5) * 2)) return false;
+      const base = top + U, fly = 2 + Math.round(t * 7), up = Math.round(Math.sin(Math.min(1, t * 2) * Math.PI) * 4);
+      g.globalAlpha = 1 - Math.max(0, t - .5) * 2;
+      [[-1, 0], [1, 0], [-1, 3], [1, 2]].forEach(([d, k]) => Pixel.px(g, k ? '#7b4fd6' : '#a884f3', Math.round((x + .5) * U + d * (9 + fly + k)), base - 2 - up - (k ? 1 : 0), 2, 2));
+      g.globalAlpha = 1; return true;
+    }
+    const walking = stepT > 0 && stepT < 1;
+    const f = walking ? Assets.frame('slime', 'walk', Math.floor(stepT * 2)) || Assets.anim('slime', 'idle', performance.now() + seed * 400)
+      : Assets.anim('slime', 'idle', reducedMotion() ? 0 : performance.now() + seed * 400);
+    return draw(f, left, top, dir > 0);
+  },
   slime(g, x, y, dir, squash, stepT, seed, kind, flyDir = 1) {
+    if (PixelArt.slimeSprite(g, x, y, dir, squash, stepT, seed, kind, flyDir)) return;
     const X = Math.round((x + .5) * U) - 7, base = Math.round((y + 1) * U), t = squash;
     if (t >= 0 && kind === 'dash') {          // bowled over by a Dash: tumbles up and away (four tumble frames), fading out
       const dx = Math.round(flyDir * t * 30), dy = Math.round(-Math.sin(Math.min(1, t * 1.4) * Math.PI) * 15 + t * t * 14);
@@ -537,11 +591,12 @@ const PixelArt = {
     const bob = reducedMotion() ? 0 : Math.floor(performance.now() / 400 + seed) % 2;
     Pixel.spr(g, SPR.slime, SPAL.slime, X, base - 10 + bob, dir > 0);
   },
-  key(g, px, py) { Pixel.spr(g, SPR.key, SPAL.key, Math.round(px) + 2, Math.round(py) + 5); },
-  gem(g, px, py) { Pixel.spr(g, SPR.gem, SPAL.gem, Math.round(px) + 4, Math.round(py) + 3); },
+  key(g, px, py) { if (!PixelArt.sprite(g, 'things', 'key', px, py)) Pixel.spr(g, SPR.key, SPAL.key, Math.round(px) + 2, Math.round(py) + 5); },
+  gem(g, px, py) { if (!PixelArt.sprite(g, 'things', 'gem', px, py)) Pixel.spr(g, SPR.gem, SPAL.gem, Math.round(px) + 4, Math.round(py) + 3); },
   // locked door: a light stone arch, dark wood with iron bands and a big gold lock, so it reads on any ground.
   // Exactly as tall as the flag, finial included (26 pixels: it rises 10 above its tile).
   door(g, px, py) {
+    if (PixelArt.sprite(g, 'door', 'locked', px, py)) return;
     const DH = 26, arch = (i, j) => (i - 6.5) ** 2 + (j - 7) ** 2;
     const rows = Pixel.shape(14, DH, (i, j) => i >= 0 && i < 14 && j < DH && (j >= 7 || arch(i, j) <= 50),
       (i, j) => {
@@ -554,6 +609,7 @@ const PixelArt = {
     Pixel.spr(g, rows, { o: '#1a1220', s: '#f4f6fb', S: '#a9b8d6', W: '#8a4f2c', p: '#5e3420', b: '#3a4466', L: '#fee761', l: '#ffffff', k: '#2b1b24' }, Math.round(px) + 1, Math.round(py) - (DH - U));
   },
   flag(g, px, py) {
+    if (PixelArt.sprite(g, 'flag', 'wave', px, py)) return;
     const fx = Math.round(px) + 4, fy = Math.round(py) - 6, P = (c, x, y, w = 1, h = 1) => Pixel.px(g, c, x, y, w, h);
     P('#2b1b24', fx - 1, fy, 4, 22); P('#c0cbdc', fx, fy + 1, 1, 21); P('#8b9bb4', fx + 1, fy + 1, 1, 21);
     P('#2b1b24', fx - 1, fy - 4, 4, 4); P('#fee761', fx, fy - 3, 2, 2); P('#feae34', fx + 1, fy - 2, 1, 1);
@@ -821,8 +877,17 @@ Pixel.hud = function (g, map, v) {
   const fw = (s) => PixelFont.width(s);
   const text = (s, x, y, col) => PixelFont.outlined(g, s, x * k, y * k, col, k);
   const icon = (rows, x, y, pal) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (pal[r[i]]) P(pal[r[i]], x + i, y + j); });
-  const heart = (x, y, full) => icon(HUD_ICONS.heart, x, y, { o: '#2b1b24', R: full ? '#e43b44' : '#5a6988' });
-  const gem = (x, y) => icon(HUD_ICONS.gem, x, y, { o: '#2b1b24', C: '#2ce8f5', w: '#ffffff', B: '#0099db' });
+  // your icons (assets/ui-hud), centred on the text line, else the built-in ones; each returns its width
+  g.imageSmoothingEnabled = false;
+  const drawn = (tag, x, y) => {
+    const f = Assets.frame('ui-hud', tag);
+    if (f) g.drawImage(f.img, f.x + f.bx, f.y + f.by, f.bw, f.bh, x * k, (y + Math.round(3.5 - f.bh / 2)) * k, f.bw * k, f.bh * k);
+    return f ? f.bw : 0;
+  };
+  const heart = (x, y, full) => drawn(full ? 'heart' : 'heart-empty', x, y) || (icon(HUD_ICONS.heart, x, y, { o: '#2b1b24', R: full ? '#e43b44' : '#5a6988' }), 7);
+  const gem = (x, y) => drawn('gem', x, y) || (icon(HUD_ICONS.gem, x, y, { o: '#2b1b24', C: '#2ce8f5', w: '#ffffff', B: '#0099db' }), 7);
+  const key = (x, y) => drawn('key', x, y) || (icon(HUD_ICONS.key, x, y + 1, { o: '#2b1b24', Y: '#fee761', w: '#ffffff' }), 9);
+  const hw = Assets.frame('ui-hud', 'heart')?.bw || 7;     // spacing for a row of hearts
   const ta = app.mode === 'time' && app.ta;
   if (ta) {
     const T = CONFIG.timeAttack, N = T.gemsPerHeart;
@@ -832,12 +897,12 @@ Pixel.hud = function (g, map, v) {
       P(frac < .3 ? '#e43b44' : ta.deadline === Infinity ? '#5cd18b' : '#ffcc33', 0, 0, Math.round(LW * frac), 2);
     }
     const top = 6;
-    for (let h = 0; h < T.hearts; h++) heart(4 + h * 9, top, h < ta.hearts);
-    const x = 6 + T.hearts * 9;
-    gem(x, top);
+    for (let h = 0; h < T.hearts; h++) heart(4 + h * (hw + 2), top, h < ta.hearts);
+    const x = 6 + T.hearts * (hw + 2);
+    const gw = gem(x, top);
     const meter = N ? `${ta.gemMeter || 0}/${N}` : String(ta.gems);
-    text(meter, x + 10, top + 1, '#ffffff');
-    if (N && ta.gemMeter >= N) heart(x + 12 + fw(meter), top, true);   // a spare heart, waiting
+    text(meter, x + gw + 3, top + 1, '#ffffff');
+    if (N && ta.gemMeter >= N) heart(x + gw + 5 + fw(meter), top, true);   // a spare heart, waiting
     const dist = `${ta.dist}m`;
     text(dist, LW - 5 - fw(dist), top + 1, '#ffffff');
     if (ta.deadline === Infinity) { const f = `FREE ${T.freeCards - ta.plays}`; text(f, LW - 5 - fw(f), top + 9, '#a6f0c0'); }
@@ -845,10 +910,10 @@ Pixel.hud = function (g, map, v) {
   }
   let x = 4;
   const top = 4, total = gemTotal(map);
-  if (total) { const t = `${gemCount(map, v)}/${total}`; gem(x, top); text(t, x + 10, top + 1, '#ffffff'); x += 10 + fw(t) + 6; }
+  if (total) { const t = `${gemCount(map, v)}/${total}`, gw = gem(x, top); text(t, x + gw + 3, top + 1, '#ffffff'); x += gw + 3 + fw(t) + 6; }
   if (map.keyMask) {
-    g.globalAlpha = hasAllKeys(map, v) ? 1 : .45; icon(HUD_ICONS.key, x, top + 1, { o: '#2b1b24', Y: '#fee761', w: '#ffffff' }); g.globalAlpha = 1;
-    x += 15;
+    g.globalAlpha = hasAllKeys(map, v) ? 1 : .45; const kw = key(x, top); g.globalAlpha = 1;
+    x += kw + 6;
   }
   if (map.grid.some((r) => r.includes('t'))) text(`TURN ${v.turn}`, x, top + 1, '#ffffff');   // only matters with timed spikes
   if (map.w > W) {               // a wide level: arrows at the edges show there's more to see (drag to look)
@@ -918,6 +983,12 @@ const PixelUI = {
   // the logo: the big font with strokes two pixels thick, a one-pixel outline, a highlight and a drop shadow,
   // all on the same pixel grid as everything else
   logo(s) {
+    const art = Assets.sheets['ui-logo']?.frames[0];       // your logo (assets/ui-logo), shown as drawn
+    if (art && !art.empty) {
+      const c = document.createElement('canvas'); c.width = art.w; c.height = art.h; c.className = 'ptext';
+      c.getContext('2d').drawImage(Assets.sheets['ui-logo'].img, art.x, art.y, art.w, art.h, 0, 0, art.w, art.h);
+      return sizeToPx(c);
+    }
     const f = PixelFont.big, scale = 2, gap = 2, H = 7 * scale;
     let w = 0; const glyphs = [...s].map((ch) => { const gl = f[ch]; const x = w; w += (gl ? gl[0].length : 3) * scale + gap; return { gl, x }; });
     w -= gap;
@@ -928,6 +999,7 @@ const PixelUI = {
     for (const k of on) { const [x, y] = k.split(',').map(Number); P('#181425', x + 1, y + 1); }                       // drop shadow
     for (const k of on) { const [x, y] = k.split(',').map(Number); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!has(x + dx, y + dy)) P('#2b1b24', x + dx, y + dy); }   // outline
     for (const k of on) { const [x, y] = k.split(',').map(Number); P(!has(x, y - 1) ? '#fff2a8' : !has(x, y + 1) ? '#f77622' : '#fee761', x, y); }   // light top, shaded bottom
+    c.dataset.logo = s;                                      // swapped for your logo if it loads later
     return sizeToPx(c);
   },
   // an icon-only pixel button (e.g. Back)

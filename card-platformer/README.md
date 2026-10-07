@@ -19,6 +19,9 @@ No build step and no dependencies: just static files.
 | `art.js` | **Look and feel:** the three themes (colours at the top), parallax backgrounds, tiles, springs, the slime, items, shadows and particles. |
 | `game.js` | Modes, the player character, animation, card UI, drag & drop, editor. |
 | `ASSETS.md` | **Art guide:** what to draw in Aseprite to replace the built-in art, with sizes and export settings. |
+| `art-templates/` | Aseprite templates for every asset (current art + guides), described in `ASSETS.md`. |
+| `assets/` | Your exported art (`manifest.json` lists what the game loads). Made by `tools/export-art.sh`. |
+| `tools/` | `export-art.sh`: exports Aseprite files into `assets/` for the game. |
 | `card-climber.html` | Redirects to `index.html`, so old links and home-screen shortcuts keep working. |
 | `apple-touch-icon.png` | Home-screen icon. |
 
@@ -36,7 +39,7 @@ Open `index.html` in any browser. You can double-click it from disk or use GitHu
 
 On iPhone, open that URL in Safari, then **Share → Add to Home Screen**. The game launches full-screen like an app.
 
-To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-16a`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
+To tune something, edit `config.js`, upload it again, and reload. Phones cache files, so `index.html` loads each file with a version tag (`config.js?v=2026-10-16b`); change that tag in `index.html` whenever you upload new versions and every device will fetch the fresh files.
 
 ## Screens
 

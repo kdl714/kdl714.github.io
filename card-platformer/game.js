@@ -1430,12 +1430,13 @@ function renderDeck() {
       if (sim) {
         const mm = momentumMoves(app.map, sim, c.id);
         if (mm.combo) def = { ...CARDS[c.id], moves: mm.moves, boosted: true, combo: mm.combo };
+        const before = sim;
         if (sim.status === 'playing') sim = runCard(app.map, sim, c.id).state;
-        else {
-          // the run would already be over, but keep showing momentum from the card order alone
-          // (so the preview never gives away where a plan fails)
-          const resolved = CARDS[c.id].echo ? (sim.last || 'wait') : c.id;
-          sim = { ...sim, last: CARDS[c.id].echo ? sim.last : c.id };
+        if (sim.status !== 'playing') {
+          // the run is over (or ends during this card), but keep showing momentum from the card
+          // order alone, so the preview never gives away where a plan fails
+          const resolved = CARDS[c.id].echo ? (before.last || 'wait') : c.id;
+          sim = { ...sim, streak: before.streak, lastKind: before.lastKind, last: CARDS[c.id].echo ? before.last : c.id };
           carryMomentum(sim, resolved);
         }
       }
